@@ -46,13 +46,13 @@ hashtable_t* ht_create(uint32_t capacity );
 uint32_t ht_hash( hashtable_t *hashtable, uint64_t key );
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put( hashtable_t *hashtable, uint64_t key, void *value, uint32_t bin, int payload_size );
+uint32_t ht_put( hashtable_t *hashtable, uint64_t key, void *value, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
 void* ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
-uint32_t ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
+void*  ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
 
 /* Dealloc the hashtable */
 void ht_destroy( hashtable_t *hashtable);
@@ -60,6 +60,8 @@ void ht_destroy( hashtable_t *hashtable);
 uint32_t ht_size( hashtable_t *hashtable, uint32_t capacity);
 
 void ht_print(hashtable_t *hashtable, uint32_t capacity);
+
+bucket_t* create_bucket();
 
 
 #endif /* _DHT_H_ */

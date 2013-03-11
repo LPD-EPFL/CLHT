@@ -6,6 +6,7 @@
 #endif
 
 #include "stdlib.h"
+#include "assert.h"
 
 static inline int
 is_power_of_two (unsigned int x) 
@@ -42,15 +43,17 @@ create_bucket()
     
   bucket = malloc(sizeof(bucket_t ));
   /* bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t )); */
-  if(bucket == NULL) 
+  if(bucket == NULL)
     {
       return NULL;
     }
     
+  bucket->empty = 0;
+
   uint32_t j;
   for(j = 0; j < ENTRIES_PER_BUCKET; j++)
     {
-      bucket->key[j] = NULL;
+      bucket->key[j] = 0;
       bucket->entry[j] = NULL;
     }
     
@@ -90,7 +93,7 @@ ht_create(uint32_t capacity)
   uint32_t i;
   for(i = 0; i < capacity; i++) 
     {
-      hashtable->table[i] = create_bucket(0);
+      hashtable->table[i] = create_bucket();
     }
     
   hashtable->capacity = capacity;
@@ -114,35 +117,32 @@ ht_hash( hashtable_t *hashtable, uint64_t key )
 
 /* Insert a key-value entry into a hash table. */
 uint32_t
-ht_put( hashtable_t *hashtable, uint64_t key, void *value, uint32_t bin, int payload_size ) 
+ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin) 
 {
-    
   bucket_t *bucket = hashtable->table[bin];
     
   uint32_t j;
   do 
     {
-      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
+      for (j = 0; j < bucket->empty; j++) 
 	{
-	  if (bucket->key[j] == NULL) 
-	    {
-	      bucket->key[j] = key;
-	      bucket->entry[j] = value;
-	      return true;
-	    }
-	  else if(bucket->key[j] == key) 
+	  if (bucket->key[j] == key) 
 	    {
 	      return false;
 	    }
 	}
         
-      if (bucket->next == NULL)
+      if (bucket->empty < ENTRIES_PER_BUCKET)
+	{
+	  bucket->key[j] = key;
+	  bucket->entry[j] = value;
+	  bucket->empty++;
+	  return true;
+	}
+      else if (bucket->next == NULL)
 	{
 	  bucket->next = create_bucket();
-	  if (bucket->next == NULL)
-	    {
-	      return false;
-	    }
+	  assert(bucket->next != NULL);
 	}
 
       bucket = bucket->next;
@@ -159,46 +159,74 @@ ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
   uint32_t j;
   do 
     {
-      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
+      for(j = 0; j < bucket->empty; j++) 
 	{
-	  if (bucket->key[j] == NULL) 
-	    {
-	      return NULL;
-	    }
-	  else if(bucket->key[j] == key) 
+	  if(bucket->key[j] == key) 
 	    {
 	      return bucket->entry[j];
 	    }
 	}
-        
+
+      if (bucket->empty == CACHE_LINE_SIZE)
+	{
+	  return NULL;
+	}
       bucket = bucket->next;
     } while (bucket != NULL);
   return NULL;
 }
 
   /* Remove a key-value entry from a hash table. */
-uint32_t
+void*
 ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
 {
-  bucket_t *bucket = hashtable->table[bin];
+  bucket_t* bucket = hashtable->table[bin];
+  bucket_t* bucket_last_prev = bucket;
     
   uint32_t j;
   do 
     {
-      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
+      for(j = 0; j < bucket->empty; j++) 
 	{
-	  if (bucket->key[j] == NULL) 
+	  if(bucket->key[j] == key) 
 	    {
-	      return NULL;
-	    }
-	  else if(bucket->key[j] == key) 
-	    {
-	      
+	      bucket->key[j] = 0;
+
+	      bucket_t* bucket_last = bucket;
+	      while (bucket_last->next != NULL)
+		{
+		  bucket_last_prev = bucket_last;
+		  bucket_last = bucket_last->next;
+		}
+
+	      uint32_t move = bucket_last->empty - 1;
+	      bucket->key[j] = bucket_last->key[move];
+	      void* value_rmved = bucket->entry[j];
+	      bucket->entry[j] = bucket_last->entry[move];
+
+	      bucket_last->key[move] = 0;
+	      bucket_last->entry[move] = NULL;
+	      bucket_last->empty--;
+
+	      if (bucket_last->empty == 0 && bucket_last != bucket_last_prev)
+		{
+		  free(bucket_last);
+		  bucket_last_prev->next = NULL;
+		}
+
+	      return value_rmved;
 	    }
 	}
+
+      if (bucket->empty < ENTRIES_PER_BUCKET)
+	{
+	  return NULL;
+	}
         
+      bucket_last_prev = bucket;
       bucket = bucket->next;
     } while (bucket != NULL);
+  return NULL;
 }
 
 void

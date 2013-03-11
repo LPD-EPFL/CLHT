@@ -87,191 +87,223 @@ void barrier_cross(barrier_t *b) {
 }
 barrier_t barrier, barrier_global;
 
-void *procedure(void *threadid) {
-    int ID;
-    ID = (int)threadid;
-    phys_id = the_cores[ID];
+void *procedure(void *threadid) 
+{
+  int ID;
+  ID = (int)threadid;
+  phys_id = the_cores[ID];
     
-    set_cpu(phys_id);
+  set_cpu(phys_id);
     
-    void* mcore_mem_tmp = (void*) malloc(MCORE_SIZE);
-    assert(mcore_mem_tmp != NULL);
-    MCORE_shmalloc_set(mcore_mem_tmp);
+  void* mcore_mem_tmp = (void*) malloc(MCORE_SIZE);
+  assert(mcore_mem_tmp != NULL);
+  MCORE_shmalloc_set(mcore_mem_tmp);
     
-    local_th_data[ID] = init_local(phys_id, capacity, hashtable->the_locks);
-    
-#ifndef COMPUTE_THROUGHPUT
-    ticks my_putting_acqs = 0;
-    ticks my_putting_rels = 0;
-    ticks my_putting_opts = 0;
-    ticks my_getting_acqs = 0;
-    ticks my_getting_rels = 0;
-    ticks my_getting_opts = 0;
-    ticks my_removing_acqs = 0;
-    ticks my_removing_rels = 0;
-    ticks my_removing_opts = 0;
-#endif
-    ticks my_putting_count = 0;
-    ticks my_getting_count = 0;
-    ticks my_removing_count = 0;
+  local_th_data[ID] = init_local(phys_id, capacity, hashtable->the_locks);
     
 #ifndef COMPUTE_THROUGHPUT
-    ticks start_acq, end_acq;
-    ticks start_rel, end_rel;
-    ticks correction = getticks_correction_calc();
+  ticks my_putting_acqs = 0;
+  ticks my_putting_rels = 0;
+  ticks my_putting_opts = 0;
+  ticks my_getting_acqs = 0;
+  ticks my_getting_rels = 0;
+  ticks my_getting_opts = 0;
+  ticks my_removing_acqs = 0;
+  ticks my_removing_rels = 0;
+  ticks my_removing_opts = 0;
+#endif
+  ticks my_putting_count = 0;
+  ticks my_getting_count = 0;
+  ticks my_removing_count = 0;
+    
+#ifndef COMPUTE_THROUGHPUT
+  ticks start_acq, end_acq;
+  ticks start_rel, end_rel;
+  ticks correction = getticks_correction_calc();
 #endif
     
-    seeds = seed_rand();
+  seeds = seed_rand();
     
-    uint64_t key;
-    int bin;
-    void * value, * local;
-    int c = 0;
-    int scale_update = (int)(update_rate * 128);
-    int scale_update_get = (int)((update_rate+get_rate) * 128);
-    int switching = 1;
+  uint64_t key;
+  int bin;
+  void * value, * local;
+  int c = 0;
+  int scale_update = (int)(update_rate * 128);
+  int scale_update_get = (int)((update_rate+get_rate) * 128);
+  uint8_t putting = 1;
     
-    int i;
-    uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
-    int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
-    if (ID < missing)
+  int i;
+  uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
+  int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
+  if (ID < missing)
     {
-        num_elems_thread++;
+      num_elems_thread++;
     }
     
-    for(i = 0; i < num_elems_thread; i++) {
-        key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
-        bin = ht_hash( hashtable, key );
-        value = MCORE_shmalloc( payload_size );
-        acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
-        if(!ht_put( hashtable, key, value, bin, payload_size )) {
-            i--;
-        }
-        release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
+  local = MCORE_shmalloc(payload_size);
+    
+  for(i = 0; i < num_elems_thread; i++) 
+    {
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+      bin = ht_hash( hashtable, key );
+      value = MCORE_shmalloc( payload_size );
+      acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
+      if(!ht_put( hashtable, key, value, bin)) 
+	{
+	  i--;
+	}
+      release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
+    }
+
+
+  barrier_cross(&barrier_global);
+
+  if (!ID)
+    {
+      printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+    }
+
+  /* uint64_t num_get = 0, num_get_succ = 0; */
+  /* uint64_t num_rem = 0, num_rem_succ = 0; */
+  
+    
+  int succ = 1;
+  while (stop == 0) 
+    {
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+        
+#ifndef SEQUENTIAL
+      bin = ht_hash( hashtable, key );
+#endif
+      if(succ) 
+	{
+	  c = (int)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
+	}
+
+      uint8_t update = (c < scale_update);
+
+      if(update && putting && value == NULL) 
+	{
+	  value = MCORE_shmalloc(payload_size);
+	}
+
+      succ = 0;
+        
+        
+#ifndef COMPUTE_THROUGHPUT
+      start_acq = getticks();
+#endif
+#ifndef SEQUENTIAL
+      acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
+#endif
+#ifndef COMPUTE_THROUGHPUT
+      end_acq = getticks();
+#endif
+      if(update) 
+	{
+	  if(putting) 
+	    {
+	      if(ht_put( hashtable, key, value, bin ))
+		{
+		  succ = 1;
+		  value = NULL;
+		}
+	    } 
+	  else 
+	    {
+	      void* removed = ht_remove(hashtable, key, bin);
+	      if(removed != NULL) 
+		{
+		  succ = 1;
+		  MCORE_shfree(removed);
+		}
+	    }
+            
+	} 
+      else
+	{ 
+	  value = ht_get( hashtable, key, bin );
+	  if(value != NULL) 
+	    {
+	      memcpy(local, value, payload_size);
+	    }
+            
+	  succ = 1;
+	}
+        
+      //MEM_BARRIER;
+#ifndef COMPUTE_THROUGHPUT
+      start_rel = getticks();
+#endif
+#ifndef SEQUENTIAL
+      release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
+      //MEM_BARRIER;
+#endif
+#ifndef COMPUTE_THROUGHPUT
+      end_rel = getticks();
+#endif
+        
+
+      if(update) 
+	{
+	  if(putting) 
+	    {
+	      putting = !succ;
+#ifndef COMPUTE_THROUGHPUT
+	      my_putting_acqs += (end_acq - start_acq - correction);
+	      my_putting_rels += (end_rel - start_rel - correction);
+	      my_putting_opts += (start_rel - end_acq - correction);
+#endif
+	      my_putting_count++;
+	    } 
+	  else 			/* removing */
+	    {
+	      putting = succ;
+#ifndef COMPUTE_THROUGHPUT
+	      my_removing_acqs += (end_acq - start_acq - correction);
+	      my_removing_rels += (end_rel - start_rel - correction);
+	      my_removing_opts += (start_rel - end_acq - correction);
+#endif
+	      my_removing_count++;
+	    }
+	} 
+      else
+	{ //if(c < scale_update_get) {
+#ifndef COMPUTE_THROUGHPUT
+	  my_getting_acqs += (end_acq - start_acq - correction);
+	  my_getting_rels += (end_rel - start_rel - correction);
+	  my_getting_opts += (start_rel - end_acq - correction);
+#endif
+	  my_getting_count++;
+	}
     }
     
-    local = MCORE_shmalloc(payload_size);
     
-    printf("size of ht is: %u\n", ht_size(hashtable, capacity));
-    barrier_cross(&barrier_global);
-
-    uint64_t num_get = 0, num_get_succ = 0;
-    
-    int succ = 1;
-    while (stop == 0) {
-        key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
-        
-#ifndef SEQUENTIAL
-        bin = ht_hash( hashtable, key );
-#endif
-        if(succ) {
-            c = (int)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
-            succ = 0;
-        }
-        
-        if(c < scale_update && switching) {
-            value = MCORE_shmalloc(payload_size);
-        }
-        
-#ifndef COMPUTE_THROUGHPUT
-        start_acq = getticks();
-#endif
-#ifndef SEQUENTIAL
-        acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
-#endif
-#ifndef COMPUTE_THROUGHPUT
-        end_acq = getticks();
-#endif
-        if(c < scale_update) {
-      
-            if(switching) {
-                if(ht_put( hashtable, key, value, bin, payload_size ))
-                {
-                    succ = 1;
-                }
-            } else {
-                if(ht_remove( hashtable, key, bin )) {
-                    succ = 1;
-                }
-            }
-            
-            switching = switching ^ 0x01;
-
-        } else { //if(c < scale_update_get) {
-            
-            value = ht_get( hashtable, key, bin );
-
-	    num_get++;
-            
-            if(value != NULL) {
-	      num_get_succ++;
-                memcpy(local, value, payload_size);
-            }
-            
-            succ = 1;
-        }
-        
-        //MEM_BARRIER;
-#ifndef COMPUTE_THROUGHPUT
-        start_rel = getticks();
-#endif
-#ifndef SEQUENTIAL
-        release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
-        //MEM_BARRIER;
-#endif
-#ifndef COMPUTE_THROUGHPUT
-        end_rel = getticks();
-#endif
-        
-        if(succ) {
-            if(c < scale_update) {
-                if(switching) {
-#ifndef COMPUTE_THROUGHPUT
-                    my_putting_acqs += (end_acq - start_acq - correction);
-                    my_putting_rels += (end_rel - start_rel - correction);
-                    my_putting_opts += (start_rel - end_acq - correction);
-#endif
-                    my_putting_count++;
-                } else {
-#ifndef COMPUTE_THROUGHPUT
-                    my_removing_acqs += (end_acq - start_acq - correction);
-                    my_removing_rels += (end_rel - start_rel - correction);
-                    my_removing_opts += (start_rel - end_acq - correction);
-#endif
-                    my_removing_count++;
-                }
-            } else { //if(c < scale_update_get) {
-#ifndef COMPUTE_THROUGHPUT
-                my_getting_acqs += (end_acq - start_acq - correction);
-                my_getting_rels += (end_rel - start_rel - correction);
-                my_getting_opts += (start_rel - end_acq - correction);
-#endif
-                my_getting_count++;
-            }
-        }
+  /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
+  /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
+  barrier_cross(&barrier);
+  if (!ID)
+    {
+      printf("size of ht is: %u\n", ht_size(hashtable, capacity));
     }
-    
-    barrier_cross(&barrier);
-    
-    printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ);
-    printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+
 
 #ifndef COMPUTE_THROUGHPUT
-    putting_acqs[ID] += my_putting_acqs;
-    putting_rels[ID] += my_putting_rels;
-    putting_opts[ID] += my_putting_opts;
-    getting_acqs[ID] += my_getting_acqs;
-    getting_rels[ID] += my_getting_rels;
-    getting_opts[ID] += my_getting_opts;
-    removing_acqs[ID] += my_removing_acqs;
-    removing_rels[ID] += my_removing_rels;
-    removing_opts[ID] += my_removing_opts;
+  putting_acqs[ID] += my_putting_acqs;
+  putting_rels[ID] += my_putting_rels;
+  putting_opts[ID] += my_putting_opts;
+  getting_acqs[ID] += my_getting_acqs;
+  getting_rels[ID] += my_getting_rels;
+  getting_opts[ID] += my_getting_opts;
+  removing_acqs[ID] += my_removing_acqs;
+  removing_rels[ID] += my_removing_rels;
+  removing_opts[ID] += my_removing_opts;
 #endif
-    putting_count[ID] += my_putting_count;
-    getting_count[ID] += my_getting_count;
-    removing_count[ID]+= my_removing_count;
+  putting_count[ID] += my_putting_count;
+  getting_count[ID] += my_getting_count;
+  removing_count[ID]+= my_removing_count;
     
-    pthread_exit(NULL);
+  pthread_exit(NULL);
 }
 
 int main( int argc, char **argv ) {
@@ -305,7 +337,7 @@ int main( int argc, char **argv ) {
     hashtable->the_locks = init_global( capacity, num_threads );
     /* Initializes the local data */
     local_th_data = (local_data *) malloc( sizeof( local_data ) * num_threads );
-    
+
     putting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
     putting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
     putting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
@@ -443,6 +475,11 @@ int main( int argc, char **argv ) {
     
     
 #ifdef COMPUTE_THROUGHPUT
+    printf("puts: %u\n", putting_count_total);
+    printf("gets: %u\n", getting_count_total);
+    printf("rems; %u\n", removing_count_total);
+    printf("puts - gets: %d\n", (int) (putting_count_total - removing_count_total));
+
     float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
     printf("%d\t%f\n", num_threads, throughput);
 #endif
