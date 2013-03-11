@@ -15,6 +15,7 @@
 /latency_ttas
 /mcore_malloc.o
 /mcs.o
+/run_throughput.sh~
 /rw_ttas.o
 /sequential
 /throughput_array
