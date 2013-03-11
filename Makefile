@@ -36,7 +36,10 @@ INCLUDES := -I$(MAININCLUDE)
 OBJ_FILES := mcs.o ttas.o rw_ttas.o ticket.o alock.o hclh.o htlock.o mcore_malloc.o
 OBJ_FILES_MP := ssmp.o ssmp_send.o ssmp_recv.o
 
-all: latency_hclh latency_ttas latency_mcs latency_array latency_ticket latency_mutex latency_hticket throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_mutex throughput_hticket sequential
+# all: latency_hclh latency_ttas latency_mcs latency_array latency_ticket latency_mutex latency_hticket throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_mutex throughput_hticket sequential
+
+all: latency_ticket throughput_ticket
+
 
 ttas.o: src/ttas.c 
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ttas.c $(LIBS)
@@ -107,7 +110,7 @@ throughput_mcs: main_lock.c $(OBJ_FILES)
 throughput_array: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_ARRAY_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_array $(LIBS)
 
-throughput_ticket: main_lock.c $(OBJ_FILES) 
+throughput_ticket: main_lock.c $(OBJ_FILES) src/dht.c
 	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_ticket $(LIBS)
 
 throughput_mutex: main_lock.c $(OBJ_FILES) 
