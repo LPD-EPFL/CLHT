@@ -3,7 +3,7 @@
 read -p "Enter the max number of cores: " NUM_CORES
 
 duration=1000
-buckets="512 16";
+buckets="512 64 32 16 8";
 rw="0.1'0.9 0.2'0.8 0.3'0.7";
 
 fill_rate=0.5;
