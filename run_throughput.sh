@@ -38,7 +38,7 @@ do
 	    for ex in $executables
 	    do
 		p="$bu $c $num_elems $fill_rate $payload_size $duration $u $g";
-		./$ex $p | awk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
+		./$ex $p | gawk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
 	    done;
 	    echo "" | tee -a  $out_dat;
 	done;
