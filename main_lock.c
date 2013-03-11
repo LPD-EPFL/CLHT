@@ -89,8 +89,8 @@ barrier_t barrier, barrier_global;
 
 void *procedure(void *threadid) 
 {
-  int ID;
-  ID = (int)threadid;
+  uint64_t id_tmp = (uint64_t)threadid;
+  uint8_t ID = (uint8_t) id_tmp;
   phys_id = the_cores[ID];
     
   set_cpu(phys_id);
@@ -129,7 +129,6 @@ void *procedure(void *threadid)
   void * value, * local;
   int c = 0;
   int scale_update = (int)(update_rate * 128);
-  int scale_update_get = (int)((update_rate+get_rate) * 128);
   uint8_t putting = 1;
     
   int i;
@@ -363,7 +362,7 @@ int main( int argc, char **argv ) {
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     
-    int t;
+    uint64_t t;
     for(t = 0; t < num_threads; t++){
     
         //printf("In main: creating thread %ld\n", t);
@@ -416,9 +415,9 @@ int main( int argc, char **argv ) {
     ticks removing_acq_total = 0;
     ticks removing_rel_total = 0;
     ticks removing_opt_total = 0;
-    ticks putting_count_total = 0;
-    ticks getting_count_total = 0;
-    ticks removing_count_total = 0;
+    uint64_t putting_count_total = 0;
+    uint64_t getting_count_total = 0;
+    uint64_t removing_count_total = 0;
     
     for(t=0; t < num_threads; t++) {
         putting_acq_total += putting_acqs[t];
@@ -475,9 +474,10 @@ int main( int argc, char **argv ) {
     
     
 #ifdef COMPUTE_THROUGHPUT
-    printf("puts: %u\n", putting_count_total);
-    printf("gets: %u\n", getting_count_total);
-    printf("rems; %u\n", removing_count_total);
+#define LLU long long unsigned int
+    printf("puts: %llu\n", (LLU) putting_count_total);
+    printf("gets: %llu\n", (LLU) getting_count_total);
+    printf("rems; %llu\n", (LLU) removing_count_total);
     printf("puts - gets: %d\n", (int) (putting_count_total - removing_count_total));
 
     float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;

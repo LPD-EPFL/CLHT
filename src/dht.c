@@ -76,14 +76,14 @@ ht_create(uint32_t capacity)
     }
     
   /* Allocate the table itself. */
-  hashtable = memalign(CACHE_LINE_SIZE, sizeof(hashtable_t));
+  hashtable = (hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(hashtable_t));
   if(hashtable == NULL ) 
     {
       printf("** malloc @ hatshtalbe\n");
       return NULL;
     }
     
-  hashtable->table = memalign(CACHE_LINE_SIZE, (sizeof(bucket_t*) * capacity));
+  hashtable->table = calloc(capacity, (sizeof(bucket_t)));
   if(hashtable->table  == NULL ) 
     {
       free(hashtable);
@@ -91,11 +91,18 @@ ht_create(uint32_t capacity)
     }
     
   uint32_t i;
-  for(i = 0; i < capacity; i++) 
+  for(i = 0; i < capacity; i++)
     {
-      hashtable->table[i] = create_bucket();
+      /* hashtable->table[i] = create_bucket(); */
+      hashtable->table[i].empty = 0;
+      uint32_t j;
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++)
+	{
+	  hashtable->table[i].key[j] = 0;
+	  hashtable->table[i].entry[j] = 0;
+	}
     }
-    
+
   hashtable->capacity = capacity;
     
   /* if( ( num_buckets = calloc( capacity, sizeof( int ) ) ) == NULL ) { */
@@ -119,7 +126,7 @@ ht_hash( hashtable_t *hashtable, uint64_t key )
 uint32_t
 ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin) 
 {
-  bucket_t *bucket = hashtable->table[bin];
+  bucket_t *bucket = hashtable->table + bin;
     
   uint32_t j;
   do 
@@ -154,7 +161,7 @@ void*
 ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
 {
     
-  bucket_t *bucket = hashtable->table[bin];
+  bucket_t *bucket = hashtable->table + bin;
     
   uint32_t j;
   do 
@@ -180,7 +187,7 @@ ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
 void*
 ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
 {
-  bucket_t* bucket = hashtable->table[bin];
+  bucket_t* bucket = hashtable->table + bin;
   bucket_t* bucket_last_prev = bucket;
     
   uint32_t j;
@@ -276,7 +283,7 @@ ht_size(hashtable_t *hashtable, uint32_t capacity)
   uint32_t bin;
   for (bin = 0; bin < capacity; bin++)
     {
-      bucket = hashtable->table[bin];
+      bucket = hashtable->table + bin;
        
       uint8_t have_more = 1;
       uint32_t j;
@@ -284,7 +291,7 @@ ht_size(hashtable_t *hashtable, uint32_t capacity)
 	{
 	  for(j = 0; j < ENTRIES_PER_BUCKET; j++)
 	    {
-	      if(bucket->key[j] != NULL)
+	      if(bucket->key[j] != 0)
 		{
 		  size++;
 		}
@@ -311,7 +318,7 @@ ht_print(hashtable_t *hashtable, uint32_t capacity)
   for (bin = 0; bin < capacity; bin++)
     {
       printf("[%-4u]: ", bin);
-      bucket = hashtable->table[bin];
+      bucket = hashtable->table + bin;
        
       uint8_t have_more = 1;
       uint32_t j;
@@ -319,9 +326,9 @@ ht_print(hashtable_t *hashtable, uint32_t capacity)
 	{
 	  for(j = 0; j < ENTRIES_PER_BUCKET; j++)
 	    {
-	      if(bucket->key[j] != NULL)
+	      if(bucket->key[j] != 0)
 		{
-		  printf("(%-5d/ %p)-> ", bucket->key[j], bucket->entry[j]);
+		  printf("(%-5llu/ %p)-> ", (long long unsigned int) bucket->key[j], bucket->entry[j]);
 		}
 	      else
 		{

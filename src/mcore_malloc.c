@@ -92,7 +92,7 @@ MCORE_shmalloc_init(size_t size)
 // shared memory regions were involved.
 //--------------------------------------------------------------------------------------
  // requested space
-t_vcharp
+void*
 MCORE_shmalloc(size_t size)
 {
   void *ret;
@@ -110,7 +110,7 @@ MCORE_shmalloc(size_t size)
 
   /* PRINT("[lib] allocated %p [offs: %lu]", ret, mcore_app_addr_offs(ret)); */
 
-  return (t_vcharp) ret;
+  return ret;
 }
 
 //--------------------------------------------------------------------------------------
