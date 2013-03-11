@@ -49,8 +49,11 @@ volatile ticks *removing_acqs;
 volatile ticks *removing_rels;
 volatile ticks *removing_opts;
 volatile ticks *putting_count;
+volatile ticks *putting_count_succ;
 volatile ticks *getting_count;
+volatile ticks *getting_count_succ;
 volatile ticks *removing_count;
+volatile ticks *removing_count_succ;
 volatile ticks *total;
 
 /* ################################################################### *
@@ -112,9 +115,12 @@ void *procedure(void *threadid)
   ticks my_removing_rels = 0;
   ticks my_removing_opts = 0;
 #endif
-  ticks my_putting_count = 0;
-  ticks my_getting_count = 0;
-  ticks my_removing_count = 0;
+  uint64_t my_putting_count = 0;
+  uint64_t my_putting_count_succ = 0;
+  uint64_t my_getting_count = 0;
+  uint64_t my_getting_count_succ = 0;
+  uint64_t my_removing_count = 0;
+  uint64_t my_removing_count_succ = 0;
     
 #ifndef COMPUTE_THROUGHPUT
   ticks start_acq, end_acq;
@@ -224,10 +230,9 @@ void *procedure(void *threadid)
 	  value = ht_get( hashtable, key, bin );
 	  if(value != NULL) 
 	    {
+	      succ = 1;
 	      memcpy(local, value, payload_size);
 	    }
-            
-	  succ = 1;
 	}
         
       //MEM_BARRIER;
@@ -242,12 +247,15 @@ void *procedure(void *threadid)
       end_rel = getticks();
 #endif
         
-
       if(update) 
 	{
 	  if(putting) 
 	    {
-	      putting = !succ;
+	      if (succ)
+		{
+		  my_putting_count_succ++;
+		  putting = false;
+		}
 #ifndef COMPUTE_THROUGHPUT
 	      my_putting_acqs += (end_acq - start_acq - correction);
 	      my_putting_rels += (end_rel - start_rel - correction);
@@ -257,7 +265,11 @@ void *procedure(void *threadid)
 	    } 
 	  else 			/* removing */
 	    {
-	      putting = succ;
+	      if (succ)
+		{
+		  my_removing_count_succ++;
+		  putting = true;
+		}
 #ifndef COMPUTE_THROUGHPUT
 	      my_removing_acqs += (end_acq - start_acq - correction);
 	      my_removing_rels += (end_rel - start_rel - correction);
@@ -268,6 +280,10 @@ void *procedure(void *threadid)
 	} 
       else
 	{ //if(c < scale_update_get) {
+	  if (succ)
+	    {
+	      my_getting_count_succ++;
+	    }
 #ifndef COMPUTE_THROUGHPUT
 	  my_getting_acqs += (end_acq - start_acq - correction);
 	  my_getting_rels += (end_rel - start_rel - correction);
@@ -299,197 +315,216 @@ void *procedure(void *threadid)
   removing_opts[ID] += my_removing_opts;
 #endif
   putting_count[ID] += my_putting_count;
+  putting_count_succ[ID] += my_putting_count_succ;
   getting_count[ID] += my_getting_count;
+  getting_count_succ[ID] += my_getting_count_succ;
   removing_count[ID]+= my_removing_count;
+  removing_count_succ[ID]+= my_removing_count_succ;
     
   pthread_exit(NULL);
 }
 
 int main( int argc, char **argv ) {
     
-    if ( argc == 9 ) {
-        capacity = atoi( argv[1] );
-        num_threads = atoi( argv[2] );
-        num_elements = atoi( argv[3] );
-        filling_rate = atof( argv[4] );
-        payload_size = atoi( argv[5] );
-        duration = atoi( argv[6] );
-        update_rate = atof( argv[7] );
-        get_rate = atof( argv[8] );
-    } else {
-        printf("ERROR; usage ./main table_capacity num_threads num_elements filling_rate payload_size duration update_rate get_rate\n");
-        exit(-1);
-    }
+  if ( argc == 9 ) {
+    capacity = atoi( argv[1] );
+    num_threads = atoi( argv[2] );
+    num_elements = atoi( argv[3] );
+    filling_rate = atof( argv[4] );
+    payload_size = atoi( argv[5] );
+    duration = atoi( argv[6] );
+    update_rate = atof( argv[7] );
+    get_rate = atof( argv[8] );
+  } else {
+    printf("ERROR; usage ./main table_capacity num_threads num_elements filling_rate payload_size duration update_rate get_rate\n");
+    exit(-1);
+  }
     
-    rand_max = num_elements;
-    rand_min = 1;
+  rand_max = num_elements;
+  rand_min = 1;
     
-    struct timeval start, end;
-    struct timespec timeout;
-    timeout.tv_sec = duration / 1000;
-    timeout.tv_nsec = (duration % 1000) * 1000000;
+  struct timeval start, end;
+  struct timespec timeout;
+  timeout.tv_sec = duration / 1000;
+  timeout.tv_nsec = (duration % 1000) * 1000000;
     
-    stop = 0;
+  stop = 0;
     
-    /* Initialize the hashtable */
-    hashtable = ht_create( capacity );
-    hashtable->the_locks = init_global( capacity, num_threads );
-    /* Initializes the local data */
-    local_th_data = (local_data *) malloc( sizeof( local_data ) * num_threads );
+  /* Initialize the hashtable */
+  hashtable = ht_create( capacity );
+  hashtable->the_locks = init_global( capacity, num_threads );
+  /* Initializes the local data */
+  local_th_data = (local_data *) malloc( sizeof( local_data ) * num_threads );
 
-    putting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    putting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    putting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    getting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    getting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    getting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    removing_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    removing_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    removing_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    putting_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    getting_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
-    removing_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_count_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_count_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_count_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
     
-    pthread_t threads[num_threads];
-    pthread_attr_t attr;
-    int rc;
-    void *status;
+  pthread_t threads[num_threads];
+  pthread_attr_t attr;
+  int rc;
+  void *status;
     
-    barrier_init(&barrier_global, num_threads + 1);
-    barrier_init(&barrier, num_threads);
+  barrier_init(&barrier_global, num_threads + 1);
+  barrier_init(&barrier, num_threads);
     
-    /* Initialize and set thread detached attribute */
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+  /* Initialize and set thread detached attribute */
+  pthread_attr_init(&attr);
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     
-    uint64_t t;
-    for(t = 0; t < num_threads; t++){
+  uint64_t t;
+  for(t = 0; t < num_threads; t++){
     
-        //printf("In main: creating thread %ld\n", t);
-        rc = pthread_create(&threads[t], &attr, procedure, (void *)t);
-        if (rc){
-            printf("ERROR; return code from pthread_create() is %d\n", rc);
-            exit(-1);
-        }
+    //printf("In main: creating thread %ld\n", t);
+    rc = pthread_create(&threads[t], &attr, procedure, (void *)t);
+    if (rc){
+      printf("ERROR; return code from pthread_create() is %d\n", rc);
+      exit(-1);
+    }
         
-        /* printf("fork: %d\n", t); */
+    /* printf("fork: %d\n", t); */
+  }
+    
+  /* Free attribute and wait for the other threads */
+  pthread_attr_destroy(&attr);
+    
+  /* printf("1\n"); */
+    
+  barrier_cross(&barrier_global);
+    
+  /* printf("4\n"); */
+    
+  gettimeofday(&start, NULL);
+  nanosleep(&timeout, NULL);
+  stop = 1;
+  gettimeofday(&end, NULL);
+    
+  /* printf("2\n"); */
+    
+  for(t = 0; t < num_threads; t++) {
+    rc = pthread_join(threads[t], &status);
+    if (rc) {
+      printf("ERROR; return code from pthread_join() is %d\n", rc);
+      exit(-1);
     }
-    
-    /* Free attribute and wait for the other threads */
-    pthread_attr_destroy(&attr);
-    
-    /* printf("1\n"); */
-    
-    barrier_cross(&barrier_global);
-    
-    /* printf("4\n"); */
-    
-    gettimeofday(&start, NULL);
-    nanosleep(&timeout, NULL);
-    stop = 1;
-    gettimeofday(&end, NULL);
-    
-    /* printf("2\n"); */
-    
-    for(t = 0; t < num_threads; t++) {
-        rc = pthread_join(threads[t], &status);
-        if (rc) {
-            printf("ERROR; return code from pthread_join() is %d\n", rc);
-            exit(-1);
-        }
         
-        duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
+    duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
         
-        /* printf("join: %d\n", t); */
-        //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
+    /* printf("join: %d\n", t); */
+    //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
+  }
+    
+  /* printf("3\n"); */
+    
+  ticks putting_acq_total = 0;
+  ticks putting_rel_total = 0;
+  ticks putting_opt_total = 0;
+  ticks getting_acq_total = 0;
+  ticks getting_rel_total = 0;
+  ticks getting_opt_total = 0;
+  ticks removing_acq_total = 0;
+  ticks removing_rel_total = 0;
+  ticks removing_opt_total = 0;
+  uint64_t putting_count_total = 0;
+  uint64_t putting_count_total_succ = 0;
+  uint64_t getting_count_total = 0;
+  uint64_t getting_count_total_succ = 0;
+  uint64_t removing_count_total = 0;
+  uint64_t removing_count_total_succ = 0;
+    
+  for(t=0; t < num_threads; t++) 
+    {
+      putting_acq_total += putting_acqs[t];
+      putting_rel_total += putting_rels[t];
+      putting_opt_total += putting_opts[t];
+      getting_acq_total += getting_acqs[t];
+      getting_rel_total += getting_rels[t];
+      getting_opt_total += getting_opts[t];
+      removing_acq_total += removing_acqs[t];
+      removing_rel_total += removing_rels[t];
+      removing_opt_total += removing_opts[t];
+      putting_count_total += putting_count[t];
+      putting_count_total_succ += putting_count_succ[t];
+      getting_count_total += getting_count[t];
+      getting_count_total_succ += getting_count_succ[t];
+      removing_count_total += removing_count[t];
+      removing_count_total_succ += removing_count_succ[t];
+    }
+  if(putting_count_total == 0) 
+    {
+      putting_acq_total = 0;
+      putting_rel_total = 0;
+      putting_opt_total = 0;
+      putting_count_total = 1;
     }
     
-    /* printf("3\n"); */
-    
-    ticks putting_acq_total = 0;
-    ticks putting_rel_total = 0;
-    ticks putting_opt_total = 0;
-    ticks getting_acq_total = 0;
-    ticks getting_rel_total = 0;
-    ticks getting_opt_total = 0;
-    ticks removing_acq_total = 0;
-    ticks removing_rel_total = 0;
-    ticks removing_opt_total = 0;
-    uint64_t putting_count_total = 0;
-    uint64_t getting_count_total = 0;
-    uint64_t removing_count_total = 0;
-    
-    for(t=0; t < num_threads; t++) {
-        putting_acq_total += putting_acqs[t];
-        putting_rel_total += putting_rels[t];
-        putting_opt_total += putting_opts[t];
-        getting_acq_total += getting_acqs[t];
-        getting_rel_total += getting_rels[t];
-        getting_opt_total += getting_opts[t];
-        removing_acq_total += removing_acqs[t];
-        removing_rel_total += removing_rels[t];
-        removing_opt_total += removing_opts[t];
-        putting_count_total += putting_count[t];
-        getting_count_total += getting_count[t];
-        removing_count_total += removing_count[t];
-    }
-    if(putting_count_total == 0) {
-        putting_acq_total = 0;
-        putting_rel_total = 0;
-        putting_opt_total = 0;
-        putting_count_total = 1;
+  if(getting_count_total == 0) 
+    {
+      getting_acq_total = 0;
+      getting_rel_total = 0;
+      getting_opt_total = 0;
+      getting_count_total = 1;
     }
     
-    if(getting_count_total == 0) {
-        getting_acq_total = 0;
-        getting_rel_total = 0;
-        getting_opt_total = 0;
-        getting_count_total = 1;
-    }
-    
-    if(removing_count_total == 0) {
-        removing_acq_total = 0;
-        removing_rel_total = 0;
-        removing_opt_total = 0;
-        removing_count_total = 1;
+  if(removing_count_total == 0) 
+    {
+      removing_acq_total = 0;
+      removing_rel_total = 0;
+      removing_opt_total = 0;
+      removing_count_total = 1;
     }
     
 #ifndef COMPUTE_THROUGHPUT
-    printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-           num_threads,
-           putting_acq_total / putting_count_total,
-           putting_rel_total / putting_count_total,
-           putting_opt_total / putting_count_total,
-           putting_acq_total / putting_count_total + putting_rel_total / putting_count_total + putting_opt_total / putting_count_total,
-           getting_acq_total / getting_count_total,
-           getting_rel_total / getting_count_total,
-           getting_opt_total / getting_count_total,
-           getting_acq_total / getting_count_total + getting_rel_total / getting_count_total + getting_opt_total / getting_count_total,
-           removing_acq_total / removing_count_total,
-           removing_rel_total / removing_count_total,
-           removing_opt_total / removing_count_total,
-           removing_acq_total / removing_count_total + removing_rel_total / removing_count_total + removing_opt_total / removing_count_total
-           );
+  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+	 num_threads,
+	 putting_acq_total / putting_count_total,
+	 putting_rel_total / putting_count_total,
+	 putting_opt_total / putting_count_total,
+	 putting_acq_total / putting_count_total + putting_rel_total / putting_count_total + putting_opt_total / putting_count_total,
+	 getting_acq_total / getting_count_total,
+	 getting_rel_total / getting_count_total,
+	 getting_opt_total / getting_count_total,
+	 getting_acq_total / getting_count_total + getting_rel_total / getting_count_total + getting_opt_total / getting_count_total,
+	 removing_acq_total / removing_count_total,
+	 removing_rel_total / removing_count_total,
+	 removing_opt_total / removing_count_total,
+	 removing_acq_total / removing_count_total + removing_rel_total / removing_count_total + removing_opt_total / removing_count_total
+	 );
 #endif
     
     
 #ifdef COMPUTE_THROUGHPUT
 #define LLU long long unsigned int
-    printf("puts: %llu\n", (LLU) putting_count_total);
-    printf("gets: %llu\n", (LLU) getting_count_total);
-    printf("rems; %llu\n", (LLU) removing_count_total);
-    printf("puts - gets: %d\n", (int) (putting_count_total - removing_count_total));
+  printf("puts: %-10llu / %-10llu / %.1f%%\n", (LLU) putting_count_total, (LLU) putting_count_total_succ,
+	 (double) (putting_count_total - putting_count_total_succ) / putting_count_total * 100);
+  printf("gets: %-10llu / %-10llu / %.1f%%\n", (LLU) getting_count_total, (LLU) getting_count_total_succ,
+	 (double) (getting_count_total - getting_count_total_succ) / getting_count_total * 100);
+  printf("rems; %-10llu / %-10llu / %.1f%%\n", (LLU) removing_count_total, (LLU) removing_count_total_succ,
+	 (double) (removing_count_total - removing_count_total_succ) / removing_count_total * 100);
+  printf("puts - gets: %d\n", (int) (putting_count_total_succ - removing_count_total_succ));
 
-    float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-    printf("%d\t%f\n", num_threads, throughput);
+  float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
+  printf("%d\t%f\n", num_threads, throughput);
 #endif
     
-    free_global(hashtable->the_locks, hashtable->capacity);
-    ht_destroy( hashtable );
+  free_global(hashtable->the_locks, hashtable->capacity);
+  ht_destroy( hashtable );
     
-    /* Last thing that main() should do */
-    //printf("Main: program completed. Exiting.\n");
-    pthread_exit(NULL);
+  /* Last thing that main() should do */
+  //printf("Main: program completed. Exiting.\n");
+  pthread_exit(NULL);
     
-    return 0;
+  return 0;
 }
