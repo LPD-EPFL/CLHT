@@ -16,6 +16,8 @@
 #include "mcore_malloc.h"
 #endif
 
+#define DEBUG_
+
 /* ################################################################### *
  * GLOBALS
  * ################################################################### */
@@ -157,16 +159,25 @@ void *procedure(void *threadid)
 	{
 	  i--;
 	}
+      
+      _mm_mfence();
       release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
     }
 
 
-  barrier_cross(&barrier_global);
+  value = NULL;
 
+  barrier_cross(&barrier);
+
+#if defined(DEBUG)
   if (!ID)
     {
       printf("size of ht is: %u\n", ht_size(hashtable, capacity));
     }
+#endif
+
+  barrier_cross(&barrier_global);
+
 
   /* uint64_t num_get = 0, num_get_succ = 0; */
   /* uint64_t num_rem = 0, num_rem_succ = 0; */
@@ -240,6 +251,7 @@ void *procedure(void *threadid)
       start_rel = getticks();
 #endif
 #ifndef SEQUENTIAL
+      _mm_mfence();
       release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
       //MEM_BARRIER;
 #endif
@@ -297,11 +309,12 @@ void *procedure(void *threadid)
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
   /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
   barrier_cross(&barrier);
+#if defined(DEBUG)
   if (!ID)
     {
       printf("size of ht is: %u\n", ht_size(hashtable, capacity));
     }
-
+#endif
 
 #ifndef COMPUTE_THROUGHPUT
   putting_acqs[ID] += my_putting_acqs;
@@ -394,39 +407,31 @@ int main( int argc, char **argv ) {
       exit(-1);
     }
         
-    /* printf("fork: %d\n", t); */
   }
     
   /* Free attribute and wait for the other threads */
   pthread_attr_destroy(&attr);
     
-  /* printf("1\n"); */
-    
   barrier_cross(&barrier_global);
-    
-  /* printf("4\n"); */
     
   gettimeofday(&start, NULL);
   nanosleep(&timeout, NULL);
   stop = 1;
   gettimeofday(&end, NULL);
     
-  /* printf("2\n"); */
     
-  for(t = 0; t < num_threads; t++) {
-    rc = pthread_join(threads[t], &status);
-    if (rc) {
-      printf("ERROR; return code from pthread_join() is %d\n", rc);
-      exit(-1);
+  for(t = 0; t < num_threads; t++) 
+    {
+      rc = pthread_join(threads[t], &status);
+      if (rc) 
+	{
+	  printf("ERROR; return code from pthread_join() is %d\n", rc);
+	  exit(-1);
+	}
+        
+      duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
+        
     }
-        
-    duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
-        
-    /* printf("join: %d\n", t); */
-    //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
-  }
-    
-  /* printf("3\n"); */
     
   ticks putting_acq_total = 0;
   ticks putting_rel_total = 0;
@@ -487,6 +492,9 @@ int main( int argc, char **argv ) {
     }
     
 #ifndef COMPUTE_THROUGHPUT
+#if defined(DEBUG)
+  printf("#thread put_acq put_rel put_cs  put_tot get_acq get_rel get_cs  get_tot rem_acq rem_rel rem_cs  rem_tot\n");
+#endif
   printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
 	 num_threads,
 	 putting_acq_total / putting_count_total,
@@ -507,14 +515,28 @@ int main( int argc, char **argv ) {
     
 #ifdef COMPUTE_THROUGHPUT
 #define LLU long long unsigned int
-  printf("puts: %-10llu / %-10llu / %.1f%%\n", (LLU) putting_count_total, (LLU) putting_count_total_succ,
-	 (double) (putting_count_total - putting_count_total_succ) / putting_count_total * 100);
-  printf("gets: %-10llu / %-10llu / %.1f%%\n", (LLU) getting_count_total, (LLU) getting_count_total_succ,
-	 (double) (getting_count_total - getting_count_total_succ) / getting_count_total * 100);
-  printf("rems; %-10llu / %-10llu / %.1f%%\n", (LLU) removing_count_total, (LLU) removing_count_total_succ,
-	 (double) (removing_count_total - removing_count_total_succ) / removing_count_total * 100);
-  printf("puts - gets: %d\n", (int) (putting_count_total_succ - removing_count_total_succ));
 
+#if defined(DEBUG)
+  printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
+  uint64_t total = putting_count_total + getting_count_total + removing_count_total;
+  double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
+  double getting_perc = 100.0 * (1 - ((double)(total - getting_count_total) / total));
+  double removing_perc = 100.0 * (1 - ((double)(total - removing_count_total) / total));
+
+  printf("puts: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) putting_count_total, 
+	 (LLU) putting_count_total_succ,
+	 (double) (putting_count_total - putting_count_total_succ) / putting_count_total * 100,
+	 putting_perc);
+  printf("gets: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) getting_count_total, 
+	 (LLU) getting_count_total_succ,
+	 (double) (getting_count_total - getting_count_total_succ) / getting_count_total * 100,
+	 getting_perc);
+  printf("rems; %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) removing_count_total, 
+	 (LLU) removing_count_total_succ,
+	 (double) (removing_count_total - removing_count_total_succ) / removing_count_total * 100,
+	 removing_perc);
+  /* printf("puts - gets: %d\n", (int) (putting_count_total_succ - removing_count_total_succ)); */
+#endif
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("%d\t%f\n", num_threads, throughput);
 #endif

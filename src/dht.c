@@ -116,10 +116,11 @@ ht_create(uint32_t capacity)
 uint32_t
 ht_hash( hashtable_t *hashtable, uint64_t key ) 
 {
-	uint64_t hashval;
-	hashval = __ac_Jenkins_hash_64(key);
+	/* uint64_t hashval; */
+	/* hashval = __ac_Jenkins_hash_64(key); */
     
-	return hashval % hashtable->capacity;
+	/* return hashval % hashtable->capacity; */
+  return key % hashtable->capacity;
 }
 
 /* Insert a key-value entry into a hash table. */
