@@ -28,19 +28,19 @@ do
 	for f in $(ls throughput_*)
 	do
 	    prim=$(echo $f | cut -d'_' -f2);
-	    printf "%-11s" $prim | tee $out_dat;
+	    printf "%-11s" $prim | tee -a  $out_dat;
 	done;
-	echo "" | tee $out_dat;
+	echo "" | tee -a  $out_dat;
 
 	for c in $cores
 	do
-	    printf "%-3u" $c
+	    printf "%-3u" $c | tee -a $out_dat;
 	    for ex in $executables
 	    do
 		p="$bu $c $num_elems $fill_rate $payload_size $duration $u $g";
-		./$ex $p | awk '// { printf "%-11d", $2 }' | tee $out_dat;
+		./$ex $p | awk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
 	    done;
-	    echo "" | tee $out_dat;
+	    echo "" | tee -a  $out_dat;
 	done;
     done;
 done;
