@@ -6,26 +6,55 @@ else
   COMPILE_FLAGS=-O3 -DADD_PADDING
 endif
 
-#PLATFORM=-DSPARC
+
+UNAME := $(shell uname -n)
+
+ifeq ($(UNAME), lpd48core)
+PLATFORM=OPTERON
+CC=gcc
+PLATFORM_NUMA=1
 PLATFORM=-DOPTERON
 OPTIMIZE=-DOPTERON_OPTIMIZE
+endif
+
+ifeq ($(UNAME), diassrv8)
+PLATFORM=XEON
+CC=gcc
+PLATFORM_NUMA=1
+endif
+
+ifeq ($(UNAME), maglite)
+PLATFORM=-DSPARC
+GCC:=/opt/csw/bin/gcc
+LIBS+= -lrt -lpthread -lm
+COMPILE_FLAGS+= -m64 -mcpu=v9 -mtune=v9
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
+endif
+
+ifeq ($(UNAME), parsasrv1.epfl.ch)
+PLATFORM=TILERA
+CC=tile-gcc
+PERF_CLFAGS= -ltmc
+LINK=-ltmc
+endif
+
+ifeq ($(UNAME), diascld19)
+PLATFORM=XEON2
+CC=gcc
+# PLATFORM_NUMA=1
+endif
+
+ifeq ($(UNAME), diascld9)
+PLATFORM=OPTERON2
+CC=gcc
+# PLATFORM_NUMA=1
+endif
 
 COMPILE_FLAGS += $(PLATFORM)
 COMPILE_FLAGS += $(OPTIMIZE)
 
-UNAME := $(shell uname)
 
-LIBS= -lsync
-
-ifeq ($(UNAME), Linux)
-	GCC:=gcc
-	LIBS+= -lrt -lpthread -lnuma -lm
-endif
-ifeq ($(UNAME), SunOS)
-	GCC:=/opt/csw/bin/gcc
-	LIBS+= -lrt -lpthread 
-        COMPILE_FLAGS+= -m64 -mcpu=v9 -mtune=v9
-endif
+LIBS+=-lsync
 
 PRIMITIVE=-DTEST_FAI
 
@@ -41,34 +70,9 @@ INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 OBJ_FILES := mcore_malloc.o
 OBJ_FILES_MP := ssmp.o ssmp_send.o ssmp_recv.o
 
-all: latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
+all: $(ALL)
 
-# all: latency_ticket throughput_ticket throughput_mcs
-
-
-# ttas.o: src/ttas.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ttas.c $(LIBS)
-
-# rw_ttas.o: src/rw_ttas.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/rw_ttas.c $(LIBS)
-
-# ticket.o: src/ticket.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ticket.c $(LIBS)
-
-# gl_lock.o: src/gl_lock.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/gl_lock.c $(LIBS)
-
-# mcs.o: src/mcs.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/mcs.c $(LIBS)
-
-# hclh.o: src/hclh.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/hclh.c $(LIBS)
-
-# alock.o: src/alock.c 
-# 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/alock.c $(LIBS)
-
-# htlock.o: src/htlock.c include/htlock.h
-# 	 $(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/htlock.c $(LIBS) 
+# latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
 
 # ssmp.o: src/ssmp.c include/ssmp.h
 # 	 $(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ssmp.c $(LIBS) 

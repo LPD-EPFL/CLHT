@@ -1,18 +1,31 @@
-
+#include <assert.h>
+#include <getopt.h>
+#include <limits.h>
 #include <pthread.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <sched.h>
+#include <inttypes.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include "utils.h"
+#include "atomic_ops.h"
 #ifdef __sparc__
-#include "include/utils.h"
+#  include <sys/types.h>
+#  include <sys/processor.h>
+#  include <sys/procset.h>
 #include "include/dht.h"
-#include "include/atomic_ops.h"
 #include "include/mcore_malloc.h"
 #else
 #include <numa.h>
-#include "utils.h"
 #include "dht.h"
-#include "atomic_ops.h"
 #include "mcore_malloc.h"
 #endif
 
@@ -160,7 +173,7 @@ void *procedure(void *threadid)
 	  i--;
 	}
       
-      _mm_mfence();
+      MEM_BARRIER;
       release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
     }
 
@@ -251,7 +264,7 @@ void *procedure(void *threadid)
       start_rel = getticks();
 #endif
 #ifndef SEQUENTIAL
-      _mm_mfence();
+      MEM_BARRIER;
       release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
       //MEM_BARRIER;
 #endif
@@ -416,6 +429,7 @@ int main( int argc, char **argv ) {
     
   gettimeofday(&start, NULL);
   nanosleep(&timeout, NULL);
+
   stop = 1;
   gettimeofday(&end, NULL);
     
