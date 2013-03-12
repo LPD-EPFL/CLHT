@@ -29,6 +29,8 @@
 #include "mcore_malloc.h"
 #endif
 
+#include "lock_if.h"
+
 #define DEBUG_
 
 /* ################################################################### *
@@ -366,8 +368,8 @@ int main( int argc, char **argv ) {
     exit(-1);
   }
     
-  rand_max = num_elements;
   rand_min = 1;
+  rand_max = num_elements + rand_min;
     
   struct timeval start, end;
   struct timespec timeout;

@@ -16,7 +16,7 @@
 #include "include/dht.h"
 #else
 #include "common.h"
-#include "ssmp.h"
+#include <ssmp.h>
 #include "dht.h"
 #endif
 
@@ -236,54 +236,56 @@ dht_app()
 void
 dht_dsl()
 {
-    uint32_t capacity_mine = capacity / num_dsl;
-    /* PRINT("DSL -- handling %4d accs", capacity_mine); */
+  uint32_t capacity_mine = capacity / num_dsl;
+  /* PRINT("DSL -- handling %4d accs", capacity_mine); */
     
-    hashtable_t *hashtable = ht_create( capacity_mine );
+  hashtable_t *hashtable = ht_create( capacity_mine );
     
-    ssmp_color_buf_t *cbuf = NULL;
-    cbuf = (ssmp_color_buf_t *) malloc(sizeof(ssmp_color_buf_t));
-    assert(cbuf != NULL);
-    ssmp_color_buf_init(cbuf, color_app1);
+  ssmp_color_buf_t *cbuf = NULL;
+  cbuf = (ssmp_color_buf_t *) malloc(sizeof(ssmp_color_buf_t));
+  assert(cbuf != NULL);
+  ssmp_color_buf_init(cbuf, color_app1);
     
-    msg = (ssmp_msg_t *) malloc(sizeof(ssmp_msg_t));
-    assert(msg != NULL);
+  msg = (ssmp_msg_t *) malloc(sizeof(ssmp_msg_t));
+  assert(msg != NULL);
     
-    int done = 0;
+  int done = 0;
     
-    ssmp_barrier_wait(4);
+  ssmp_barrier_wait(4);
     
-    while(done == 0)
+  while(done == 0)
     {
-        ssmp_recv_color_start(cbuf, msg);
-        switch (msg->w0)
+      ssmp_recv_color_start(cbuf, msg);
+      switch (msg->w0)
         {
-            case PUT:
-            {
-                /* PRINT("from %-3d : PUT for %-5d", msg->sender, msg->w1); */
-                msg->w2 = ht_put( hashtable, msg->w1, msg->w2, msg->w3 );
-                //ssmp_send(msg->sender, msg);
-                break;
-            }
-            case GET:
-            {
-                /* PRINT("from %-3d : CHECK   for %-5d", msg->sender, msg->w1); */
-                msg->w2 = ht_get( hashtable, msg->w1 );
-                ssmp_send(msg->sender, msg);
-                break;
-            }
-            case REMOVE:
-            {
-                /* PRINT("from %-3d : GET for %-5d", msg->sender, msg->w1); */
-                msg->w2 = ht_remove( hashtable, msg->w1 );
-                //ssmp_send(msg->sender, msg);
-                break;
-            }
-            default:
-                /* PRINT("exiting"); */
-                done = 1;
-                ht_destroy( hashtable );
-                break;
+	case PUT:
+	  {
+	    /* PRINT("from %-3d : PUT for %-5d", msg->sender, msg->w1); */
+	    msg->w2 = ht_put( hashtable, msg->w1, msg->w2, msg->w3 );
+	    //ssmp_send(msg->sender, msg);
+	    break;
+	  }
+	case GET:
+	  {
+	    /* PRINT("from %-3d : CHECK   for %-5d", msg->sender, msg->w1); */
+	    uint32_t bin = ht_hash(hashtable, msg->w1);
+	    msg->w2 = ht_get(hashtable, msg->w1, bin);
+	    ssmp_send(msg->sender, msg);
+	    break;
+	  }
+	case REMOVE:
+	  {
+	    /* PRINT("from %-3d : GET for %-5d", msg->sender, msg->w1); */
+	    uint32_t bin = ht_hash(hashtable, msg->w1);
+	    msg->w2 = ht_remove(hashtable, msg->w1, bin);
+	    //ssmp_send(msg->sender, msg);
+	    break;
+	  }
+	default:
+	  /* PRINT("exiting"); */
+	  done = 1;
+	  ht_destroy( hashtable );
+	  break;
         }
     }
 }
@@ -292,113 +294,116 @@ dht_dsl()
 int
 main(int argc, char **argv)
 {
-    if ( argc == 10 ) {
-        capacity = atoi( argv[1] );
-        num_procs = atoi( argv[2] );
-        num_elements = atoi( argv[3] );
-        filling_rate = atof( argv[4] );
-        payload_size = atoi( argv[5] );
-        duration = atoi( argv[6] );
-        put_rate = atof( argv[7] );
-        get_rate = atof( argv[8] );
-        remove_rate = atof( argv[9] );
-        dsl_per_core = DEFAULT_DSL_PER_CORE;
-    } else {
-        printf("ERROR; usage ./main table_capacity num_procs num_elements filling_rate payload_size duration put_rate get_rate remove_rate\n");
-        exit(-1);
+  if ( argc == 10 ) 
+    {
+      capacity = atoi( argv[1] );
+      num_procs = atoi( argv[2] );
+      num_elements = atoi( argv[3] );
+      filling_rate = atof( argv[4] );
+      payload_size = atoi( argv[5] );
+      duration = atoi( argv[6] );
+      put_rate = atof( argv[7] );
+      get_rate = atof( argv[8] );
+      remove_rate = atof( argv[9] );
+      dsl_per_core = DEFAULT_DSL_PER_CORE;
+    } 
+  else 
+    {
+      printf("ERROR; usage ./main table_capacity num_procs num_elements filling_rate payload_size duration put_rate get_rate remove_rate\n");
+      exit(-1);
     }
     
-    rand_max = num_elements;
-    rand_min = 1;
+  rand_min = 1;
+  rand_max = num_elements + rand_min;
     
-    //capacity = pow2roundup(capacity);
+  //capacity = pow2roundup(capacity);
     
-    if (seed == 0)
-        srand((int)time(NULL));
-    else
-        srand(seed);
+  if (seed == 0)
+    srand((int)time(NULL));
+  else
+    srand(seed);
     
-    int dsl_seq_idx = 0;
-    long t;
-    for (t = 0; t < num_procs; t++)
+  int dsl_seq_idx = 0;
+  long t;
+  for (t = 0; t < num_procs; t++)
     {
-        if (color_dsl(t))
+      if (color_dsl(t))
         {
-            num_dsl++;
-            dsl_seq[dsl_seq_idx++] = t;
+	  num_dsl++;
+	  dsl_seq[dsl_seq_idx++] = t;
         }
-        else
+      else
         {
-            num_app++;
-        }
-    }
-    
-    //printf("dsl: %2d | app: %d\n", num_dsl, num_app);
-    
-    while(capacity % num_dsl != 0)
-    {
-        //printf("*** table capacity (%d) is not dividable by number of DSL (%d)\n", capacity, num_dsl);
-        capacity++;
-    }
-    
-    ssmp_init(num_procs);
-    
-    ssmp_barrier_init(2, 0, color_dsl);
-    ssmp_barrier_init(1, 0, color_app1);
-    
-    int rank;
-    for (rank = 1; rank < num_procs; rank++) 
-    {
-        pid_t child = fork();
-        if (child < 0) {
-            printf("Failure in fork():\n%s", strerror(errno));
-        } else if (child == 0) 
-        {
-            goto fork_done;
+	  num_app++;
         }
     }
-    rank = 0;
+    
+  printf("dsl: %2d | app: %d\n", num_dsl, num_app);
+    
+  while(capacity % num_dsl != 0)
+    {
+      //printf("*** table capacity (%d) is not dividable by number of DSL (%d)\n", capacity, num_dsl);
+      capacity++;
+    }
+    
+  ssmp_init(num_procs);
+    
+  ssmp_barrier_init(2, 0, color_dsl);
+  ssmp_barrier_init(1, 0, color_app1);
+    
+  int rank;
+  for (rank = 1; rank < num_procs; rank++) 
+    {
+      pid_t child = fork();
+      if (child < 0) {
+	printf("Failure in fork():\n%s", strerror(errno));
+      } else if (child == 0) 
+        {
+	  goto fork_done;
+        }
+    }
+  rank = 0;
 
-fork_done:
+ fork_done:
     
-    ID = rank;
+  ID = rank;
     
-    set_cpu(id_to_core[ID]);
-    ssmp_mem_init(ID, num_procs);
+  set_cpu(id_to_core[ID]);
+  ssmp_mem_init(ID, num_procs);
     
-    if (color_dsl(ID))
+  if (color_dsl(ID))
     {
-        dht_dsl();
+      dht_dsl();
     }
-    else
+  else
     {
-        dht_app();
+      dht_app();
     }
     
-    ssmp_barrier_wait(0);
+  ssmp_barrier_wait(0);
     
-    double total_throughput = 0;
-    if (ssmp_id() == 0)
+  double total_throughput = 0;
+  if (ssmp_id() == 0)
     {
-        int c;
-        for (c = 0; c < ssmp_num_ues(); c++)
+      int c;
+      for (c = 0; c < ssmp_num_ues(); c++)
         {
-            if (color_app1(c))
+	  if (color_app1(c))
             {
-                ssmp_recv_from(c, msg);
-                double throughput = *(double*) msg;
-                /* PRINT("received th from %02d : %f", c, throughput); */
-                total_throughput += throughput;
+	      ssmp_recv_from(c, msg);
+	      double throughput = *(double*) msg;
+	      /* PRINT("received th from %02d : %f", c, throughput); */
+	      total_throughput += throughput;
             };
         }
         
-        printf("%d\t%f\n", num_procs, total_throughput);
+      printf("%d\t%f\n", num_procs, total_throughput);
     }
 
-    //printf("core %d, \n", rank);
-    ssmp_barrier_wait(3);
-    ssmp_term();
-    return 0;
+  //printf("core %d, \n", rank);
+  ssmp_barrier_wait(3);
+  ssmp_term();
+  return 0;
 }
 
 /* help functions */

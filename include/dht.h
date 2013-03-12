@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include "lock_if.h"
 
 #define true 1
 #define false 0
@@ -31,16 +30,29 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   void* entry[ENTRIES_PER_BUCKET]; 
 } bucket_t;
 
+#if defined(LOCKS)
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
   volatile global_data the_locks;
-#if defined(__tile__)
+#  if defined(__tile__)
   bucket_t *table;
-#else
+#  else
   ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
-#endif
+#  endif
 } hashtable_t;
+#else
+typedef struct ALIGNED(64) hashtable_s
+{
+  uint32_t capacity;
+  volatile global_data the_locks;
+#  if defined(__tile__)
+  bucket_t *table;
+#  else
+  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
+#  endif
+} hashtable_t;
+#endif
 
 
 /* Create a new hashtable. */

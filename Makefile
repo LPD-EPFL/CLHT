@@ -10,12 +10,12 @@ endif
 UNAME := $(shell uname -n)
 
 ifeq ($(UNAME), lpd48core)
-PLATFORM=OPTERON
-CC=gcc
-PLATFORM_NUMA=1
 PLATFORM=-DOPTERON
+GCC=gcc
+PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
 LIBS+= -lrt -lpthread -lm -lnuma
+LIBS_MP+= -lrt -lm -lnuma
 endif
 
 ifeq ($(UNAME), diassrv8)
@@ -56,14 +56,16 @@ endif
 COMPILE_FLAGS += $(PLATFORM)
 COMPILE_FLAGS += $(OPTIMIZE)
 
-
 LIBS+=-lsync
+LIBS_MP+=-lssmp -lsync
+
 
 PRIMITIVE=-DTEST_FAI
 
 TOP := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 
-LIBS+=-L$(TOP)/external/lib \
+LIBS+=-L$(TOP)/external/lib
+LIBS_MP+=-L$(TOP)/external/lib
 
 SRCPATH := $(TOP)/src
 MAININCLUDE := $(TOP)/include
@@ -71,20 +73,11 @@ MAININCLUDE := $(TOP)/include
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 #OBJ_FILES := mcs.o ttas.o rw_ttas.o ticket.o alock.o hclh.o htlock.o mcore_malloc.o
 OBJ_FILES := mcore_malloc.o
-OBJ_FILES_MP := ssmp.o ssmp_send.o ssmp_recv.o
+OBJ_FILES_MP := mcore_malloc.o
 
 all: $(ALL)
 
 # latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
-
-# ssmp.o: src/ssmp.c include/ssmp.h
-# 	 $(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ssmp.c $(LIBS) 
-
-# ssmp_send.o: src/ssmp_send.c include/ssmp_send.h
-# 	 $(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ssmp_send.c $(LIBS) 
-
-# ssmp_recv.o: src/ssmp_recv.c include/ssmp_recv.h
-# 	 $(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/ssmp_recv.c $(LIBS) 
 
 mcore_malloc.o: src/mcore_malloc.c include/mcore_malloc.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
@@ -108,10 +101,8 @@ latency_array: main_lock.c $(OBJ_FILES)
 latency_ticket: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_ticket $(LIBS)
 
-
 latency_spinlock: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_SPINLOCK_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_spinlock $(LIBS)
-
 
 latency_mutex: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_MUTEX_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_mutex $(LIBS)
@@ -150,7 +141,7 @@ sequential: main_lock.c $(OBJ_FILES)
 	$(GCC) -DUSE_HCLH_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DSEQUENTIAL $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o sequential $(LIBS)
 
 throughput_mp: main_mp.c $(OBJ_FILES_MP) 
-	$(GCC) -DUSE_MUTEX_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) -g main_mp.c src/dht.c -o throughput_mp $(LIBS)
+	$(GCC) -DUSE_MUTEX_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) -g main_mp.c src/dht.c -o throughput_mp $(LIBS_MP)
 
 clean:				
 	rm -f *.o latency_hclh latency_ttas latency_mcs latency_array latency_ticket latency_mutex latency_hticket throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_mutex throughput_hticket sequential throughput_mp results/*.txt *.eps *.pdf *.ps
