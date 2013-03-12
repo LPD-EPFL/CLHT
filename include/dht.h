@@ -35,7 +35,11 @@ typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
   volatile global_data the_locks;
-  __attribute__((aligned(CACHE_LINE_SIZE))) bucket_t *table;
+#if defined(__tile__)
+  bucket_t *table;
+#else
+  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
+#endif
 } hashtable_t;
 
 
