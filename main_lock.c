@@ -52,7 +52,7 @@ int rand_max, rand_min;
 static volatile int stop;
 __thread uint32_t phys_id;
 
-__attribute__((aligned(CACHE_LINE_SIZE))) volatile local_data * local_th_data;
+volatile local_data * local_th_data;
 
 volatile ticks *putting_acqs;
 volatile ticks *putting_rels;
