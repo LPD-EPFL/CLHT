@@ -32,10 +32,10 @@ ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_sp
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)
-PLATFORM=TILERA
-CC=tile-gcc
-PERF_CLFAGS= -ltmc
-LINK=-ltmc
+PLATFORM=-DTILERA
+GCC=tile-gcc
+LIBS+= -lrt -lpthread -lm -ltmc
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
 endif
 
 ifeq ($(UNAME), diascld19)
