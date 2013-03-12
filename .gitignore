@@ -15,6 +15,7 @@
 /latency_spinlock
 /latency_ticket
 /latency_ttas
+/main_lock.c~
 /mcore_malloc.o
 /mcs.o
 /run
@@ -31,4 +32,6 @@
 /throughput_ticket
 /throughput_ttas
 /ticket.o
+/top.sh
+/top.sh~
 /ttas.o
