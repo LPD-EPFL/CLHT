@@ -29,10 +29,6 @@
 #include "mcore_malloc.h"
 #endif
 
-#include "lock_if.h"
-
-#define DEBUG_
-
 /* ################################################################### *
  * GLOBALS
  * ################################################################### */
@@ -197,7 +193,7 @@ void *procedure(void *threadid)
   /* uint64_t num_get = 0, num_get_succ = 0; */
   /* uint64_t num_rem = 0, num_rem_succ = 0; */
   
-    
+  uint8_t update = false;
   int succ = 1;
   while (stop == 0) 
     {
@@ -209,14 +205,21 @@ void *procedure(void *threadid)
       if(succ) 
 	{
 	  c = (int)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
+	  update = (c < scale_update);
 	}
 
-      uint8_t update = (c < scale_update);
-
-      if(update && putting && value == NULL) 
-	{
-	  value = MCORE_shmalloc(payload_size);
-	}
+      /* if(update && putting && value == NULL)  */
+      /* 	{ */
+	  while (value == NULL)
+	    {
+	      value = MCORE_shmalloc(payload_size);
+	      /* printf("using %p\n", value); */
+	    }
+	  if (update && putting)
+	    {
+	      memset(value, 'O', payload_size);
+	    }
+	/* } */
 
       succ = 0;
         

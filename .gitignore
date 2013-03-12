@@ -27,6 +27,7 @@
 /throughput_hclh
 /throughput_hticket
 /throughput_mcs
+/throughput_mp
 /throughput_mutex
 /throughput_spinlock
 /throughput_ticket

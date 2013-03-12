@@ -1,0 +1,24 @@
+#ifndef __MAIN_MP_H__
+#define __MAIN_MP_H__
+
+#include "dht.h"
+
+typedef uint8_t ssht_rpc_type;
+#define  SSHT_PUT 0
+#define  SSHT_GET 1
+#define  SSHT_REM 2
+#define  SSHT_EXT 3
+#define  SSHT_SIZ 4
+
+typedef struct ssht_rpc
+{
+  union
+  {
+    void* value;
+    uint32_t resp;
+  };
+  ssht_addr_t key;
+  ssht_rpc_type op;
+} ssht_rpc_t;
+
+#endif	/*  __MAIN_MP_H__ */

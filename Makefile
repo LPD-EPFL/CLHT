@@ -140,10 +140,8 @@ throughput_hticket: main_lock.c $(OBJ_FILES)
 sequential: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_HCLH_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DSEQUENTIAL $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o sequential $(LIBS)
 
-PRIMITIVE=-DMESSAGE_PASSING
-
 throughput_mp: main_mp.c $(OBJ_FILES_MP) 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) -g main_mp.c src/dht.c -o throughput_mp $(LIBS_MP)
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) -g main_mp.c src/dht.c -o throughput_mp $(LIBS_MP)
 
 clean:				
 	rm -f *.o latency_hclh latency_ttas latency_mcs latency_array latency_ticket latency_mutex latency_hticket throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_mutex throughput_hticket sequential throughput_mp results/*.txt *.eps *.pdf *.ps

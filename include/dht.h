@@ -5,6 +5,11 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#if defined(LOCKS)
+#  include "lock_if.h"
+#endif
+
+
 #define true 1
 #define false 0
 
@@ -54,7 +59,7 @@ typedef struct ALIGNED(64) hashtable_s
 } hashtable_t;
 
 #else 
-#error "defined either LOCKS or MESSAGE_PASSING"
+#  error "defined either LOCKS or MESSAGE_PASSING"
 #endif
 
 
