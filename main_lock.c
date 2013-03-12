@@ -349,6 +349,8 @@ void *procedure(void *threadid)
   removing_count[ID]+= my_removing_count;
   removing_count_succ[ID]+= my_removing_count_succ;
     
+  free_local(local_th_data[ID], hashtable->the_locks);
+
   pthread_exit(NULL);
 }
 

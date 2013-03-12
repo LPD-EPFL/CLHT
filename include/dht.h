@@ -41,17 +41,20 @@ typedef struct ALIGNED(64) hashtable_s
   ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
 #  endif
 } hashtable_t;
-#else
+
+#elif defined(MESSAGE_PASSING)
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
-  volatile global_data the_locks;
 #  if defined(__tile__)
   bucket_t *table;
 #  else
   ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
 #  endif
 } hashtable_t;
+
+#else 
+#error "defined either LOCKS or MESSAGE_PASSING"
 #endif
 
 
