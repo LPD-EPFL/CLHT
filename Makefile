@@ -15,12 +15,15 @@ CC=gcc
 PLATFORM_NUMA=1
 PLATFORM=-DOPTERON
 OPTIMIZE=-DOPTERON_OPTIMIZE
+LIBS+= -lrt -lpthread -lm -lnuma
 endif
 
 ifeq ($(UNAME), diassrv8)
-PLATFORM=XEON
-CC=gcc
+PLATFORM=-DXEON
+GCC=gcc
 PLATFORM_NUMA=1
+LIBS+= -lrt -lpthread -lm -lnuma
+ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
 endif
 
 ifeq ($(UNAME), maglite)
@@ -32,10 +35,10 @@ ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_sp
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)
-PLATFORM=TILERA
-CC=tile-gcc
-PERF_CLFAGS= -ltmc
-LINK=-ltmc
+PLATFORM=-DTILERA
+GCC=tile-gcc
+LIBS+= -lrt -lpthread -lm -ltmc
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
 endif
 
 ifeq ($(UNAME), diascld19)

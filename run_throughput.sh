@@ -26,6 +26,7 @@ then
 elif [ $(uname -n) = "parsasrv1.epfl.ch" ];
 then
     platform="tilera"
+    run=run;
 elif [ $(uname -n) = "maglite" ];
 then
     platform="niagara"
@@ -62,7 +63,7 @@ do
 		    for ex in $executables
 		    do
 			p="$bu $c $num_elems $fill_rate $ps $duration $u $g";
-			./$ex $p | awk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
+			./$run ./$ex $p | awk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
 		    done;
 		    echo "" | tee -a  $out_dat;
 		done;

@@ -1,3 +1,5 @@
+/.gitignore~
+/Makefile~
 /alock.o
 /cscope.files
 /cscope.out
@@ -13,8 +15,10 @@
 /latency_spinlock
 /latency_ticket
 /latency_ttas
+/main_lock.c~
 /mcore_malloc.o
 /mcs.o
+/run
 /run_throughput.sh~
 /rw_ttas.o
 /sequential
@@ -28,4 +32,6 @@
 /throughput_ticket
 /throughput_ttas
 /ticket.o
+/top.sh
+/top.sh~
 /ttas.o
