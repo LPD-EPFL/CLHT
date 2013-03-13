@@ -12,7 +12,9 @@ extern "C" {
 #  include "ssmp.h"
 #endif
 
+#if defined(LOCKS)
 typedef uint64_t ticks;
+#endif
 
 #define PLATFORM_MCORE
 /* #define DO_TIMINGS */

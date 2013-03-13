@@ -46,6 +46,14 @@ LIBS+= -lrt -lpthread -lm -ltmc
 ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
 endif
 
+ifeq ($(UNAME), smal1.sics.se)
+PLATFORM=-DTILERA
+GCC=tile-gcc
+LIBS+= -lrt -lpthread -lm -ltmc
+LIBS_MP+= -lrt -lm -ltmc
+ALL=throughput_mp
+endif
+
 ifeq ($(UNAME), diascld19)
 PLATFORM=XEON2
 CC=gcc
@@ -147,7 +155,7 @@ sequential: main_lock.c $(OBJ_FILES)
 
 
 dht_mp.o: src/dht.c include/dht.h
-	$(GCC) -m64 -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) -c src/dht.c -o dht_mp.o $(LIBS_MP)
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) -c src/dht.c -o dht_mp.o $(LIBS_MP)
 
 throughput_mp: main_mp.c $(OBJ_FILES_MP) 
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) main_mp.c -o throughput_mp $(LIBS_MP)
