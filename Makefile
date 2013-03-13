@@ -6,6 +6,9 @@ else
   COMPILE_FLAGS=-O3 -DADD_PADDING
 endif
 
+ifeq ($(M),1)
+MC=-DMEASURE_CONTENTION
+endif
 
 LIBS+=-lsync
 LIBS_MP+=-lssmp
@@ -27,22 +30,33 @@ PLATFORM=-DXEON
 GCC=gcc
 PLATFORM_NUMA=1
 LIBS+= -lrt -lpthread -lm -lnuma
-ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
+LIBS_MP+= -lrt -lm -lnuma
+ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
 endif
 
 ifeq ($(UNAME), maglite)
 PLATFORM=-DSPARC
 GCC:=/opt/csw/bin/gcc
 LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
 COMPILE_FLAGS+= -m64 -mcpu=v9 -mtune=v9
-ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_mp sequential
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)
 PLATFORM=-DTILERA
 GCC=tile-gcc
 LIBS+= -lrt -lpthread -lm -ltmc
-ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
+LIBS_MP+= -lrt -lm -ltmc
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_mp sequential
+endif
+
+ifeq ($(UNAME), smal1.sics.se)
+PLATFORM=-DTILERA
+GCC=tile-gcc
+LIBS+= -lrt -lpthread -lm -ltmc
+LIBS_MP+= -lrt -lm -ltmc
+ALL=throughput_mp
 endif
 
 ifeq ($(UNAME), diascld19)
@@ -146,7 +160,7 @@ sequential: main_lock.c $(OBJ_FILES)
 
 
 dht_mp.o: src/dht.c include/dht.h
-	$(GCC) -m64 -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) -c src/dht.c -o dht_mp.o $(LIBS_MP)
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) -c src/dht.c -o dht_mp.o $(LIBS_MP)
 
 throughput_mp: main_mp.c $(OBJ_FILES_MP) 
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) main_mp.c -o throughput_mp $(LIBS_MP)

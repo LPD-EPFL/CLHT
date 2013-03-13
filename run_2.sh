@@ -12,7 +12,8 @@ P=$@
 printf "%-20s%-20s\n" $app1 $app2 $app3
 
 
-cores="2 6 36 48"
+# cores="2 6 36 48"
+cores="2 8 16 36"
 
 for n in $cores
 do

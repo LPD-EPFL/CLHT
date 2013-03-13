@@ -12,16 +12,17 @@
 
 #ifdef __sparc__
 #  include "include/common.h"
-#  include "include/ssmp.h"
 #  include "include/dht.h"
 #else
 #  include "common.h"
-#  include <ssmp.h>
 #  include "dht.h"
 #endif
 
+#include <ssmp.h>
 #include "main_mp.h"
 #include "mcore_malloc.h"
+
+#define DEBUG_
 
 /*
  * Useful macros to work with transactions. Note that, to use nested
@@ -74,7 +75,8 @@ int rand_max, rand_min;
 
 static volatile int stop;
 
-int dsl_seq[64];
+int dsl_seq[80];
+uint8_t* bucket_to_dsl;
 uint8_t ID, num_dsl, num_app;
 int num_procs;
 
@@ -108,24 +110,18 @@ ssht_rpc_t* rpc;
  * DISTRIBUTED HASHTABLE
  * ################################################################### */
 
-enum
-{
-    PUT,
-    GET,
-    REMOVE,
-    EXIT
-} dht_op;
-
 /* help functions */
 int color_dsl(int id);
 int nth_dsl(int id);
 int nth_app(int id);
 int color_app1(int id);
+int color_all(int id);
 
 /* dht funcitonality */
 uint64_t
 _put( uint64_t key, void *value, int payload_size, int dsl )
 {
+  /* PRINT("putting: %-5u , val: %p", key, value); */
   rpc->value = value;
   rpc->key = key;
   rpc->op = SSHT_PUT;
@@ -140,6 +136,7 @@ _put( uint64_t key, void *value, int payload_size, int dsl )
 void*
 _get( uint64_t key, void* buffer, int dsl)
 {
+  /* PRINT("getting: %-5u , val: %p", key, buffer); */
   rpc->value = buffer;
   rpc->key = key;
   rpc->op = SSHT_GET;
@@ -153,6 +150,7 @@ _get( uint64_t key, void* buffer, int dsl)
 void*
 _remove( uint64_t key, int dsl)
 {
+  /* PRINT("removing: %-5u , val: %p", key); */
   rpc->key = key;
   rpc->op = SSHT_REM;
   ssmp_send(dsl, msg);
@@ -197,7 +195,8 @@ _print(uint32_t num_dsl)
 static inline int
 get_dsl(int bin, int num_dsl)
 {
-  return dsl_seq[bin / num_dsl];
+  return bucket_to_dsl[bin];
+    //dsl_seq[bin / num_dsl];
 }
 
 void
@@ -210,8 +209,16 @@ dht_app()
   void* value = NULL, * local, * remote;
   int c = 0;
   uint8_t scale_update = (update_rate * 128);
-  uint32_t bucket_per_dsl = capacity / num_dsl;
-    
+  uint32_t bucket_per_dsl;
+  if (capacity >= num_dsl)
+    {
+      bucket_per_dsl = capacity / num_dsl;
+    }
+  else
+    {
+      bucket_per_dsl = 1;
+    }
+
   int dsl;
     
   msg = (ssmp_msg_t *) malloc(sizeof(ssmp_msg_t));
@@ -223,9 +230,13 @@ dht_app()
   
     
   ssmp_barrier_wait(4);
+
   /* populate the table */
   ONCE
     {
+#if defined(DEBUG)
+      PRINT("inserting elements");
+#endif	/* debug */
       int i;
       for(i = 0; i < num_elements * filling_rate; i++) 
 	{
@@ -242,6 +253,7 @@ dht_app()
 	}
 
 #if defined(DEBUG)
+      PRINT("inserted..");
       PRINT("size bf : %lu", _size(num_dsl)); 
 #endif	/* debug */
     }
@@ -258,9 +270,8 @@ dht_app()
   uint8_t putting = true;
   uint8_t update = false;
 
-  uint64_t mc = 0, mct = 0;
-
   double __start = wtime();
+
   while (work)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
@@ -310,10 +321,7 @@ dht_app()
 	  if(value != NULL) 
 	    {
 	      succ = 1;
-	      mc++;
-	      ticks _s = getticks();
 	      memcpy(local, value, payload_size);
-	      mct += getticks() - _s - 64;
 	    }
 	}
 
@@ -323,12 +331,11 @@ dht_app()
   double __end = wtime();
   duration__ =  __end - __start;
 
-    
   ssmp_barrier_wait(1);
 
 #if defined(DEBUG)
 #define LLU long long unsigned int
-  PRINT("total: %llu / succ: %llu / %llu", (LLU) my_total_count, (LLU) my_succ_count, (LLU) mct / mc);
+  PRINT("total: %llu / succ: %llu ", (LLU) my_total_count, (LLU) my_succ_count);
   if (ID == 1)
     {
       PRINT("size af : %lu", _size(num_dsl)); 
@@ -344,6 +351,7 @@ dht_app()
         {
 	  rpc->op = SSHT_EXT;
 	  ssmp_send(dsl_seq[i], msg);
+	  ssmp_recv_from(dsl_seq[i], msg);
         }
     }
     
@@ -356,13 +364,24 @@ dht_app()
   /* PRINT("Completed in %10f secs | throughput: %f", duration__, throughput); */
   memcpy(msg, &throughput, sizeof(double));
   ssmp_send(0, msg);
+  _mm_mfence();
 }
 
 void
 dht_dsl()
 {
-  uint32_t capacity_mine = capacity / num_dsl;
-  /* PRINT("DSL -- handling %4d buckets", capacity_mine); */
+  uint32_t capacity_mine = 0;
+      uint32_t b;
+      for (b = 0; b < capacity; b++)
+	{
+	  if (bucket_to_dsl[b] == dsl_seq[ID])
+	    {
+	      capacity_mine++;
+	    }
+	}
+      /* PRINT("DSL -- handling %4d buckets", capacity_mine); */
+  
+
     
   hashtable_t *hashtable = ht_create(capacity_mine);
     
@@ -384,20 +403,18 @@ dht_dsl()
       ssmp_recv_color_start(cbuf, msg);
 
       ssht_addr_t key = rpc->key;
-
+      uint32_t bin = ht_hash(hashtable, key);
       switch (rpc->op)
         {
 	case SSHT_PUT:
 	  {
 	    /* PRINT("from %-3d : PUT for %-5d : %p", msg->sender, key, rpc->value); */
-	    uint32_t bin = ht_hash(hashtable, key);
 	    rpc->resp = ht_put( hashtable, key, rpc->value, bin);
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
 	case SSHT_GET:
 	  {
-	    uint32_t bin = ht_hash(hashtable, key);
 	    void* data = ht_get(hashtable, key, bin);
 	    if (data != NULL)
 	      {
@@ -413,7 +430,6 @@ dht_dsl()
 	  }
 	case SSHT_REM:
 	  {
-	    uint32_t bin = ht_hash(hashtable, key);
 	    rpc->value = ht_remove(hashtable, key, bin);
 	    /* PRINT("from %-3d : REM for %-5d : %p", msg->sender, key, rpc->value); */
 	    ssmp_send(msg->sender, msg);
@@ -432,18 +448,29 @@ dht_dsl()
 	    break;
 	  }
 	default:
-	  /* PRINT("exiting"); */
 	  done = 1;
+	  ssmp_send(msg->sender, msg);
 	  ht_destroy( hashtable );
 	  break;
         }
     }
+
+
 }
 
 
 int
 main(int argc, char **argv)
 {
+
+  /* before doing any allocations */
+#if defined(__tile__)
+  if (tmc_cpus_get_my_affinity(&cpus) != 0)
+    {
+      tmc_task_die("Failure in 'tmc_cpus_get_my_affinity()'.");
+    }
+#endif
+
   if (argc == 10 || argc == 9) 
     {
       capacity = atoi( argv[1] );
@@ -465,6 +492,13 @@ main(int argc, char **argv)
   if (argc == 10)
     {
       dsl_per_core = atoi( argv[9] );
+    }
+
+  if (num_procs == 1)
+    {
+      MCORE_shmalloc_term();
+      printf("1 0\n");
+      return 0;
     }
 
   payload_size_cl = payload_size / CACHE_LINE_SIZE;
@@ -498,19 +532,47 @@ main(int argc, char **argv)
   printf("dsl: %2d | app: %d\n", num_dsl, num_app);
 #endif
     
-  while(capacity % num_dsl != 0)
+  bucket_to_dsl = calloc(capacity, sizeof(uint8_t));
+  assert(bucket_to_dsl != NULL);
+
+  if (capacity % num_dsl != 0)
     {
 #if defined(DEBUG)
       printf("*** table capacity (%d) is not dividable by number of DSL (%d)\n", capacity, num_dsl);
 #endif	/* debug */
-      capacity++;
+      /* capacity++; */
+      uint32_t left = capacity % num_dsl;
+      uint32_t cap_mod = capacity - left;
+      uint32_t cap_per_dsl = cap_mod / num_dsl;
+      uint32_t b;
+      for (b = 0; b < cap_mod; b++)
+	{
+	  bucket_to_dsl[b] = dsl_seq[b / cap_per_dsl];
+	}
+      for (; b < cap_mod + left; b++)
+	{
+	  bucket_to_dsl[b] = dsl_seq[b % num_dsl];
+	}
     }
+  else
+    {
+      uint32_t cap_per_dsl = capacity / num_dsl;
+      uint32_t b;
+      for (b = 0; b < capacity; b++)
+	{
+	  bucket_to_dsl[b] = dsl_seq[b / cap_per_dsl];
+	}
+    }
+
     
   ssmp_init(num_procs);
     
   ssmp_barrier_init(2, 0, color_dsl);
   ssmp_barrier_init(1, 0, color_app1);
-    
+  ssmp_barrier_init(0, 0, color_all);
+  ssmp_barrier_init(3, 0, color_all);
+  ssmp_barrier_init(4, 0, color_all);
+
   MCORE_shmalloc_init(num_app * MCORE_SIZE);
 
   int rank;
@@ -544,6 +606,7 @@ main(int argc, char **argv)
       dht_app();
     }
     
+
   ssmp_barrier_wait(0);
 
   double total_throughput = 0;
@@ -567,6 +630,10 @@ main(int argc, char **argv)
   //printf("core %d, \n", rank);
   ssmp_barrier_wait(3);
   ssmp_term();
+  if (ssmp_id() == 0)
+    {
+      MCORE_shmalloc_term();
+    }
   return 0;
 }
 
@@ -611,4 +678,9 @@ int nth_app(int id)
 	}
     }
   return s;
+}
+
+int color_all(int id)
+{
+  return 1;
 }

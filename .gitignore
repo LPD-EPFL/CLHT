@@ -1,6 +1,7 @@
 /.gitignore~
 /Makefile~
 /alock.o
+/core
 /cscope.files
 /cscope.out
 /dht_mp.o
@@ -19,9 +20,13 @@
 /main_lock.c~
 /mcore_malloc.o
 /mcs.o
+/perf.sh
+/perf.sh~
 /run
 /run_2.sh~
+/run_stat~
 /run_throughput.sh~
+/run~
 /rw_ttas.o
 /sequential
 /throughput_array

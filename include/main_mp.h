@@ -16,10 +16,10 @@ typedef struct ssht_rpc
   union
   {
     void* value;
-    uint32_t resp;
+    uint64_t resp;
   };
-  ssht_addr_t key;
-  ssht_rpc_type op;
+  uint32_t key;
+  uint8_t  op;
 } ssht_rpc_t;
 
 #endif	/*  __MAIN_MP_H__ */

@@ -14,7 +14,7 @@
 #define false 0
 
 #define CACHE_LINE_SIZE 64
-#define ENTRIES_PER_BUCKET 6
+#define ENTRIES_PER_BUCKET 14
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -24,6 +24,28 @@
 #  endif
 #endif
 
+#if defined(__sparc__)
+#define PREFETCHW(x) 
+#define PREFETCH(x) 
+#define PREFETCHNTA(x) 
+#define PREFETCHT0(x) 
+#define PREFETCHT1(x) 
+#define PREFETCHT2(x) 
+
+#  define PAUSE    asm volatile("rd    %%ccr, %%g0\n\t" \
+				::: "memory")
+#define _mm_pause() PAUSE
+#define _mm_mfence() __asm__ __volatile__("membar #LoadLoad | #LoadStore | #StoreLoad | #StoreStore");
+#define _mm_lfence() __asm__ __volatile__("membar #LoadLoad | #LoadStore");
+#define _mm_sfence() __asm__ __volatile__("membar #StoreLoad | #StoreStore");
+
+
+#elif defined(__tile__)
+#define _mm_lfence() arch_atomic_read_barrier()
+#define _mm_sfence() arch_atomic_write_barrier()
+#define _mm_mfence() arch_atomic_full_barrier()
+#define _mm_pause() cycle_relax()
+#endif
 
 typedef uintptr_t ssht_addr_t;
 
