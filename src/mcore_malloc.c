@@ -41,42 +41,48 @@ MCORE_shmalloc_set(void* mem)
 void
 MCORE_shmalloc_init(size_t size)
 {
-   //create the shared space which will be managed by the allocator
+  //create the shared space which will be managed by the allocator
 
-   char keyF[MAX_FILENAME_LENGTH];
-   sprintf(keyF,"/mcore_mem2");
+  char keyF[MAX_FILENAME_LENGTH];
+  sprintf(keyF,"/mcore_mem2");
 
-   int shmfd = shm_open(keyF, O_CREAT | O_EXCL | O_RDWR, S_IRWXU | S_IRWXG);
-   if (shmfd<0)
-   {
+  int shmfd = shm_open(keyF, O_CREAT | O_EXCL | O_RDWR, S_IRWXU | S_IRWXG);
+  if (shmfd<0)
+    {
       if (errno != EEXIST)
-      {
-         perror("In shm_open");
-         exit(1);
-      }
+	{
+	  perror("In shm_open");
+	  exit(1);
+	}
 
       //this time it is ok if it already exists
       shmfd = shm_open(keyF, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
       if (shmfd<0)
-      {
-         perror("In shm_open");
-         exit(1);
-      }
-   }
-   else
-   {
+	{
+	  perror("In shm_open");
+	  exit(1);
+	}
+    }
+  else
+    {
       //only if it is just created
-     if (!ftruncate(shmfd,size))
-       {
-	 printf("ftruncate failed\n");
-       }
-   }
+      if (!ftruncate(shmfd,size))
+	{
+	  printf("ftruncate failed\n");
+	}
+    }
 
   t_vcharp mem = (t_vcharp) mmap(NULL, size,PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
   assert(mem != NULL);
 
   // create one block containing all memory for truly dynamic memory allocator
   mcore_app_mem = (void*) mem;
+
+}
+
+void MCORE_shmalloc_offset(size_t size)
+{
+  mcore_app_mem += size;
 }
 
 #endif	/* PLATFORM_TILERA */

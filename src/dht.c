@@ -140,7 +140,7 @@ ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin)
 	    }
 	}
         
-      if (bucket->empty < ENTRIES_PER_BUCKET)
+      if (j < ENTRIES_PER_BUCKET)
 	{
 	  bucket->key[j] = key;
 	  bucket->entry[j] = value;
@@ -175,10 +175,11 @@ ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
 	    }
 	}
 
-      if (bucket->empty == CACHE_LINE_SIZE)
+      if (j < ENTRIES_PER_BUCKET)
 	{
-	  return NULL;
+	  break;
 	}
+
       bucket = bucket->next;
     } while (bucket != NULL);
   return NULL;
@@ -189,8 +190,7 @@ void*
 ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
 {
   bucket_t* bucket = hashtable->table + bin;
-  bucket_t* bucket_last_prev = bucket;
-    
+
   uint32_t j;
   do 
     {
@@ -198,13 +198,14 @@ ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
 	{
 	  if(bucket->key[j] == key) 
 	    {
-	      bucket->key[j] = 0;
+	      /* bucket->key[j] = 0; */
 
 	      bucket_t* bucket_last = bucket;
-	      while (bucket_last->next != NULL)
+	      bucket_t* nxt = bucket->next;
+	      while (nxt != NULL && nxt->empty)
 		{
-		  bucket_last_prev = bucket_last;
-		  bucket_last = bucket_last->next;
+		  bucket_last = nxt;
+		  nxt = nxt->next;
 		}
 
 	      uint32_t move = bucket_last->empty - 1;
@@ -216,22 +217,22 @@ ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
 	      bucket_last->entry[move] = NULL;
 	      bucket_last->empty--;
 
-	      if (bucket_last->empty == 0 && bucket_last != bucket_last_prev)
-		{
-		  free(bucket_last);
-		  bucket_last_prev->next = NULL;
-		}
+	      /* if (bucket_last->empty == 0 && bucket_last != bucket_last_prev) */
+	      /* 	{ */
+	      /* 	  /\* printf("freeing : %p / prv: %p\n", bucket_last, bucket_last_prev); *\/ */
+	      /* 	  free(bucket_last); */
+	      /* 	  bucket_last_prev->next = NULL; */
+	      /* 	} */
 
 	      return value_rmved;
 	    }
 	}
 
-      if (bucket->empty < ENTRIES_PER_BUCKET)
+      if (j < ENTRIES_PER_BUCKET)
 	{
-	  return NULL;
+	  break;
 	}
         
-      bucket_last_prev = bucket;
       bucket = bucket->next;
     } while (bucket != NULL);
   return NULL;
@@ -286,26 +287,17 @@ ht_size(hashtable_t *hashtable, uint32_t capacity)
     {
       bucket = hashtable->table + bin;
        
-      uint8_t have_more = 1;
       uint32_t j;
       do
 	{
-	  for(j = 0; j < ENTRIES_PER_BUCKET; j++)
+	  for(j = 0; j < bucket->empty; j++)
 	    {
-	      if(bucket->key[j] != 0)
-		{
-		  size++;
-		}
-	      else
-		{
-		  have_more = 0;
-		  break;
-		}
+	      size++;
 	    }
 
 	  bucket = bucket->next;
 	}
-      while (have_more && bucket != NULL);
+      while (bucket != NULL);
     }
   return size;
 }
@@ -313,37 +305,32 @@ ht_size(hashtable_t *hashtable, uint32_t capacity)
 void
 ht_print(hashtable_t *hashtable, uint32_t capacity)
 {
-  bucket_t *bucket = NULL;
+  bucket_t *bucket;
 
   uint32_t bin;
   for (bin = 0; bin < capacity; bin++)
     {
-      printf("[%-4u]: ", bin);
       bucket = hashtable->table + bin;
-       
-      uint8_t have_more = 1;
+
       uint32_t j;
       do
 	{
-	  for(j = 0; j < ENTRIES_PER_BUCKET; j++)
+	  for(j = 0; j < bucket->empty; j++)
 	    {
-	      if(bucket->key[j] != 0)
-		{
-		  printf("(%-5llu/ %p)-> ", (long long unsigned int) bucket->key[j], bucket->entry[j]);
-		}
-	      else
-		{
-		  printf("NULL\n");
-		  have_more = 0;
-		  break;
-		}
+	      printf("(%-5llu/ %p)-> ", (long long unsigned int) bucket->key[j], bucket->entry[j]);
 	    }
 
-	  printf("** -> ");
+	  if (j < ENTRIES_PER_BUCKET)
+	    {
+	      break;
+	    }
+
 	  bucket = bucket->next;
+	  printf(" ** -> ");
 	}
-      while (have_more && bucket != NULL);
+      while (bucket != NULL);
     }
+  fflush(stdout);
 }
 
 

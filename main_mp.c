@@ -11,16 +11,17 @@
 #include <inttypes.h>
 
 #ifdef __sparc__
-#include "include/common.h"
-#include "include/ssmp.h"
-#include "include/dht.h"
+#  include "include/common.h"
+#  include "include/ssmp.h"
+#  include "include/dht.h"
 #else
-#include "common.h"
-#include <ssmp.h>
-#include "dht.h"
+#  include "common.h"
+#  include <ssmp.h>
+#  include "dht.h"
 #endif
 
 #include "main_mp.h"
+#include "mcore_malloc.h"
 
 /*
  * Useful macros to work with transactions. Note that, to use nested
@@ -63,7 +64,9 @@ int duration;
 float filling_rate;
 float update_rate;
 float get_rate;
-int payload_size;
+uint32_t payload_size;
+uint32_t payload_size_cl;
+
 
 int seed = 0;
 unsigned long* seeds;
@@ -87,6 +90,17 @@ alarm_handler(int sig)
   work = 0;
 }
 
+static inline void
+touch_buffer(volatile char* buf, uint32_t size_cl)
+{
+  uint32_t i;
+  for (i = 0; i < size_cl; i += CACHE_LINE_SIZE)
+    {
+      buf[i] = i;
+    }
+  _mm_sfence();
+}
+
 ssmp_msg_t* msg;
 ssht_rpc_t* rpc;
 
@@ -105,10 +119,11 @@ enum
 /* help functions */
 int color_dsl(int id);
 int nth_dsl(int id);
+int nth_app(int id);
 int color_app1(int id);
 
 /* dht funcitonality */
-uint8_t
+uint64_t
 _put( uint64_t key, void *value, int payload_size, int dsl )
 {
   rpc->value = value;
@@ -123,15 +138,15 @@ _put( uint64_t key, void *value, int payload_size, int dsl )
 }
 
 void*
-_get( uint64_t key, int dsl)
+_get( uint64_t key, void* buffer, int dsl)
 {
+  rpc->value = buffer;
   rpc->key = key;
   rpc->op = SSHT_GET;
 
   ssmp_send(dsl, msg);
   _mm_pause();
   ssmp_recv_from(dsl, msg);
-    
   return rpc->value;
 }
 
@@ -164,6 +179,21 @@ _size(uint32_t num_dsl)
   return size;
 }
 
+void
+_print(uint32_t num_dsl)
+{
+  rpc->op = SSHT_PRN;
+  uint32_t s;
+  for (s = 0; s < num_dsl; s++)
+    {
+      ssmp_send(dsl_seq[s], msg);
+      ssmp_recv_from(dsl_seq[s], msg);
+      _mm_mfence();
+    }
+}
+
+
+
 static inline int
 get_dsl(int bin, int num_dsl)
 {
@@ -177,7 +207,7 @@ dht_app()
 
   int bin;
   uint64_t key;
-  void * value, * local;
+  void* value = NULL, * local, * remote;
   int c = 0;
   uint8_t scale_update = (update_rate * 128);
   uint32_t bucket_per_dsl = capacity / num_dsl;
@@ -188,8 +218,9 @@ dht_app()
   assert(msg != NULL);
   rpc = (ssht_rpc_t *) msg;
     
-  value = malloc(payload_size);
-  local = malloc(payload_size);
+  local = MCORE_shmalloc(payload_size);
+  remote = MCORE_shmalloc(payload_size);
+  
     
   ssmp_barrier_wait(4);
   /* populate the table */
@@ -201,7 +232,7 @@ dht_app()
 	  key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
 	  bin = key % capacity;
 	  dsl = get_dsl(bin, bucket_per_dsl);
-	  value = malloc( payload_size );
+	  value = MCORE_shmalloc(payload_size);
 	  _mm_mfence();
 	  if (!_put(key, value, payload_size, dsl))
 	    {
@@ -210,8 +241,9 @@ dht_app()
 	  _mm_mfence();
 	}
 
-      PRINT("inserted elems");
-      PRINT("size bf : %u", _size(num_dsl)); 
+#if defined(DEBUG)
+      PRINT("size bf : %lu", _size(num_dsl)); 
+#endif	/* debug */
     }
   ssmp_barrier_wait(1);
 
@@ -226,10 +258,7 @@ dht_app()
   uint8_t putting = true;
   uint8_t update = false;
 
-  /* ONCE */
-  /*   { */
-  PRINT("scale update is %u", scale_update);
-  /* } */
+  uint64_t mc = 0, mct = 0;
 
   double __start = wtime();
   while (work)
@@ -240,23 +269,16 @@ dht_app()
         
       if(succ) 
 	{
-	  c = (int)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
+	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
 	  update = (c < scale_update);
 	}
 
-      uint64_t tries = 0;
-      while (value == NULL)
-	{
-	  value = malloc(payload_size); //MCORE_shmalloc(payload_size);
-	  if (tries++ > 1000)
-	    {
-	      PRINT("m");
-	    }
-	}
-      /* if (update && putting) */
-      /* 	{ */
-      /* 	  memset(value, 'O', payload_size); */
-      /* 	} */
+      if (update && putting && succ)
+      	{
+	  value = MCORE_shmalloc(payload_size);
+      	  /* memset(value, 'O', payload_size); */
+	  touch_buffer(value, payload_size_cl);
+      	}
 
       succ = 0;        
 
@@ -268,7 +290,6 @@ dht_app()
 		{
 		  succ = 1;
 		  putting = false;
-		  value = NULL;
 		}
 	    } 
 	  else 
@@ -277,7 +298,7 @@ dht_app()
 	      if(removed != NULL) 
 		{
 		  succ = 1;
-		  free(removed); //MCORE_shfree(removed);
+		  MCORE_shfree(removed);
 		  putting = true;
 		}
 	    }
@@ -285,32 +306,36 @@ dht_app()
 	} 
       else
 	{ 
-	  value = _get( key, dsl );
+	  value = _get( key, remote, dsl );
 	  if(value != NULL) 
 	    {
 	      succ = 1;
-	      /* memcpy(local, value, payload_size); */
+	      mc++;
+	      ticks _s = getticks();
+	      memcpy(local, value, payload_size);
+	      mct += getticks() - _s - 64;
 	    }
 	}
 
       my_succ_count += succ;
       my_total_count++;
-      if (my_total_count % 100 == 0)
-	{
-	  /* PRINT("progressing"); */
-	}
     }
   double __end = wtime();
   duration__ =  __end - __start;
 
     
-  PRINT("total: %u / succ: %u", my_total_count, my_succ_count);
-
   ssmp_barrier_wait(1);
+
+#if defined(DEBUG)
+#define LLU long long unsigned int
+  PRINT("total: %llu / succ: %llu / %llu", (LLU) my_total_count, (LLU) my_succ_count, (LLU) mct / mc);
   if (ID == 1)
     {
-      PRINT("size af : %u", _size(num_dsl)); 
+      PRINT("size af : %lu", _size(num_dsl)); 
+      /* _print(num_dsl); */
     }
+#endif	/* debug */
+
   ssmp_barrier_wait(1);
   if (ssmp_id() == 1)
     {
@@ -326,6 +351,8 @@ dht_app()
     
   double throughput = (my_total_count) / duration__;
     
+  _mm_mfence();
+
   /* PRINT("Completed in %10f secs | throughput: %f", duration__, throughput); */
   memcpy(msg, &throughput, sizeof(double));
   ssmp_send(0, msg);
@@ -335,7 +362,7 @@ void
 dht_dsl()
 {
   uint32_t capacity_mine = capacity / num_dsl;
-  PRINT("DSL -- handling %4d buckets", capacity_mine);
+  /* PRINT("DSL -- handling %4d buckets", capacity_mine); */
     
   hashtable_t *hashtable = ht_create(capacity_mine);
     
@@ -362,7 +389,7 @@ dht_dsl()
         {
 	case SSHT_PUT:
 	  {
-	    /* PRINT("from %-3d : PUT for %-5d", msg->sender, msg->w1); */
+	    /* PRINT("from %-3d : PUT for %-5d : %p", msg->sender, key, rpc->value); */
 	    uint32_t bin = ht_hash(hashtable, key);
 	    rpc->resp = ht_put( hashtable, key, rpc->value, bin);
 	    ssmp_send(msg->sender, msg);
@@ -370,23 +397,37 @@ dht_dsl()
 	  }
 	case SSHT_GET:
 	  {
-	    /* PRINT("from %-3d : CHECK   for %-5d", msg->sender, msg->w1); */
 	    uint32_t bin = ht_hash(hashtable, key);
-	    rpc->resp = ht_get(hashtable, key, bin);
+	    void* data = ht_get(hashtable, key, bin);
+	    if (data != NULL)
+	      {
+		memcpy(rpc->value, data, payload_size);
+	      }
+	    else
+	      {
+		rpc->value = NULL;
+	      }
+	    /* PRINT("from %-3d : GET for %-5d : %p", msg->sender, key, rpc->value); */
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
 	case SSHT_REM:
 	  {
-	    /* PRINT("from %-3d : GET for %-5d", msg->sender, msg->w1); */
 	    uint32_t bin = ht_hash(hashtable, key);
 	    rpc->value = ht_remove(hashtable, key, bin);
+	    /* PRINT("from %-3d : REM for %-5d : %p", msg->sender, key, rpc->value); */
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
 	case SSHT_SIZ:
 	  {
 	    rpc->resp = ht_size(hashtable, capacity_mine);
+	    ssmp_send(msg->sender, msg);
+	    break;
+	  }
+	case SSHT_PRN:
+	  {
+	    ht_print(hashtable, capacity_mine);
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
@@ -403,7 +444,7 @@ dht_dsl()
 int
 main(int argc, char **argv)
 {
-  if (argc == 9) 
+  if (argc == 10 || argc == 9) 
     {
       capacity = atoi( argv[1] );
       num_procs = atoi( argv[2] );
@@ -417,12 +458,19 @@ main(int argc, char **argv)
     } 
   else 
     {
-      printf("ERROR; usage ./main table_capacity num_procs num_elements filling_rate payload_size duration put_rate get_rate remove_rate\n");
+      printf("ERROR; usage ./main table_capacity num_procs num_elements filling_rate payload_size duration put_rate get_rate remove_rate dsl_per_cores\n");
       exit(-1);
     }
     
+  if (argc == 10)
+    {
+      dsl_per_core = atoi( argv[9] );
+    }
+
+  payload_size_cl = payload_size / CACHE_LINE_SIZE;
+
   rand_min = 1;
-  rand_max = num_elements + rand_min;
+  rand_max = num_elements;
     
   //capacity = pow2roundup(capacity);
     
@@ -446,11 +494,15 @@ main(int argc, char **argv)
         }
     }
     
+#if defined(DEBUG)
   printf("dsl: %2d | app: %d\n", num_dsl, num_app);
+#endif
     
   while(capacity % num_dsl != 0)
     {
+#if defined(DEBUG)
       printf("*** table capacity (%d) is not dividable by number of DSL (%d)\n", capacity, num_dsl);
+#endif	/* debug */
       capacity++;
     }
     
@@ -459,6 +511,8 @@ main(int argc, char **argv)
   ssmp_barrier_init(2, 0, color_dsl);
   ssmp_barrier_init(1, 0, color_app1);
     
+  MCORE_shmalloc_init(num_app * MCORE_SIZE);
+
   int rank;
   for (rank = 1; rank < num_procs; rank++) 
     {
@@ -478,13 +532,15 @@ main(int argc, char **argv)
     
   set_cpu(id_to_core[ID]);
   ssmp_mem_init(ID, num_procs);
-    
+  
   if (color_dsl(ID))
     {
       dht_dsl();
     }
   else
     {
+      uint32_t nthapp = nth_app(ID);
+      MCORE_shmalloc_offset(nthapp * MCORE_SIZE);
       dht_app();
     }
     
@@ -538,4 +594,21 @@ int nth_dsl(int id)
 int color_app1(int id)
 {
     return !(color_dsl(id));
+}
+
+int nth_app(int id)
+{
+  uint32_t i, s = 0;
+  for (i = 0; i < ssmp_num_ues(); i++)
+    {
+      if (i == id)
+	{
+	  break;
+	}
+      else if (color_app1(i))
+	{
+	  s++;
+	}
+    }
+  return s;
 }

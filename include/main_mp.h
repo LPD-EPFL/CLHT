@@ -9,6 +9,7 @@ typedef uint8_t ssht_rpc_type;
 #define  SSHT_REM 2
 #define  SSHT_EXT 3
 #define  SSHT_SIZ 4
+#define  SSHT_PRN 5
 
 typedef struct ssht_rpc
 {

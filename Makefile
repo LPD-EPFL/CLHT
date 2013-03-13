@@ -19,6 +19,7 @@ PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
 LIBS+= -lrt -lpthread -lm -lnuma
 LIBS_MP+= -lrt -lm -lnuma
+ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
 endif
 
 ifeq ($(UNAME), diassrv8)
@@ -72,14 +73,17 @@ MAININCLUDE := $(TOP)/include
 
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 #OBJ_FILES := mcs.o ttas.o rw_ttas.o ticket.o alock.o hclh.o htlock.o mcore_malloc.o
-OBJ_FILES := mcore_malloc.o
-OBJ_FILES_MP := mcore_malloc.o
+OBJ_FILES := mcore_malloc.o 
+OBJ_FILES_MP := mcore_malloc.o dht_mp.o
 
 all: $(ALL)
 
 # latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
 
 mcore_malloc.o: src/mcore_malloc.c include/mcore_malloc.h
+	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
+
+dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
 
 latency_hclh: main_lock.c $(OBJ_FILES)
@@ -140,8 +144,12 @@ throughput_hticket: main_lock.c $(OBJ_FILES)
 sequential: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_HCLH_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DSEQUENTIAL $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o sequential $(LIBS)
 
+
+dht_mp.o: src/dht.c include/dht.h
+	$(GCC) -m64 -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) -c src/dht.c -o dht_mp.o $(LIBS_MP)
+
 throughput_mp: main_mp.c $(OBJ_FILES_MP) 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) -g main_mp.c src/dht.c -o throughput_mp $(LIBS_MP)
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) -DMESSAGE_PASSING $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES_MP) main_mp.c -o throughput_mp $(LIBS_MP)
 
 clean:				
 	rm -f *.o latency_hclh latency_ttas latency_mcs latency_array latency_ticket latency_mutex latency_hticket throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_mutex throughput_hticket sequential throughput_mp results/*.txt *.eps *.pdf *.ps

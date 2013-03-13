@@ -15,12 +15,17 @@
 #include <inttypes.h>
 #include <string.h>
 
-#define MCORE_SIZE (256 * 1024 * 1024)
+#if defined(MESSAGE_PASSING)
+#include <ssmp.h>
+#endif
+
+#define MCORE_SIZE (10 * 1024 * 1024)
 
 typedef volatile unsigned char* t_vcharp;
 
 void MCORE_shmalloc_set(void* mem);
 void MCORE_shmalloc_init(size_t size);
+void MCORE_shmalloc_offset(size_t size);
 void* MCORE_shmalloc(size_t size);
 void MCORE_shfree(t_vcharp ptr);
 

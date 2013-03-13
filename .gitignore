@@ -3,6 +3,7 @@
 /alock.o
 /cscope.files
 /cscope.out
+/dht_mp.o
 /external
 /hclh.o
 /htlock.o
@@ -19,6 +20,7 @@
 /mcore_malloc.o
 /mcs.o
 /run
+/run_2.sh~
 /run_throughput.sh~
 /rw_ttas.o
 /sequential
