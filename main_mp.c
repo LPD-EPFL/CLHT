@@ -114,6 +114,7 @@ int color_dsl(int id);
 int nth_dsl(int id);
 int nth_app(int id);
 int color_app1(int id);
+int color_all(int id);
 
 /* dht funcitonality */
 uint64_t
@@ -219,9 +220,13 @@ dht_app()
   
     
   ssmp_barrier_wait(4);
+
   /* populate the table */
   ONCE
     {
+#if defined(DEBUG)
+      PRINT("inserting elements");
+#endif	/* debug */
       int i;
       for(i = 0; i < num_elements * filling_rate; i++) 
 	{
@@ -438,6 +443,14 @@ int
 main(int argc, char **argv)
 {
 
+  /* before doing any allocations */
+#if defined(__tile__)
+  if (tmc_cpus_get_my_affinity(&cpus) != 0)
+    {
+      tmc_task_die("Failure in 'tmc_cpus_get_my_affinity()'.");
+    }
+#endif
+
   if (argc == 10 || argc == 9) 
     {
       capacity = atoi( argv[1] );
@@ -511,7 +524,10 @@ main(int argc, char **argv)
     
   ssmp_barrier_init(2, 0, color_dsl);
   ssmp_barrier_init(1, 0, color_app1);
-    
+  ssmp_barrier_init(0, 0, color_all);
+  ssmp_barrier_init(3, 0, color_all);
+  ssmp_barrier_init(4, 0, color_all);
+
   MCORE_shmalloc_init(num_app * MCORE_SIZE);
 
   int rank;
@@ -545,6 +561,7 @@ main(int argc, char **argv)
       dht_app();
     }
     
+
   ssmp_barrier_wait(0);
 
   double total_throughput = 0;
@@ -616,4 +633,9 @@ int nth_app(int id)
 	}
     }
   return s;
+}
+
+int color_all(int id)
+{
+  return 1;
 }
