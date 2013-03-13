@@ -4,13 +4,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include "lock_if.h"
+
+#if defined(LOCKS)
+#  include "lock_if.h"
+#endif
+
 
 #define true 1
 #define false 0
 
 #define CACHE_LINE_SIZE 64
-#define ENTRIES_PER_BUCKET 6
+#define ENTRIES_PER_BUCKET 14
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -20,6 +24,28 @@
 #  endif
 #endif
 
+#if defined(__sparc__)
+#define PREFETCHW(x) 
+#define PREFETCH(x) 
+#define PREFETCHNTA(x) 
+#define PREFETCHT0(x) 
+#define PREFETCHT1(x) 
+#define PREFETCHT2(x) 
+
+#  define PAUSE    asm volatile("rd    %%ccr, %%g0\n\t" \
+				::: "memory")
+#define _mm_pause() PAUSE
+#define _mm_mfence() __asm__ __volatile__("membar #LoadLoad | #LoadStore | #StoreLoad | #StoreStore");
+#define _mm_lfence() __asm__ __volatile__("membar #LoadLoad | #LoadStore");
+#define _mm_sfence() __asm__ __volatile__("membar #StoreLoad | #StoreStore");
+
+
+#elif defined(__tile__)
+#define _mm_lfence() arch_atomic_read_barrier()
+#define _mm_sfence() arch_atomic_write_barrier()
+#define _mm_mfence() arch_atomic_full_barrier()
+#define _mm_pause() cycle_relax()
+#endif
 
 typedef uintptr_t ssht_addr_t;
 
@@ -28,19 +54,36 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   uint64_t empty;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   struct bucket_s *next;
-  void* entry[ENTRIES_PER_BUCKET]; 
+  void* entry[ENTRIES_PER_BUCKET];
+  /* uintptr_t entry[ENTRIES_PER_BUCKET]; */
 } bucket_t;
 
+#if defined(LOCKS)
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
   volatile global_data the_locks;
-#if defined(__tile__)
+#  if defined(__tile__)
   bucket_t *table;
-#else
+#  else
   ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
-#endif
+#  endif
 } hashtable_t;
+
+#elif defined(MESSAGE_PASSING)
+typedef struct ALIGNED(64) hashtable_s
+{
+  uint32_t capacity;
+#  if defined(__tile__)
+  bucket_t *table;
+#  else
+  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
+#  endif
+} hashtable_t;
+
+#else 
+#  error "defined either LOCKS or MESSAGE_PASSING"
+#endif
 
 
 /* Create a new hashtable. */
@@ -56,7 +99,7 @@ uint32_t ht_put( hashtable_t *hashtable, uint64_t key, void *value, uint32_t bin
 void* ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
-void*  ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
+void* ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
 
 /* Dealloc the hashtable */
 void ht_destroy( hashtable_t *hashtable);

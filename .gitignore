@@ -1,8 +1,10 @@
 /.gitignore~
 /Makefile~
 /alock.o
+/core
 /cscope.files
 /cscope.out
+/dht_mp.o
 /external
 /hclh.o
 /htlock.o
@@ -18,8 +20,13 @@
 /main_lock.c~
 /mcore_malloc.o
 /mcs.o
+/perf.sh
+/perf.sh~
 /run
+/run_2.sh~
+/run_stat~
 /run_throughput.sh~
+/run~
 /rw_ttas.o
 /sequential
 /throughput_array
@@ -27,6 +34,7 @@
 /throughput_hclh
 /throughput_hticket
 /throughput_mcs
+/throughput_mp
 /throughput_mutex
 /throughput_spinlock
 /throughput_ticket

@@ -29,7 +29,7 @@
 #include "mcore_malloc.h"
 #endif
 
-#define DEBUG
+#define DEBUG_
 
 /* ################################################################### *
  * GLOBALS
@@ -43,7 +43,8 @@ int duration;
 float filling_rate;
 float update_rate;
 float get_rate;
-int payload_size;
+uint32_t payload_size;
+uint32_t payload_size_cl;
 
 int seed = 0;
 __thread unsigned long * seeds;
@@ -70,6 +71,18 @@ volatile ticks *getting_count_succ;
 volatile ticks *removing_count;
 volatile ticks *removing_count_succ;
 volatile ticks *total;
+
+
+static inline void
+touch_buffer(volatile char* buf, uint32_t size_cl)
+{
+  uint32_t i;
+  for (i = 0; i < size_cl; i += CACHE_LINE_SIZE)
+    {
+      buf[i] = i;
+    }
+  _mm_sfence();
+}
 
 /* ################################################################### *
  * BARRIER
@@ -131,11 +144,14 @@ void *procedure(void *threadid)
   ticks my_removing_opts = 0;
 #endif
   uint64_t my_putting_count = 0;
-  uint64_t my_putting_count_succ = 0;
   uint64_t my_getting_count = 0;
-  uint64_t my_getting_count_succ = 0;
   uint64_t my_removing_count = 0;
+
+#if defined(DEBUG)
+  uint64_t my_putting_count_succ = 0;
+  uint64_t my_getting_count_succ = 0;
   uint64_t my_removing_count_succ = 0;
+#endif
     
 #ifndef COMPUTE_THROUGHPUT
   ticks start_acq, end_acq;
@@ -195,7 +211,7 @@ void *procedure(void *threadid)
   /* uint64_t num_get = 0, num_get_succ = 0; */
   /* uint64_t num_rem = 0, num_rem_succ = 0; */
   
-    
+  uint8_t update = false;
   int succ = 1;
   while (stop == 0) 
     {
@@ -206,15 +222,16 @@ void *procedure(void *threadid)
 #endif
       if(succ) 
 	{
-	  c = (int)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
+	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
+	  update = (c < scale_update);
 	}
 
-      uint8_t update = (c < scale_update);
-
-      if(update && putting && value == NULL) 
-	{
+      if (update && putting && succ)
+      	{
 	  value = MCORE_shmalloc(payload_size);
-	}
+	  /* touch_buffer(value, payload_size_cl); */
+      	  /* memset(value, 'O', payload_size); */
+      	}
 
       succ = 0;
         
@@ -235,7 +252,7 @@ void *procedure(void *threadid)
 	      if(ht_put( hashtable, key, value, bin ))
 		{
 		  succ = 1;
-		  value = NULL;
+		  putting = false;
 		}
 	    } 
 	  else 
@@ -245,6 +262,7 @@ void *procedure(void *threadid)
 		{
 		  succ = 1;
 		  MCORE_shfree(removed);
+		  putting = true;
 		}
 	    }
             
@@ -276,11 +294,12 @@ void *procedure(void *threadid)
 	{
 	  if(putting) 
 	    {
+#if defined(DEBUG)
 	      if (succ)
 		{
 		  my_putting_count_succ++;
-		  putting = false;
 		}
+#endif	/* debug */
 #ifndef COMPUTE_THROUGHPUT
 	      my_putting_acqs += (end_acq - start_acq - correction);
 	      my_putting_rels += (end_rel - start_rel - correction);
@@ -290,11 +309,12 @@ void *procedure(void *threadid)
 	    } 
 	  else 			/* removing */
 	    {
+#if defined(DEBUG)
 	      if (succ)
 		{
 		  my_removing_count_succ++;
-		  putting = true;
 		}
+#endif	/* debug */
 #ifndef COMPUTE_THROUGHPUT
 	      my_removing_acqs += (end_acq - start_acq - correction);
 	      my_removing_rels += (end_rel - start_rel - correction);
@@ -305,10 +325,12 @@ void *procedure(void *threadid)
 	} 
       else
 	{ //if(c < scale_update_get) {
+#if defined(DEBUG)
 	  if (succ)
 	    {
 	      my_getting_count_succ++;
 	    }
+#endif
 #ifndef COMPUTE_THROUGHPUT
 	  my_getting_acqs += (end_acq - start_acq - correction);
 	  my_getting_rels += (end_rel - start_rel - correction);
@@ -341,20 +363,25 @@ void *procedure(void *threadid)
   removing_opts[ID] += my_removing_opts;
 #endif
   putting_count[ID] += my_putting_count;
-  putting_count_succ[ID] += my_putting_count_succ;
   getting_count[ID] += my_getting_count;
-  getting_count_succ[ID] += my_getting_count_succ;
   removing_count[ID]+= my_removing_count;
+
+#if defined(DEBUG)
+  putting_count_succ[ID] += my_putting_count_succ;
+  getting_count_succ[ID] += my_getting_count_succ;
   removing_count_succ[ID]+= my_removing_count_succ;
-    
-  free_local(local_th_data[ID], hashtable->the_locks);
+#endif	/* debug */
+
+#if defined(USE_TICKET_LOCKS)
+  free_local(local_th_data[ID], num_threads);
+#endif
 
   pthread_exit(NULL);
 }
 
 int main( int argc, char **argv ) {
     
-  if ( argc == 9 ) {
+  if ( argc == 9 || argc == 10) {
     capacity = atoi( argv[1] );
     num_threads = atoi( argv[2] );
     num_elements = atoi( argv[3] );
@@ -368,8 +395,10 @@ int main( int argc, char **argv ) {
     exit(-1);
   }
     
-  rand_max = num_elements;
+  payload_size_cl = payload_size / CACHE_LINE_SIZE;
+
   rand_min = 1;
+  rand_max = num_elements;
     
   struct timeval start, end;
   struct timespec timeout;
