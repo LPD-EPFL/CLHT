@@ -277,7 +277,7 @@ dht_app()
       	{
 	  value = MCORE_shmalloc(payload_size);
       	  /* memset(value, 'O', payload_size); */
-	  touch_buffer(value, payload_size_cl);
+	  /* touch_buffer(value, payload_size_cl); */
       	}
 
       succ = 0;        
