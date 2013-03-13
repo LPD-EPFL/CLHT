@@ -3,7 +3,7 @@
 read -p "Enter the max number of cores: " NUM_CORES
 
 duration=1000
-buckets="512 64 32 16 8";
+buckets="512 16";
 rw="0.1'0.9 0.2'0.8 0.3'0.7";
 
 fill_rate=0.5;
@@ -31,7 +31,6 @@ elif [ $(uname -n) = "maglite" ];
 then
     platform="niagara"
 fi
-
 
 for bu in $buckets
 do
@@ -63,7 +62,7 @@ do
 		    for ex in $executables
 		    do
 			p="$bu $c $num_elems $fill_rate $ps $duration $u $g";
-			./$run ./$ex $p | awk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
+			./$run ./$ex $p | gawk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
 		    done;
 		    echo "" | tee -a  $out_dat;
 		done;
