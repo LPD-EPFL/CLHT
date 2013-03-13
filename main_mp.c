@@ -12,16 +12,17 @@
 
 #ifdef __sparc__
 #  include "include/common.h"
-#  include "include/ssmp.h"
 #  include "include/dht.h"
 #else
 #  include "common.h"
-#  include <ssmp.h>
 #  include "dht.h"
 #endif
 
+#include <ssmp.h>
 #include "main_mp.h"
 #include "mcore_malloc.h"
+
+#define DEBUG_
 
 /*
  * Useful macros to work with transactions. Note that, to use nested
@@ -108,14 +109,6 @@ ssht_rpc_t* rpc;
  * DISTRIBUTED HASHTABLE
  * ################################################################### */
 
-enum
-{
-    PUT,
-    GET,
-    REMOVE,
-    EXIT
-} dht_op;
-
 /* help functions */
 int color_dsl(int id);
 int nth_dsl(int id);
@@ -126,6 +119,7 @@ int color_app1(int id);
 uint64_t
 _put( uint64_t key, void *value, int payload_size, int dsl )
 {
+  /* PRINT("putting: %-5u , val: %p", key, value); */
   rpc->value = value;
   rpc->key = key;
   rpc->op = SSHT_PUT;
@@ -140,6 +134,7 @@ _put( uint64_t key, void *value, int payload_size, int dsl )
 void*
 _get( uint64_t key, void* buffer, int dsl)
 {
+  /* PRINT("getting: %-5u , val: %p", key, buffer); */
   rpc->value = buffer;
   rpc->key = key;
   rpc->op = SSHT_GET;
@@ -153,6 +148,7 @@ _get( uint64_t key, void* buffer, int dsl)
 void*
 _remove( uint64_t key, int dsl)
 {
+  /* PRINT("removing: %-5u , val: %p", key); */
   rpc->key = key;
   rpc->op = SSHT_REM;
   ssmp_send(dsl, msg);
@@ -241,6 +237,8 @@ dht_app()
 	  _mm_mfence();
 	}
 
+      /* PRINT("inserted.."); */
+
 #if defined(DEBUG)
       PRINT("size bf : %lu", _size(num_dsl)); 
 #endif	/* debug */
@@ -258,9 +256,8 @@ dht_app()
   uint8_t putting = true;
   uint8_t update = false;
 
-  uint64_t mc = 0, mct = 0;
-
   double __start = wtime();
+
   while (work)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
@@ -277,7 +274,7 @@ dht_app()
       	{
 	  value = MCORE_shmalloc(payload_size);
       	  /* memset(value, 'O', payload_size); */
-	  touch_buffer(value, payload_size_cl);
+	  /* touch_buffer(value, payload_size_cl); */
       	}
 
       succ = 0;        
@@ -310,10 +307,7 @@ dht_app()
 	  if(value != NULL) 
 	    {
 	      succ = 1;
-	      mc++;
-	      ticks _s = getticks();
 	      memcpy(local, value, payload_size);
-	      mct += getticks() - _s - 64;
 	    }
 	}
 
@@ -323,12 +317,11 @@ dht_app()
   double __end = wtime();
   duration__ =  __end - __start;
 
-    
   ssmp_barrier_wait(1);
 
 #if defined(DEBUG)
 #define LLU long long unsigned int
-  PRINT("total: %llu / succ: %llu / %llu", (LLU) my_total_count, (LLU) my_succ_count, (LLU) mct / mc);
+  PRINT("total: %llu / succ: %llu ", (LLU) my_total_count, (LLU) my_succ_count);
   if (ID == 1)
     {
       PRINT("size af : %lu", _size(num_dsl)); 
@@ -344,6 +337,7 @@ dht_app()
         {
 	  rpc->op = SSHT_EXT;
 	  ssmp_send(dsl_seq[i], msg);
+	  ssmp_recv_from(dsl_seq[i], msg);
         }
     }
     
@@ -356,6 +350,7 @@ dht_app()
   /* PRINT("Completed in %10f secs | throughput: %f", duration__, throughput); */
   memcpy(msg, &throughput, sizeof(double));
   ssmp_send(0, msg);
+  _mm_mfence();
 }
 
 void
@@ -384,20 +379,18 @@ dht_dsl()
       ssmp_recv_color_start(cbuf, msg);
 
       ssht_addr_t key = rpc->key;
-
+      uint32_t bin = ht_hash(hashtable, key);
       switch (rpc->op)
         {
 	case SSHT_PUT:
 	  {
 	    /* PRINT("from %-3d : PUT for %-5d : %p", msg->sender, key, rpc->value); */
-	    uint32_t bin = ht_hash(hashtable, key);
 	    rpc->resp = ht_put( hashtable, key, rpc->value, bin);
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
 	case SSHT_GET:
 	  {
-	    uint32_t bin = ht_hash(hashtable, key);
 	    void* data = ht_get(hashtable, key, bin);
 	    if (data != NULL)
 	      {
@@ -413,7 +406,6 @@ dht_dsl()
 	  }
 	case SSHT_REM:
 	  {
-	    uint32_t bin = ht_hash(hashtable, key);
 	    rpc->value = ht_remove(hashtable, key, bin);
 	    /* PRINT("from %-3d : REM for %-5d : %p", msg->sender, key, rpc->value); */
 	    ssmp_send(msg->sender, msg);
@@ -432,18 +424,20 @@ dht_dsl()
 	    break;
 	  }
 	default:
-	  /* PRINT("exiting"); */
 	  done = 1;
+	  ssmp_send(msg->sender, msg);
 	  ht_destroy( hashtable );
 	  break;
         }
     }
+
 }
 
 
 int
 main(int argc, char **argv)
 {
+
   if (argc == 10 || argc == 9) 
     {
       capacity = atoi( argv[1] );
@@ -567,6 +561,10 @@ main(int argc, char **argv)
   //printf("core %d, \n", rank);
   ssmp_barrier_wait(3);
   ssmp_term();
+  if (ssmp_id() == 0)
+    {
+      MCORE_shmalloc_term();
+    }
   return 0;
 }
 

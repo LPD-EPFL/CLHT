@@ -68,7 +68,7 @@ MCORE_shmalloc_init(size_t size)
       //only if it is just created
       if (!ftruncate(shmfd,size))
 	{
-	  printf("ftruncate failed\n");
+	  /* printf("ftruncate failed\n"); */
 	}
     }
 
@@ -77,8 +77,15 @@ MCORE_shmalloc_init(size_t size)
 
   // create one block containing all memory for truly dynamic memory allocator
   mcore_app_mem = (void*) mem;
-
 }
+
+void MCORE_shmalloc_term()
+{
+  char keyF[100];
+  sprintf(keyF,"/mcore_mem2");
+  shm_unlink(keyF);
+}
+
 
 void MCORE_shmalloc_offset(size_t size)
 {

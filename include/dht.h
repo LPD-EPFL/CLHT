@@ -24,6 +24,21 @@
 #  endif
 #endif
 
+#if defined(__sparc__)
+#define PREFETCHW(x) 
+#define PREFETCH(x) 
+#define PREFETCHNTA(x) 
+#define PREFETCHT0(x) 
+#define PREFETCHT1(x) 
+#define PREFETCHT2(x) 
+
+#  define PAUSE    asm volatile("rd    %%ccr, %%g0\n\t" \
+				::: "memory")
+#define _mm_pause() PAUSE
+#define _mm_mfence() __asm__ __volatile__("membar #LoadLoad | #LoadStore | #StoreLoad | #StoreStore");
+#define _mm_lfence() __asm__ __volatile__("membar #LoadLoad | #LoadStore");
+#define _mm_sfence() __asm__ __volatile__("membar #StoreLoad | #StoreStore");
+#endif
 
 typedef uintptr_t ssht_addr_t;
 

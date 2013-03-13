@@ -34,8 +34,9 @@ ifeq ($(UNAME), maglite)
 PLATFORM=-DSPARC
 GCC:=/opt/csw/bin/gcc
 LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
 COMPILE_FLAGS+= -m64 -mcpu=v9 -mtune=v9
-ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_mp sequential
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)

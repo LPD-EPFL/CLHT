@@ -1,6 +1,7 @@
 /.gitignore~
 /Makefile~
 /alock.o
+/core
 /cscope.files
 /cscope.out
 /dht_mp.o
