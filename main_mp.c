@@ -75,7 +75,8 @@ int rand_max, rand_min;
 
 static volatile int stop;
 
-int dsl_seq[64];
+int dsl_seq[80];
+uint8_t* bucket_to_dsl;
 uint8_t ID, num_dsl, num_app;
 int num_procs;
 
@@ -194,7 +195,8 @@ _print(uint32_t num_dsl)
 static inline int
 get_dsl(int bin, int num_dsl)
 {
-  return dsl_seq[bin / num_dsl];
+  return bucket_to_dsl[bin];
+    //dsl_seq[bin / num_dsl];
 }
 
 void
@@ -207,8 +209,16 @@ dht_app()
   void* value = NULL, * local, * remote;
   int c = 0;
   uint8_t scale_update = (update_rate * 128);
-  uint32_t bucket_per_dsl = capacity / num_dsl;
-    
+  uint32_t bucket_per_dsl;
+  if (capacity >= num_dsl)
+    {
+      bucket_per_dsl = capacity / num_dsl;
+    }
+  else
+    {
+      bucket_per_dsl = 1;
+    }
+
   int dsl;
     
   msg = (ssmp_msg_t *) malloc(sizeof(ssmp_msg_t));
@@ -242,9 +252,8 @@ dht_app()
 	  _mm_mfence();
 	}
 
-      /* PRINT("inserted.."); */
-
 #if defined(DEBUG)
+      PRINT("inserted..");
       PRINT("size bf : %lu", _size(num_dsl)); 
 #endif	/* debug */
     }
@@ -361,8 +370,18 @@ dht_app()
 void
 dht_dsl()
 {
-  uint32_t capacity_mine = capacity / num_dsl;
-  /* PRINT("DSL -- handling %4d buckets", capacity_mine); */
+  uint32_t capacity_mine = 0;
+      uint32_t b;
+      for (b = 0; b < capacity; b++)
+	{
+	  if (bucket_to_dsl[b] == dsl_seq[ID])
+	    {
+	      capacity_mine++;
+	    }
+	}
+      /* PRINT("DSL -- handling %4d buckets", capacity_mine); */
+  
+
     
   hashtable_t *hashtable = ht_create(capacity_mine);
     
@@ -435,6 +454,7 @@ dht_dsl()
 	  break;
         }
     }
+
 
 }
 
@@ -512,13 +532,38 @@ main(int argc, char **argv)
   printf("dsl: %2d | app: %d\n", num_dsl, num_app);
 #endif
     
-  while(capacity % num_dsl != 0)
+  bucket_to_dsl = calloc(capacity, sizeof(uint8_t));
+  assert(bucket_to_dsl != NULL);
+
+  if (capacity % num_dsl != 0)
     {
 #if defined(DEBUG)
       printf("*** table capacity (%d) is not dividable by number of DSL (%d)\n", capacity, num_dsl);
 #endif	/* debug */
-      capacity++;
+      /* capacity++; */
+      uint32_t left = capacity % num_dsl;
+      uint32_t cap_mod = capacity - left;
+      uint32_t cap_per_dsl = cap_mod / num_dsl;
+      uint32_t b;
+      for (b = 0; b < cap_mod; b++)
+	{
+	  bucket_to_dsl[b] = dsl_seq[b / cap_per_dsl];
+	}
+      for (; b < cap_mod + left; b++)
+	{
+	  bucket_to_dsl[b] = dsl_seq[b % num_dsl];
+	}
     }
+  else
+    {
+      uint32_t cap_per_dsl = capacity / num_dsl;
+      uint32_t b;
+      for (b = 0; b < capacity; b++)
+	{
+	  bucket_to_dsl[b] = dsl_seq[b / cap_per_dsl];
+	}
+    }
+
     
   ssmp_init(num_procs);
     

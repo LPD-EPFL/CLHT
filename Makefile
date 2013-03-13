@@ -30,7 +30,8 @@ PLATFORM=-DXEON
 GCC=gcc
 PLATFORM_NUMA=1
 LIBS+= -lrt -lpthread -lm -lnuma
-ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket sequential
+LIBS_MP+= -lrt -lm -lnuma
+ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
 endif
 
 ifeq ($(UNAME), maglite)
