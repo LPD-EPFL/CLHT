@@ -29,6 +29,8 @@
 #include "mcore_malloc.h"
 #endif
 
+#define DEBUG_
+
 /* ################################################################### *
  * GLOBALS
  * ################################################################### */
@@ -227,7 +229,7 @@ void *procedure(void *threadid)
       if (update && putting && succ)
       	{
 	  value = MCORE_shmalloc(payload_size);
-	  touch_buffer(value, payload_size_cl);
+	  /* touch_buffer(value, payload_size_cl); */
       	  /* memset(value, 'O', payload_size); */
       	}
 
