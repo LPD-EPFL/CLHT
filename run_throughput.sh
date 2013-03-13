@@ -44,7 +44,7 @@ do
 	    do 
 		u=$(echo $r | cut -d"'" -f1);
 		g=$(echo $r | cut -d"'" -f2);
-		echo "#buckets: $bu / update: $u / get: $g";
+		echo "#buckets: $bu / num elems: $num_elems / ps: $ps / update: $u / get: $g";
 
 		out_dat="data/throughput."$platform".b"$bu"_e"$num_elems"_ps"$ps"_u"$u"_diff_locks.dat"
 

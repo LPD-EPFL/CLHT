@@ -461,6 +461,13 @@ main(int argc, char **argv)
       dsl_per_core = atoi( argv[9] );
     }
 
+  if (num_procs == 1)
+    {
+      MCORE_shmalloc_term();
+      printf("1 0\n");
+      return 0;
+    }
+
   payload_size_cl = payload_size / CACHE_LINE_SIZE;
 
   rand_min = 1;
