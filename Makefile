@@ -6,6 +6,9 @@ else
   COMPILE_FLAGS=-O3 -DADD_PADDING
 endif
 
+ifeq ($(M),1)
+MC=-DMEASURE_CONTENTION
+endif
 
 UNAME := $(shell uname -n)
 
@@ -38,7 +41,7 @@ ifeq ($(UNAME), parsasrv1.epfl.ch)
 PLATFORM=-DTILERA
 GCC=tile-gcc
 LIBS+= -lrt -lpthread -lm -ltmc
-ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex sequential
+ALL=latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex throughput_clh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_mp sequential
 endif
 
 ifeq ($(UNAME), diascld19)
@@ -106,7 +109,7 @@ latency_array: main_lock.c $(OBJ_FILES)
 	$(GCC) -DUSE_ARRAY_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_array $(LIBS)
 
 latency_ticket: main_lock.c $(OBJ_FILES) 
-	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_ticket $(LIBS)
+	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(MC) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_ticket $(LIBS)
 
 
 latency_spinlock: main_lock.c $(OBJ_FILES) 
@@ -135,7 +138,7 @@ throughput_array: main_lock.c $(OBJ_FILES)
 	$(GCC) -DUSE_ARRAY_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_array $(LIBS)
 
 throughput_ticket: main_lock.c $(OBJ_FILES) src/dht.c
-	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_ticket $(LIBS)
+	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(MC) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_ticket $(LIBS)
 
 throughput_spinlock: main_lock.c $(OBJ_FILES) src/dht.c
 	$(GCC) -DUSE_SPINLOCK_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_spinlock $(LIBS)
