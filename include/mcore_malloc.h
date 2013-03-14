@@ -17,7 +17,7 @@
 
 #if defined(MESSAGE_PASSING)
 #include <ssmp.h>
-#define MCORE_SIZE (10 * 1024 * 1024)
+#define MCORE_SIZE (100 * 1024 * 1024)
 #else
 #define MCORE_SIZE (128 * 1024 * 1024)
 #endif

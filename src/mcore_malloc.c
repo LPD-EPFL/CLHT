@@ -52,7 +52,7 @@ MCORE_shmalloc_init(size_t size)
   //create the shared space which will be managed by the allocator
 
   char keyF[MAX_FILENAME_LENGTH];
-  sprintf(keyF,"/mcore_mem2");
+  sprintf(keyF,"/mcore_mem20");
 
   int shmfd = shm_open(keyF, O_CREAT | O_EXCL | O_RDWR, S_IRWXU | S_IRWXG);
   if (shmfd<0)
@@ -85,12 +85,13 @@ MCORE_shmalloc_init(size_t size)
 
   // create one block containing all memory for truly dynamic memory allocator
   mcore_app_mem = (void*) mem;
+  /* memset(mcore_app_mem, '0', size); */
 }
 
 void MCORE_shmalloc_term()
 {
   char keyF[100];
-  sprintf(keyF,"/mcore_mem2");
+  sprintf(keyF,"/mcore_mem20");
   shm_unlink(keyF);
 }
 

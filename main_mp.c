@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
@@ -77,7 +76,8 @@ static volatile int stop;
 
 int dsl_seq[80];
 uint8_t* bucket_to_dsl;
-uint8_t ID, num_dsl, num_app;
+uint8_t ID;
+size_t num_dsl, num_app;
 int num_procs;
 
 int write_threads = DEFAULT_WRITE_THREADS;
@@ -235,23 +235,31 @@ dht_app()
 #if defined(DEBUG)
       PRINT("inserting elements");
 #endif	/* debug */
+      size_t num_elements_init = num_elements * filling_rate;
       int i;
-      for(i = 0; i < num_elements * filling_rate; i++) 
+      for(i = 0; i < num_elements_init; i++) 
 	{
 	  key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
 	  bin = key % capacity;
 	  dsl = get_dsl(bin, bucket_per_dsl);
-	  value = MCORE_shmalloc(payload_size);
+	  if (value == NULL)
+	    {
+	      value = MCORE_shmalloc(payload_size);
+	    }
 	  _mm_mfence();
 	  if (!_put(key, value, payload_size, dsl))
 	    {
 	      i--;
 	    }
+	  else
+	    {
+	      value = NULL;
+	    }
 	  _mm_mfence();
 	}
 
 #if defined(DEBUG)
-      PRINT("inserted..");
+      PRINT("inserted: %10lu elems = %lu MB", num_elements_init, (num_elements_init * payload_size) / (1024 * 1024));
       PRINT("size bf : %lu", _size(num_dsl)); 
 #endif	/* debug */
     }

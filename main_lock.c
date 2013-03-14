@@ -182,11 +182,18 @@ void *procedure(void *threadid)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
       bin = ht_hash( hashtable, key );
-      value = MCORE_shmalloc( payload_size );
+      if (value == NULL)
+	{
+	  value = MCORE_shmalloc( payload_size );
+	}
       acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
       if(!ht_put( hashtable, key, value, bin)) 
 	{
 	  i--;
+	}
+      else
+	{
+	  value = NULL;
 	}
       
       MEM_BARRIER;
