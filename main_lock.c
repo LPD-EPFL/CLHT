@@ -246,15 +246,10 @@ void *procedure(void *threadid)
 	{
 	  if(putting) 
 	    {
-	      if (value == NULL)
-		{
-		  value = MCORE_shmalloc(payload_size);
-		}
 	      if(ht_put( hashtable, key, value, bin ))
 		{
 		  succ = 1;
 		  putting = false;
-		  value = NULL;
 		}
 	    } 
 	  else 
