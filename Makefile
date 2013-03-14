@@ -88,7 +88,7 @@ MAININCLUDE := $(TOP)/include
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 #OBJ_FILES := mcs.o ttas.o rw_ttas.o ticket.o alock.o hclh.o htlock.o mcore_malloc.o
 OBJ_FILES := mcore_malloc.o 
-OBJ_FILES_MP := mcore_malloc.o dht_mp.o
+OBJ_FILES_MP := mcore_malloc_mp.o dht_mp.o
 
 all: $(ALL)
 
@@ -96,6 +96,10 @@ all: $(ALL)
 
 mcore_malloc.o: src/mcore_malloc.c include/mcore_malloc.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
+
+mcore_malloc_mp.o: src/mcore_malloc.c include/mcore_malloc.h
+	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c -o mcore_malloc_mp.o $(LIBS_MP)
+
 
 dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)

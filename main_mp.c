@@ -170,7 +170,6 @@ _size(uint32_t num_dsl)
     {
       ssmp_send(dsl_seq[s], msg);
       ssmp_recv_from(dsl_seq[s], msg);
-      _mm_mfence();
       size += rpc->resp;
     }
 
@@ -186,7 +185,6 @@ _print(uint32_t num_dsl)
     {
       ssmp_send(dsl_seq[s], msg);
       ssmp_recv_from(dsl_seq[s], msg);
-      _mm_mfence();
     }
 }
 

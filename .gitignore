@@ -1,3 +1,4 @@
+/#main_lock.c#
 /.#main_lock.c
 /.gitignore~
 /Makefile~
@@ -20,6 +21,7 @@
 /latency_ttas
 /main_lock.c~
 /mcore_malloc.o
+/mcore_malloc_mp.o
 /mcs.o
 /perf.sh
 /perf.sh~

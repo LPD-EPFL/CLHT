@@ -14,11 +14,19 @@
 
 #define MAX_FILENAME_LENGTH 100
 
+#if defined(LOCKS)
+static __thread void* mcore_app_mem;
+static __thread size_t alloc_next = 0;
+static __thread void* mcore_free_list[256] = {0};
+static __thread uint8_t mcore_free_cur = 0;
+static __thread uint8_t mcore_free_num = 0;
+#elif defined(MESSAGE_PASSING)
 static void* mcore_app_mem;
 static size_t alloc_next = 0;
 static void* mcore_free_list[256] = {0};
 static uint8_t mcore_free_cur = 0;
 static uint8_t mcore_free_num = 0;
+#endif
 
 
 void
@@ -108,7 +116,7 @@ void MCORE_shmalloc_offset(size_t size)
 void*
 MCORE_shmalloc(size_t size)
 {
-  void *ret;
+  void* ret = NULL;
   if (mcore_free_num > 2)
     {
       uint8_t spot = mcore_free_cur - mcore_free_num;
@@ -119,6 +127,10 @@ MCORE_shmalloc(size_t size)
     {
       ret = mcore_app_mem + alloc_next;
       alloc_next += size;
+      if (alloc_next > MCORE_SIZE)
+	{
+	  printf("*** alarm: out of bounds alloc");
+	}
     }
 
   /* PRINT("[lib] allocated %p [offs: %lu]", ret, mcore_app_addr_offs(ret)); */

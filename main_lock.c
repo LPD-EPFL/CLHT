@@ -208,9 +208,6 @@ void *procedure(void *threadid)
   barrier_cross(&barrier_global);
 
 
-  /* uint64_t num_get = 0, num_get_succ = 0; */
-  /* uint64_t num_rem = 0, num_rem_succ = 0; */
-  
   uint8_t update = false;
   int succ = 1;
   while (stop == 0) 
@@ -249,10 +246,15 @@ void *procedure(void *threadid)
 	{
 	  if(putting) 
 	    {
+	      if (value == NULL)
+		{
+		  value = MCORE_shmalloc(payload_size);
+		}
 	      if(ht_put( hashtable, key, value, bin ))
 		{
 		  succ = 1;
 		  putting = false;
+		  value = NULL;
 		}
 	    } 
 	  else 
@@ -277,7 +279,6 @@ void *procedure(void *threadid)
 	    }
 	}
         
-      //MEM_BARRIER;
 #ifndef COMPUTE_THROUGHPUT
       start_rel = getticks();
 #endif

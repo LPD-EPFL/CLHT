@@ -17,9 +17,10 @@
 
 #if defined(MESSAGE_PASSING)
 #include <ssmp.h>
+#define MCORE_SIZE (10 * 1024 * 1024)
+#else
+#define MCORE_SIZE (128 * 1024 * 1024)
 #endif
-
-#define MCORE_SIZE (50 * 1024 * 1024)
 
 typedef volatile unsigned char* t_vcharp;
 
