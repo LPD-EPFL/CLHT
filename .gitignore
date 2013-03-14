@@ -1,6 +1,7 @@
 /#main_lock.c#
 /.#main_lock.c
 /.gitignore~
+/.nfs00000000083a09c60000001a
 /Makefile~
 /alock.o
 /core
