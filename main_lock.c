@@ -186,7 +186,9 @@ void *procedure(void *threadid)
 	{
 	  value = MCORE_shmalloc( payload_size );
 	}
+      
       acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
+      MEM_BARRIER;
       if(!ht_put( hashtable, key, value, bin)) 
 	{
 	  i--;
@@ -210,6 +212,14 @@ void *procedure(void *threadid)
     {
       printf("size of ht is: %u\n", ht_size(hashtable, capacity));
     }
+#else
+  if (!ID)
+    {
+      if(ht_size(hashtable, capacity) == 3321445)
+	{
+	  printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+	}
+    }  
 #endif
 
   barrier_cross(&barrier_global);
@@ -352,6 +362,14 @@ void *procedure(void *threadid)
     {
       printf("size of ht is: %u\n", ht_size(hashtable, capacity));
     }
+#else
+  if (!ID)
+    {
+      if(ht_size(hashtable, capacity) == 3321445)
+	{
+	  printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+	}
+    }  
 #endif
 
 #ifndef COMPUTE_THROUGHPUT
