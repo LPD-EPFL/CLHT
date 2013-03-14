@@ -63,7 +63,7 @@ do
 		    for ex in $executables
 		    do
 			p="$bu $c $num_elems $fill_rate $ps $duration $u $g";
-			$run ./$ex $p | gawk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
+			./run_avg.sh $repetitions ./$ex $p | gawk '// { printf "%-11d", $2 }' | tee -a  $out_dat;
 		    done;
 		    echo "" | tee -a  $out_dat;
 		done;
