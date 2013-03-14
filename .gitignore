@@ -28,6 +28,7 @@
 /perf.sh~
 /run
 /run_2.sh~
+/run_avg.sh~
 /run_stat
 /run_stat~
 /run_throughput.sh~

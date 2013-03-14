@@ -2,12 +2,13 @@
 
 read -p "Enter the max number of cores: " NUM_CORES
 
-duration=1000
-buckets="512 16";
+repetitions=10;
+duration=1000;
+buckets="512 12";
 rw="0.2'0.8";
 
 fill_rate=0.5;
-payload_size="64 1024";
+payload_size="64";
 num_elements="24 96";
 
 executables=$(ls throughput_*);
