@@ -25,12 +25,28 @@ LIBS_MP+= -lrt -lm -lnuma
 ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
 endif
 
+ifeq ($(UNAME), diascld9)
+PLATFORM=-DOPTERON2
+GCC=gcc
+LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
+ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
+endif
+
 ifeq ($(UNAME), diassrv8)
 PLATFORM=-DXEON
 GCC=gcc
 PLATFORM_NUMA=1
 LIBS+= -lrt -lpthread -lm -lnuma
 LIBS_MP+= -lrt -lm -lnuma
+ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
+endif
+
+ifeq ($(UNAME), diascld19)
+PLATFORM=-DXEON2
+GCC=gcc
+LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
 ALL=latency_hclh latency_clh latency_ttas latency_mcs latency_array latency_ticket latency_spinlock latency_mutex latency_hticket throughput_clh throughput_hclh throughput_ttas throughput_mcs throughput_array throughput_ticket throughput_spinlock throughput_mutex throughput_hticket throughput_mp sequential
 endif
 
@@ -59,17 +75,7 @@ LIBS_MP+= -lrt -lm -ltmc
 ALL=throughput_mp
 endif
 
-ifeq ($(UNAME), diascld19)
-PLATFORM=XEON2
-CC=gcc
-# PLATFORM_NUMA=1
-endif
 
-ifeq ($(UNAME), diascld9)
-PLATFORM=OPTERON2
-CC=gcc
-# PLATFORM_NUMA=1
-endif
 
 COMPILE_FLAGS += $(PLATFORM)
 COMPILE_FLAGS += $(OPTIMIZE)
