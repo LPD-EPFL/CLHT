@@ -18,6 +18,9 @@ cores=$(seq 1 1 $NUM_CORES);
 if [ $(uname -n) = "lpd48core" ];
 then
     platform="opteron";
+elif [ $(uname -n) = "diascld9" ];
+then
+    platform="opteron2";
 elif [ $(uname -n) = "diassrv8" ];
 then
     platform="xeon";
