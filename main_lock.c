@@ -24,7 +24,6 @@
 #include "include/dht.h"
 #include "include/mcore_malloc.h"
 #else
-#include <numa.h>
 #include "dht.h"
 #include "mcore_malloc.h"
 #endif

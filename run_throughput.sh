@@ -2,7 +2,7 @@
 
 read -p "Enter the max number of cores: " NUM_CORES
 
-repetitions=10;
+repetitions=2;
 duration=1000;
 buckets="512 12";
 rw="0.2'0.8";
@@ -18,6 +18,9 @@ cores=$(seq 1 1 $NUM_CORES);
 if [ $(uname -n) = "lpd48core" ];
 then
     platform="opteron";
+elif [ $(uname -n) = "diascld9" ];
+then
+    platform="opteron2";
 elif [ $(uname -n) = "diassrv8" ];
 then
     platform="xeon";
