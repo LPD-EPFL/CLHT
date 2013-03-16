@@ -2,7 +2,7 @@
 
 read -p "Enter the max number of cores: " NUM_CORES
 
-repetitions=10;
+repetitions=2;
 duration=1000;
 buckets="512 12";
 rw="0.2'0.8";
@@ -21,6 +21,9 @@ then
 elif [ $(uname -n) = "diassrv8" ];
 then
     platform="xeon";
+elif [ $(uname -n) = "diascld19" ];
+then
+    platform="xeon2";
 elif [ $(uname -n) = "smal1.sics.se" ];
 then
     platform="tilepro";
