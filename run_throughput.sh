@@ -1,8 +1,9 @@
 #!/bin/bash
 
-read -p "Enter the max number of cores: " NUM_CORES
+read -p "Enter the max number of cores : " NUM_CORES
+read -p "Enter suffix for the data file: " SUFFIX
 
-repetitions=10;
+repetitions=2;
 duration=1000;
 buckets="512 12";
 rw="0.2'0.8";
@@ -47,7 +48,7 @@ do
 		g=$(echo $r | cut -d"'" -f2);
 		echo "#buckets: $bu / num elems: $num_elems / ps: $ps / update: $u / get: $g";
 
-		out_dat="data/throughput."$platform".b"$bu"_e"$num_elems"_ps"$ps"_u"$u"_diff_locks.dat"
+		out_dat="data/throughput."$platform".b"$bu"_e"$num_elems"_ps"$ps"_u"$u"_diff_locks"$SUFFIX".dat"
 
 		printf "#  " | tee $out_dat;
 		for f in $(ls throughput_*)
