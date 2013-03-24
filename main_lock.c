@@ -21,11 +21,11 @@
 #  include <sys/types.h>
 #  include <sys/processor.h>
 #  include <sys/procset.h>
-#include "include/dht.h"
-#include "include/mcore_malloc.h"
+#  include "include/dht.h"
+#  include "include/mcore_malloc.h"
 #else
-#include "dht.h"
-#include "mcore_malloc.h"
+#  include "dht.h"
+#  include "mcore_malloc.h"
 #endif
 
 #define DEBUG_
@@ -221,6 +221,10 @@ void *procedure(void *threadid)
     }  
 #endif
 
+  volatile local_data* ld = local_th_data[ID];
+  volatile global_data* gd = hashtable->the_locks;
+  uint32_t cluster = get_cluster(phys_id);
+
   barrier_cross(&barrier_global);
 
 
@@ -237,23 +241,23 @@ void *procedure(void *threadid)
 	{
 	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
 	  update = (c < scale_update);
+
+	  if (update && putting)
+	    {
+	      value = MCORE_shmalloc(payload_size);
+	      /* touch_buffer(value, payload_size_cl); */
+	      /* memset(value, 'O', payload_size); */
+	    }
+
+	  succ = 0;
 	}
 
-      if (update && putting && succ)
-      	{
-	  value = MCORE_shmalloc(payload_size);
-	  /* touch_buffer(value, payload_size_cl); */
-      	  /* memset(value, 'O', payload_size); */
-      	}
-
-      succ = 0;
-        
         
 #ifndef COMPUTE_THROUGHPUT
       start_acq = getticks();
 #endif
 #ifndef SEQUENTIAL
-      acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
+      acquire_lock(bin, ld, gd);
 #endif
 #ifndef COMPUTE_THROUGHPUT
       end_acq = getticks();
@@ -295,61 +299,66 @@ void *procedure(void *threadid)
 #endif
 #ifndef SEQUENTIAL
       MEM_BARRIER;
-      release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
+      release_lock(bin, cluster, ld, gd);
       //MEM_BARRIER;
 #endif
 #ifndef COMPUTE_THROUGHPUT
       end_rel = getticks();
 #endif
         
+#if defined(DETAILED_THROUGHPUT)
       if(update) 
 	{
 	  if(putting) 
 	    {
-#if defined(DEBUG)
+#  if defined(DEBUG)
 	      if (succ)
 		{
 		  my_putting_count_succ++;
 		}
-#endif	/* debug */
-#ifndef COMPUTE_THROUGHPUT
+#  endif	/* debug */
+#  ifndef COMPUTE_THROUGHPUT
 	      my_putting_acqs += (end_acq - start_acq - correction);
 	      my_putting_rels += (end_rel - start_rel - correction);
 	      my_putting_opts += (start_rel - end_acq - correction);
-#endif
+#  endif
 	      my_putting_count++;
 	    } 
 	  else 			/* removing */
 	    {
-#if defined(DEBUG)
+#  if defined(DEBUG)
 	      if (succ)
 		{
 		  my_removing_count_succ++;
 		}
-#endif	/* debug */
-#ifndef COMPUTE_THROUGHPUT
+#  endif	/* debug */
+#  ifndef COMPUTE_THROUGHPUT
 	      my_removing_acqs += (end_acq - start_acq - correction);
 	      my_removing_rels += (end_rel - start_rel - correction);
 	      my_removing_opts += (start_rel - end_acq - correction);
-#endif
+#  endif
 	      my_removing_count++;
 	    }
 	} 
       else
 	{ //if(c < scale_update_get) {
-#if defined(DEBUG)
+#  if defined(DEBUG)
 	  if (succ)
 	    {
 	      my_getting_count_succ++;
 	    }
-#endif
-#ifndef COMPUTE_THROUGHPUT
+#  endif
+#  ifndef COMPUTE_THROUGHPUT
 	  my_getting_acqs += (end_acq - start_acq - correction);
 	  my_getting_rels += (end_rel - start_rel - correction);
 	  my_getting_opts += (start_rel - end_acq - correction);
-#endif
+#  endif
 	  my_getting_count++;
 	}
+
+#else  /* not detaild throughput */
+      my_getting_count++;
+#endif
     }
     
     
@@ -557,9 +566,9 @@ int main( int argc, char **argv ) {
     }
     
 #ifndef COMPUTE_THROUGHPUT
-#if defined(DEBUG)
+#  if defined(DEBUG)
   printf("#thread put_acq put_rel put_cs  put_tot get_acq get_rel get_cs  get_tot rem_acq rem_rel rem_cs  rem_tot\n");
-#endif
+#  endif
   printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
 	 num_threads,
 	 putting_acq_total / putting_count_total,
@@ -579,9 +588,9 @@ int main( int argc, char **argv ) {
     
     
 #ifdef COMPUTE_THROUGHPUT
-#define LLU long long unsigned int
+#  define LLU long long unsigned int
 
-#if defined(DEBUG)
+#  if defined(DEBUG)
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
@@ -601,7 +610,7 @@ int main( int argc, char **argv ) {
 	 (double) (removing_count_total - removing_count_total_succ) / removing_count_total * 100,
 	 removing_perc);
   /* printf("puts - gets: %d\n", (int) (putting_count_total_succ - removing_count_total_succ)); */
-#endif
+#  endif
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("%d\t%f\n", num_threads, throughput);
 #endif
