@@ -307,10 +307,14 @@ ht_print(hashtable_t *hashtable, uint32_t capacity)
 {
   bucket_t *bucket;
 
+  printf("Number of buckets: %u\n", capacity);
+
   uint32_t bin;
   for (bin = 0; bin < capacity; bin++)
     {
       bucket = hashtable->table + bin;
+      
+      printf("[[%05d]] ", bin);
 
       uint32_t j;
       do
@@ -329,6 +333,7 @@ ht_print(hashtable_t *hashtable, uint32_t capacity)
 	  printf(" ** -> ");
 	}
       while (bucket != NULL);
+      printf("\n");
     }
   fflush(stdout);
 }

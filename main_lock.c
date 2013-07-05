@@ -204,12 +204,14 @@ void *procedure(void *threadid)
 
   value = NULL;
 
+
   barrier_cross(&barrier);
 
 #if defined(DEBUG)
   if (!ID)
     {
       printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+      ht_print(hashtable, capacity);
     }
 #else
   if (!ID)
