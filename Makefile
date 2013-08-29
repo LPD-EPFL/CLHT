@@ -93,7 +93,7 @@ MAININCLUDE := $(TOP)/include
 
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 #OBJ_FILES := mcs.o ttas.o rw_ttas.o ticket.o alock.o hclh.o htlock.o mcore_malloc.o
-OBJ_FILES := mcore_malloc.o 
+OBJ_FILES := mcore_malloc.o
 OBJ_FILES_MP := mcore_malloc_mp.o dht_mp.o
 
 all: $(ALL)
@@ -126,7 +126,7 @@ latency_mcs: main_lock.c $(OBJ_FILES)
 latency_array: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_ARRAY_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_array $(LIBS)
 
-latency_ticket: main_lock.c $(OBJ_FILES) 
+latency_ticket: main_lock.c src/dht.c $(OBJ_FILES) 
 	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o latency_ticket $(LIBS)
 
 latency_spinlock: main_lock.c $(OBJ_FILES) 
