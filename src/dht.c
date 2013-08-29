@@ -48,15 +48,11 @@ create_bucket()
       return NULL;
     }
     
-  bucket->empty = 0;
-
   uint32_t j;
   for(j = 0; j < ENTRIES_PER_BUCKET; j++)
     {
       bucket->key[j] = 0;
-      bucket->entry[j] = NULL;
     }
-    
   bucket->next = NULL;
     
   return bucket;
@@ -94,12 +90,10 @@ ht_create(uint32_t capacity)
   for(i = 0; i < capacity; i++)
     {
       /* hashtable->table[i] = create_bucket(); */
-      hashtable->table[i].empty = 0;
       uint32_t j;
       for (j = 0; j < ENTRIES_PER_BUCKET; j++)
 	{
 	  hashtable->table[i].key[j] = 0;
-	  hashtable->table[i].entry[j] = 0;
 	}
     }
 
@@ -128,29 +122,37 @@ uint32_t
 ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin) 
 {
   bucket_t *bucket = hashtable->table + bin;
-    
+
   uint32_t j;
   do 
     {
-      for (j = 0; j < bucket->empty; j++) 
+      ssht_addr_t* empty = NULL;
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
 	  if (bucket->key[j] == key) 
 	    {
 	      return false;
 	    }
+	  else if (empty == NULL && bucket->key[j] == 0)
+	    {
+	      empty = &bucket->key[j];
+	    }
 	}
         
-      if (j < ENTRIES_PER_BUCKET)
+      if (bucket->next == NULL)
 	{
-	  bucket->key[j] = key;
-	  bucket->entry[j] = value;
-	  bucket->empty++;
-	  return true;
-	}
-      else if (bucket->next == NULL)
-	{
-	  bucket->next = create_bucket();
-	  assert(bucket->next != NULL);
+	  if (empty == NULL)
+	    {
+	      bucket->next = create_bucket();
+	      assert(bucket->next != NULL);
+	      bucket->next->key[0] = key;
+	      return key;
+	    }
+	  else
+	    {
+	      *empty = key;
+	      return key;
+	    }
 	}
 
       bucket = bucket->next;
@@ -161,17 +163,16 @@ ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin)
 void*
 ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
 {
-    
   bucket_t *bucket = hashtable->table + bin;
     
   uint32_t j;
   do 
     {
-      for(j = 0; j < bucket->empty; j++) 
+      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
 	  if(bucket->key[j] == key) 
 	    {
-	      return bucket->entry[j];
+	      return key;
 	    }
 	}
 
@@ -194,45 +195,15 @@ ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
   uint32_t j;
   do 
     {
-      for(j = 0; j < bucket->empty; j++) 
+      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
 	  if(bucket->key[j] == key) 
 	    {
-	      /* bucket->key[j] = 0; */
-
-	      bucket_t* bucket_last = bucket;
-	      bucket_t* nxt = bucket->next;
-	      while (nxt != NULL && nxt->empty)
-		{
-		  bucket_last = nxt;
-		  nxt = nxt->next;
-		}
-
-	      uint32_t move = bucket_last->empty - 1;
-	      bucket->key[j] = bucket_last->key[move];
-	      void* value_rmved = bucket->entry[j];
-	      bucket->entry[j] = bucket_last->entry[move];
-
-	      bucket_last->key[move] = 0;
-	      bucket_last->entry[move] = NULL;
-	      bucket_last->empty--;
-
-	      /* if (bucket_last->empty == 0 && bucket_last != bucket_last_prev) */
-	      /* 	{ */
-	      /* 	  /\* printf("freeing : %p / prv: %p\n", bucket_last, bucket_last_prev); *\/ */
-	      /* 	  free(bucket_last); */
-	      /* 	  bucket_last_prev->next = NULL; */
-	      /* 	} */
-
-	      return value_rmved;
+	      bucket->key[j] = 0;
+	      return true;
 	    }
 	}
 
-      if (j < ENTRIES_PER_BUCKET)
-	{
-	  break;
-	}
-        
       bucket = bucket->next;
     } while (bucket != NULL);
   return NULL;
@@ -290,9 +261,12 @@ ht_size(hashtable_t *hashtable, uint32_t capacity)
       uint32_t j;
       do
 	{
-	  for(j = 0; j < bucket->empty; j++)
+	  for(j = 0; j < ENTRIES_PER_BUCKET; j++)
 	    {
-	      size++;
+	      if (bucket->key[j] > 0)
+		{
+		  size++;
+		}
 	    }
 
 	  bucket = bucket->next;
@@ -319,14 +293,12 @@ ht_print(hashtable_t *hashtable, uint32_t capacity)
       uint32_t j;
       do
 	{
-	  for(j = 0; j < bucket->empty; j++)
+	  for(j = 0; j < ENTRIES_PER_BUCKET; j++)
 	    {
-	      printf("(%-5llu/ %p)-> ", (long long unsigned int) bucket->key[j], bucket->entry[j]);
-	    }
-
-	  if (j < ENTRIES_PER_BUCKET)
-	    {
-	      break;
+	      if (bucket->key[j])
+	      	{
+		  printf("(%-5llu)-> ", (long long unsigned int) bucket->key[j]);
+		}
 	    }
 
 	  bucket = bucket->next;

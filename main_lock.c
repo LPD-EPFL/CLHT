@@ -28,7 +28,8 @@
 #  include "mcore_malloc.h"
 #endif
 
-#define DEBUG_
+#define DEBUG
+#define DETAILED_THROUGHPUT
 
 /* ################################################################### *
  * GLOBALS
@@ -42,12 +43,11 @@ int duration;
 float filling_rate;
 float update_rate;
 float get_rate;
-uint32_t payload_size;
-uint32_t payload_size_cl;
 
 int seed = 0;
 __thread unsigned long * seeds;
-int rand_max, rand_min;
+int rand_max;
+#define rand_min 1
 
 static volatile int stop;
 __thread uint32_t phys_id;
@@ -130,7 +130,7 @@ void *procedure(void *threadid)
   MCORE_shmalloc_set(mcore_mem_tmp);
     
   local_th_data[ID] = init_local(phys_id, capacity, hashtable->the_locks);
-    
+
 #ifndef COMPUTE_THROUGHPUT
   ticks my_putting_acqs = 0;
   ticks my_putting_rels = 0;
@@ -175,19 +175,14 @@ void *procedure(void *threadid)
       num_elems_thread++;
     }
     
-  local = MCORE_shmalloc(payload_size);
-    
   for(i = 0; i < num_elems_thread; i++) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
       bin = ht_hash( hashtable, key );
-      if (value == NULL)
-	{
-	  value = MCORE_shmalloc( payload_size );
-	}
       
       acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
       MEM_BARRIER;
+
       if(!ht_put( hashtable, key, value, bin)) 
 	{
 	  i--;
@@ -202,16 +197,13 @@ void *procedure(void *threadid)
     }
 
 
-  value = NULL;
-
-
   barrier_cross(&barrier);
 
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %u\n", ht_size(hashtable, capacity));
-      ht_print(hashtable, capacity);
+      /* printf("size of ht is: %u\n", ht_size(hashtable, capacity)); */
+      /* ht_print(hashtable, capacity); */
     }
 #else
   if (!ID)
@@ -244,13 +236,6 @@ void *procedure(void *threadid)
 	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
 	  update = (c < scale_update);
 
-	  if (update && putting)
-	    {
-	      value = MCORE_shmalloc(payload_size);
-	      /* touch_buffer(value, payload_size_cl); */
-	      /* memset(value, 'O', payload_size); */
-	    }
-
 	  succ = 0;
 	}
 
@@ -258,14 +243,14 @@ void *procedure(void *threadid)
 #ifndef COMPUTE_THROUGHPUT
       start_acq = getticks();
 #endif
-#ifndef SEQUENTIAL
-      acquire_lock(bin, ld, gd);
-#endif
 #ifndef COMPUTE_THROUGHPUT
       end_acq = getticks();
 #endif
       if(update) 
 	{
+#ifndef SEQUENTIAL
+      acquire_lock(bin, ld, gd);
+#endif
 	  if(putting) 
 	    {
 	      if(ht_put( hashtable, key, value, bin ))
@@ -280,11 +265,14 @@ void *procedure(void *threadid)
 	      if(removed != NULL) 
 		{
 		  succ = 1;
-		  MCORE_shfree(removed);
 		  putting = true;
 		}
 	    }
-            
+#ifndef SEQUENTIAL
+      /* MEM_BARRIER; */
+      release_lock(bin, cluster, ld, gd);
+      //MEM_BARRIER;
+#endif
 	} 
       else
 	{ 
@@ -292,17 +280,11 @@ void *procedure(void *threadid)
 	  if(value != NULL) 
 	    {
 	      succ = 1;
-	      memcpy(local, value, payload_size);
 	    }
 	}
         
 #ifndef COMPUTE_THROUGHPUT
       start_rel = getticks();
-#endif
-#ifndef SEQUENTIAL
-      MEM_BARRIER;
-      release_lock(bin, cluster, ld, gd);
-      //MEM_BARRIER;
 #endif
 #ifndef COMPUTE_THROUGHPUT
       end_rel = getticks();
@@ -314,10 +296,7 @@ void *procedure(void *threadid)
 	  if(putting) 
 	    {
 #  if defined(DEBUG)
-	      if (succ)
-		{
-		  my_putting_count_succ++;
-		}
+	      my_putting_count_succ += succ;
 #  endif	/* debug */
 #  ifndef COMPUTE_THROUGHPUT
 	      my_putting_acqs += (end_acq - start_acq - correction);
@@ -329,10 +308,7 @@ void *procedure(void *threadid)
 	  else 			/* removing */
 	    {
 #  if defined(DEBUG)
-	      if (succ)
-		{
-		  my_removing_count_succ++;
-		}
+	      my_removing_count_succ += succ;
 #  endif	/* debug */
 #  ifndef COMPUTE_THROUGHPUT
 	      my_removing_acqs += (end_acq - start_acq - correction);
@@ -345,10 +321,7 @@ void *procedure(void *threadid)
       else
 	{ //if(c < scale_update_get) {
 #  if defined(DEBUG)
-	  if (succ)
-	    {
-	      my_getting_count_succ++;
-	    }
+	  my_getting_count_succ += succ;
 #  endif
 #  ifndef COMPUTE_THROUGHPUT
 	  my_getting_acqs += (end_acq - start_acq - correction);
@@ -410,14 +383,15 @@ void *procedure(void *threadid)
   pthread_exit(NULL);
 }
 
-int main( int argc, char **argv ) {
+int
+main( int argc, char **argv ) 
+{
     
   if ( argc == 9 || argc == 10) {
     capacity = atoi( argv[1] );
     num_threads = atoi( argv[2] );
     num_elements = atoi( argv[3] );
     filling_rate = atof( argv[4] );
-    payload_size = atoi( argv[5] );
     duration = atoi( argv[6] );
     update_rate = atof( argv[7] );
     get_rate = atof( argv[8] );
@@ -426,9 +400,6 @@ int main( int argc, char **argv ) {
     exit(-1);
   }
     
-  payload_size_cl = payload_size / CACHE_LINE_SIZE;
-
-  rand_min = 1;
   rand_max = num_elements;
     
   struct timeval start, end;
@@ -439,8 +410,10 @@ int main( int argc, char **argv ) {
   stop = 0;
     
   /* Initialize the hashtable */
+
   hashtable = ht_create( capacity );
   hashtable->the_locks = init_global( capacity, num_threads );
+
   /* Initializes the local data */
   local_th_data = (local_data *) malloc( sizeof( local_data ) * num_threads );
 

@@ -14,7 +14,7 @@
 #define false 0
 
 #define CACHE_LINE_SIZE 64
-#define ENTRIES_PER_BUCKET 14
+#define ENTRIES_PER_BUCKET 15
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -51,11 +51,8 @@ typedef uintptr_t ssht_addr_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  uint64_t empty;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   struct bucket_s *next;
-  void* entry[ENTRIES_PER_BUCKET];
-  /* uintptr_t entry[ENTRIES_PER_BUCKET]; */
 } bucket_t;
 
 #if defined(LOCKS)
@@ -63,11 +60,7 @@ typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
   volatile global_data the_locks;
-#  if defined(__tile__)
-  bucket_t *table;
-#  else
   ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
-#  endif
 } hashtable_t;
 
 #elif defined(MESSAGE_PASSING)
