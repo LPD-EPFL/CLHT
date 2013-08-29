@@ -176,11 +176,6 @@ ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
 	    }
 	}
 
-      if (j < ENTRIES_PER_BUCKET)
-	{
-	  break;
-	}
-
       bucket = bucket->next;
     } while (bucket != NULL);
   return NULL;
