@@ -69,11 +69,10 @@ typedef struct ALIGNED(64) hashtable_s
 } hashtable_t;
 
 
-
 #define LOCK_ACQ(lock)				\
   while (*lock != 0)				\
     {						\
-      _mm_mfence();				\
+      _mm_lfence();				\
       _mm_pause();				\
     }						\
   while (!CAS_U64_BOOL(lock, 0, 1))		\
@@ -83,8 +82,7 @@ typedef struct ALIGNED(64) hashtable_s
     }						
 
 #define LOCK_RLS(lock)				\
-  _mm_mfence();					\
-  *lock = 0;					\
+  *lock = 0;	  
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t capacity );
