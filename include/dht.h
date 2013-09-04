@@ -4,17 +4,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-
-#if defined(LOCKS)
-#  include "lock_if.h"
-#endif
-
+#include "atomic_ops.h"
 
 #define true 1
 #define false 0
 
+#define DEBUG
+
+#if defined(DEBUG)
+#  define DPP(x)	x++				
+#else
+#  define DPP(x)
+#endif
+
 #define CACHE_LINE_SIZE 64
-#define ENTRIES_PER_BUCKET 15
+#define ENTRIES_PER_BUCKET 5
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -47,37 +51,34 @@
 #define _mm_pause() cycle_relax()
 #endif
 
+#define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
+
 typedef uintptr_t ssht_addr_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
+  uint64_t ts;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
+  uint64_t lock;
   struct bucket_s *next;
 } bucket_t;
 
-#if defined(LOCKS)
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
-  volatile global_data the_locks;
-  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
+  ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
 } hashtable_t;
 
-#elif defined(MESSAGE_PASSING)
-typedef struct ALIGNED(64) hashtable_s
-{
-  uint32_t capacity;
-#  if defined(__tile__)
-  bucket_t *table;
-#  else
-  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
-#  endif
-} hashtable_t;
 
-#else 
-#  error "defined either LOCKS or MESSAGE_PASSING"
-#endif
 
+#define LOCK_ACQ(lock)				\
+  while (!CAS_U64_BOOL(lock, 0, 1))		\
+    {						\
+      ;						\
+    }						
+
+#define LOCK_RLS(lock)				\
+  *lock = 0;					
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t capacity );
@@ -86,7 +87,7 @@ hashtable_t* ht_create(uint32_t capacity );
 uint32_t ht_hash( hashtable_t *hashtable, uint64_t key );
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put( hashtable_t *hashtable, uint64_t key, void *value, uint32_t bin);
+uint32_t ht_put( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
 void* ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);

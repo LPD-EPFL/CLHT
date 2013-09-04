@@ -28,31 +28,29 @@
 #  include "mcore_malloc.h"
 #endif
 
-#define DEBUG
-#define DETAILED_THROUGHPUT
+/* #define DETAILED_THROUGHPUT */
 
 /* ################################################################### *
  * GLOBALS
  * ################################################################### */
 
+
 hashtable_t *hashtable;
-int capacity;
-int num_threads;
-int num_elements;
-int duration;
-float filling_rate;
-float update_rate;
-float get_rate;
+int capacity = 256;
+int num_threads = 1;
+int num_elements = 2048;
+int duration = 1000;
+float filling_rate = 0.5;
+float update_rate = 0.1;
+float get_rate = 0.9;
 
 int seed = 0;
 __thread unsigned long * seeds;
-int rand_max;
+uint32_t rand_max;
 #define rand_min 1
 
 static volatile int stop;
 __thread uint32_t phys_id;
-
-volatile local_data * local_th_data;
 
 volatile ticks *putting_acqs;
 volatile ticks *putting_rels;
@@ -72,52 +70,55 @@ volatile ticks *removing_count_succ;
 volatile ticks *total;
 
 
-static inline void
-touch_buffer(volatile char* buf, uint32_t size_cl)
-{
-  uint32_t i;
-  for (i = 0; i < size_cl; i += CACHE_LINE_SIZE)
-    {
-      buf[i] = i;
-    }
-  _mm_sfence();
-}
+/* ################################################################### *
+ * LOCALS
+ * ################################################################### */
+
+#ifdef DEBUG
+extern __thread uint32_t put_num_restarts;
+extern __thread uint32_t put_num_failed_expand;
+extern __thread uint32_t put_num_failed_on_new;
+#endif
 
 /* ################################################################### *
  * BARRIER
  * ################################################################### */
 
-typedef struct barrier {
-    pthread_cond_t complete;
-    pthread_mutex_t mutex;
-    int count;
-    int crossing;
+typedef struct barrier 
+{
+  pthread_cond_t complete;
+  pthread_mutex_t mutex;
+  int count;
+  int crossing;
 } barrier_t;
 
-void barrier_init(barrier_t *b, int n) {
-    pthread_cond_init(&b->complete, NULL);
-    pthread_mutex_init(&b->mutex, NULL);
-    b->count = n;
-    b->crossing = 0;
+void barrier_init(barrier_t *b, int n) 
+{
+  pthread_cond_init(&b->complete, NULL);
+  pthread_mutex_init(&b->mutex, NULL);
+  b->count = n;
+  b->crossing = 0;
 }
 
-void barrier_cross(barrier_t *b) {
-    pthread_mutex_lock(&b->mutex);
-    /* One more thread through */
-    b->crossing++;
-    /* If not all here, wait */
-    if (b->crossing < b->count) {
-        pthread_cond_wait(&b->complete, &b->mutex);
-    } else {
-        pthread_cond_broadcast(&b->complete);
-        /* Reset for next time */
-        b->crossing = 0;
-    }
-    pthread_mutex_unlock(&b->mutex);
+void barrier_cross(barrier_t *b) 
+{
+  pthread_mutex_lock(&b->mutex);
+  /* One more thread through */
+  b->crossing++;
+  /* If not all here, wait */
+  if (b->crossing < b->count) {
+    pthread_cond_wait(&b->complete, &b->mutex);
+  } else {
+    pthread_cond_broadcast(&b->complete);
+    /* Reset for next time */
+    b->crossing = 0;
+  }
+  pthread_mutex_unlock(&b->mutex);
 }
 barrier_t barrier, barrier_global;
 
-void *procedure(void *threadid) 
+void*
+procedure(void *threadid) 
 {
   uint64_t id_tmp = (uint64_t)threadid;
   uint8_t ID = (uint8_t) id_tmp;
@@ -125,12 +126,6 @@ void *procedure(void *threadid)
     
   set_cpu(phys_id);
     
-  void* mcore_mem_tmp = (void*) malloc(MCORE_SIZE);
-  assert(mcore_mem_tmp != NULL);
-  MCORE_shmalloc_set(mcore_mem_tmp);
-    
-  local_th_data[ID] = init_local(phys_id, capacity, hashtable->the_locks);
-
 #ifndef COMPUTE_THROUGHPUT
   ticks my_putting_acqs = 0;
   ticks my_putting_rels = 0;
@@ -162,9 +157,8 @@ void *procedure(void *threadid)
     
   uint64_t key;
   int bin;
-  void * value, * local;
   int c = 0;
-  int scale_update = (int)(update_rate * 128);
+  int scale_update = (int)(update_rate * 256);
   uint8_t putting = 1;
     
   int i;
@@ -180,20 +174,12 @@ void *procedure(void *threadid)
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
       bin = ht_hash( hashtable, key );
       
-      acquire_lock(bin, local_th_data[ID], hashtable->the_locks);
-      MEM_BARRIER;
-
-      if(!ht_put( hashtable, key, value, bin)) 
+      if(!ht_put( hashtable, key, bin)) 
 	{
 	  i--;
 	}
-      else
-	{
-	  value = NULL;
-	}
       
       MEM_BARRIER;
-      release_lock(bin, get_cluster(phys_id), local_th_data[ID], hashtable->the_locks);
     }
 
 
@@ -202,7 +188,7 @@ void *procedure(void *threadid)
 #if defined(DEBUG)
   if (!ID)
     {
-      /* printf("size of ht is: %u\n", ht_size(hashtable, capacity)); */
+      printf("size of ht is: %u\n", ht_size(hashtable, capacity));
       /* ht_print(hashtable, capacity); */
     }
 #else
@@ -214,10 +200,6 @@ void *procedure(void *threadid)
 	}
     }  
 #endif
-
-  volatile local_data* ld = local_th_data[ID];
-  volatile global_data* gd = hashtable->the_locks;
-  uint32_t cluster = get_cluster(phys_id);
 
   barrier_cross(&barrier_global);
 
@@ -231,33 +213,29 @@ void *procedure(void *threadid)
 #ifndef SEQUENTIAL
       bin = ht_hash( hashtable, key );
 #endif
-      if(succ) 
-	{
-	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) & 0x7f);
-	  update = (c < scale_update);
+      if(succ)
+      	{
+      	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
+      	  update = (c < scale_update);
 
-	  succ = 0;
-	}
+      	  succ = 0;
+      	}
 
         
 #ifndef COMPUTE_THROUGHPUT
       start_acq = getticks();
 #endif
-#ifndef COMPUTE_THROUGHPUT
-      end_acq = getticks();
-#endif
       if(update) 
 	{
-#ifndef SEQUENTIAL
-      acquire_lock(bin, ld, gd);
-#endif
 	  if(putting) 
 	    {
-	      if(ht_put( hashtable, key, value, bin ))
+	      if(ht_put( hashtable, key, bin ))
 		{
 		  succ = 1;
 		  putting = false;
+		  DPP(my_putting_count_succ);
 		}
+	      my_putting_count++;
 	    } 
 	  else 
 	    {
@@ -266,76 +244,75 @@ void *procedure(void *threadid)
 		{
 		  succ = 1;
 		  putting = true;
+		  DPP(my_removing_count_succ);
 		}
-	    }
-#ifndef SEQUENTIAL
-      /* MEM_BARRIER; */
-      release_lock(bin, cluster, ld, gd);
-      //MEM_BARRIER;
-#endif
-	} 
-      else
-	{ 
-	  value = ht_get( hashtable, key, bin );
-	  if(value != NULL) 
-	    {
-	      succ = 1;
-	    }
-	}
-        
-#ifndef COMPUTE_THROUGHPUT
-      start_rel = getticks();
-#endif
-#ifndef COMPUTE_THROUGHPUT
-      end_rel = getticks();
-#endif
-        
-#if defined(DETAILED_THROUGHPUT)
-      if(update) 
-	{
-	  if(putting) 
-	    {
-#  if defined(DEBUG)
-	      my_putting_count_succ += succ;
-#  endif	/* debug */
-#  ifndef COMPUTE_THROUGHPUT
-	      my_putting_acqs += (end_acq - start_acq - correction);
-	      my_putting_rels += (end_rel - start_rel - correction);
-	      my_putting_opts += (start_rel - end_acq - correction);
-#  endif
-	      my_putting_count++;
-	    } 
-	  else 			/* removing */
-	    {
-#  if defined(DEBUG)
-	      my_removing_count_succ += succ;
-#  endif	/* debug */
-#  ifndef COMPUTE_THROUGHPUT
-	      my_removing_acqs += (end_acq - start_acq - correction);
-	      my_removing_rels += (end_rel - start_rel - correction);
-	      my_removing_opts += (start_rel - end_acq - correction);
-#  endif
 	      my_removing_count++;
 	    }
 	} 
       else
-	{ //if(c < scale_update_get) {
-#  if defined(DEBUG)
-	  my_getting_count_succ += succ;
-#  endif
-#  ifndef COMPUTE_THROUGHPUT
-	  my_getting_acqs += (end_acq - start_acq - correction);
-	  my_getting_rels += (end_rel - start_rel - correction);
-	  my_getting_opts += (start_rel - end_acq - correction);
-#  endif
+	{ 
+	  if(ht_get(hashtable, key, bin) != NULL) 
+	    {
+	      succ = 1;
+	      DPP(my_getting_count_succ);
+	    }
 	  my_getting_count++;
 	}
-
-#else  /* not detaild throughput */
-      my_getting_count++;
-#endif
     }
+        
+/* #ifndef COMPUTE_THROUGHPUT */
+/*       end_rel = getticks(); */
+/* #endif */
+        
+/* #if defined(DETAILED_THROUGHPUT) */
+/*       if(update)  */
+/* 	{ */
+/* 	  if(putting)  */
+/* 	    { */
+/* #  if defined(DEBUG) */
+/* 	      my_putting_count_succ += succ; */
+/* #  endif	/\* debug *\/ */
+/* #  ifndef COMPUTE_THROUGHPUT */
+/* 	      my_putting_acqs += (end_acq - start_acq - correction); */
+/* 	      my_putting_rels += (end_rel - start_rel - correction); */
+/* 	      my_putting_opts += (start_rel - end_acq - correction); */
+/* #  endif */
+/* 	      my_putting_count++; */
+/* 	    }  */
+/* 	  else 			/\* removing *\/ */
+/* 	    { */
+/* #  if defined(DEBUG) */
+/* 	      my_removing_count_succ += succ; */
+/* #  endif	/\* debug *\/ */
+/* #  ifndef COMPUTE_THROUGHPUT */
+/* 	      my_removing_acqs += (end_acq - start_acq - correction); */
+/* 	      my_removing_rels += (end_rel - start_rel - correction); */
+/* 	      my_removing_opts += (start_rel - end_acq - correction); */
+/* #  endif */
+/* 	      my_removing_count++; */
+/* 	    } */
+/* 	}  */
+/*       else */
+/* 	{ //if(c < scale_update_get) { */
+/* #  if defined(DEBUG) */
+/* 	  my_getting_count_succ += succ; */
+/* #  endif */
+/* #  ifndef COMPUTE_THROUGHPUT */
+/* 	  my_getting_acqs += (end_acq - start_acq - correction); */
+/* 	  my_getting_rels += (end_rel - start_rel - correction); */
+/* 	  my_getting_opts += (start_rel - end_acq - correction); */
+/* #  endif */
+/* 	  my_getting_count++; */
+/* 	} */
+
+/* #else  /\* not detaild throughput *\/ */
+/*       my_getting_count++; */
+/* #endif */
     
+#if defined(DEBUG)
+  printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", 
+	 put_num_restarts, put_num_failed_expand, put_num_failed_on_new);
+#endif
     
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
   /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
@@ -376,10 +353,6 @@ void *procedure(void *threadid)
   removing_count_succ[ID]+= my_removing_count_succ;
 #endif	/* debug */
 
-#if defined(USE_TICKET_LOCKS)
-  free_local(local_th_data[ID], num_threads);
-#endif
-
   pthread_exit(NULL);
 }
 
@@ -387,19 +360,98 @@ int
 main( int argc, char **argv ) 
 {
     
-  if ( argc == 9 || argc == 10) {
-    capacity = atoi( argv[1] );
-    num_threads = atoi( argv[2] );
-    num_elements = atoi( argv[3] );
-    filling_rate = atof( argv[4] );
-    duration = atoi( argv[6] );
-    update_rate = atof( argv[7] );
-    get_rate = atof( argv[8] );
-  } else {
-    printf("ERROR; usage ./main table_capacity num_threads num_elements filling_rate payload_size duration update_rate get_rate\n");
-    exit(-1);
-  }
-    
+  struct option long_options[] = {
+    // These options don't set a flag
+    {"help",                      no_argument,       NULL, 'h'},
+    {"duration",                  required_argument, NULL, 'd'},
+    {"initial-size",              required_argument, NULL, 'i'},
+    {"num-threads",               required_argument, NULL, 'n'},
+    {"range",                     required_argument, NULL, 'r'},
+    {"update-rate",               required_argument, NULL, 'u'},
+    {NULL, 0, NULL, 0}
+  };
+
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 4;
+
+  int i, c;
+  while(1) 
+    {
+      i = 0;
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:x:", long_options, &i);
+		
+      if(c == -1)
+	break;
+		
+      if(c == 0 && long_options[i].flag == 0)
+	c = long_options[i].val;
+		
+      switch(c) {
+      case 0:
+	/* Flag is automatically set */
+	break;
+      case 'h':
+	printf("intset -- STM stress test "
+	       "(linked list)\n"
+	       "\n"
+	       "Usage:\n"
+	       "  intset [options...]\n"
+	       "\n"
+	       "Options:\n"
+	       "  -h, --help\n"
+	       "        Print this message\n"
+	       "  -d, --duration <int>\n"
+	       "        Test duration in milliseconds\n"
+	       "  -i, --initial-size <int>\n"
+	       "        Number of elements to insert before test)\n"
+	       "  -n, --num-threads <int>\n"
+	       "        Number of threads)\n"
+	       "  -r, --range <int>\n"
+	       "        Range of integer values inserted in set)\n"
+	       "  -u, --update-rate <int>\n"
+	       "        Percentage of update transactions)\n"
+	       );
+	exit(0);
+      case 'd':
+	duration = atoi(optarg);
+	break;
+      case 'i':
+	initial = atoi(optarg);
+	break;
+      case 'n':
+	num_threads = atoi(optarg);
+	break;
+      case 'r':
+	range = atol(optarg);
+	break;
+      case 'u':
+	update = atoi(optarg);
+	break;
+      case 'l':
+	load_factor = atoi(optarg);
+	break;
+      case '?':
+	printf("Use -h or --help for help\n");
+	exit(0);
+      default:
+	exit(1);
+      }
+    }
+
+
+  capacity = initial / load_factor;
+  num_elements = range;
+  filling_rate = (double) initial / range;
+  update_rate = update / 100.0;
+  get_rate = 1 - update_rate;
+
+
+  /* printf("num_threads = %u\n", num_threads); */
+  /* printf("cap: = %u\n", capacity); */
+  /* printf("num elem = %u\n", num_elements); */
+  /* printf("filing rate= %f\n", filling_rate); */
+  /* printf("update = %f\n", update_rate); */
+
+
   rand_max = num_elements;
     
   struct timeval start, end;
@@ -412,11 +464,8 @@ main( int argc, char **argv )
   /* Initialize the hashtable */
 
   hashtable = ht_create( capacity );
-  hashtable->the_locks = init_global( capacity, num_threads );
 
   /* Initializes the local data */
-  local_th_data = (local_data *) malloc( sizeof( local_data ) * num_threads );
-
   putting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
   putting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
   putting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
@@ -479,7 +528,6 @@ main( int argc, char **argv )
 	}
         
       duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
-        
     }
     
   ticks putting_acq_total = 0;
@@ -574,23 +622,22 @@ main( int argc, char **argv )
 
   printf("puts: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) putting_count_total, 
 	 (LLU) putting_count_total_succ,
-	 (double) (putting_count_total - putting_count_total_succ) / putting_count_total * 100,
+	 (1 - (double) (putting_count_total - putting_count_total_succ) / putting_count_total) * 100,
 	 putting_perc);
   printf("gets: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) getting_count_total, 
 	 (LLU) getting_count_total_succ,
-	 (double) (getting_count_total - getting_count_total_succ) / getting_count_total * 100,
+	 (1 - (double) (getting_count_total - getting_count_total_succ) / getting_count_total) * 100,
 	 getting_perc);
-  printf("rems; %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) removing_count_total, 
+  printf("rems: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) removing_count_total, 
 	 (LLU) removing_count_total_succ,
-	 (double) (removing_count_total - removing_count_total_succ) / removing_count_total * 100,
+	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
-  /* printf("puts - gets: %d\n", (int) (putting_count_total_succ - removing_count_total_succ)); */
+  printf("puts - rems: %d\n", (int) (putting_count_total_succ - removing_count_total_succ));
 #  endif
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("%d\t%f\n", num_threads, throughput);
+  printf("#txs %d\t( %f\n", num_threads, throughput);
 #endif
     
-  free_global(hashtable->the_locks, hashtable->capacity);
   ht_destroy( hashtable );
     
   /* Last thing that main() should do */

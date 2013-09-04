@@ -44,6 +44,7 @@
 /throughput_mutex
 /throughput_spinlock
 /throughput_ticket
+/throughput_ticket_lf
 /throughput_ttas
 /ticket.o
 /top.sh
