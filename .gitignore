@@ -47,6 +47,7 @@
 /throughput_ticket
 /throughput_ticket_lf
 /throughput_ticket_no_pre
+/throughput_ticket_tas
 /throughput_ttas
 /ticket.o
 /top.sh
