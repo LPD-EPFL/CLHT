@@ -260,58 +260,61 @@ procedure(void *threadid)
 	}
     }
         
-/* #ifndef COMPUTE_THROUGHPUT */
-/*       end_rel = getticks(); */
-/* #endif */
+  /* #ifndef COMPUTE_THROUGHPUT */
+  /*       end_rel = getticks(); */
+  /* #endif */
         
-/* #if defined(DETAILED_THROUGHPUT) */
-/*       if(update)  */
-/* 	{ */
-/* 	  if(putting)  */
-/* 	    { */
-/* #  if defined(DEBUG) */
-/* 	      my_putting_count_succ += succ; */
-/* #  endif	/\* debug *\/ */
-/* #  ifndef COMPUTE_THROUGHPUT */
-/* 	      my_putting_acqs += (end_acq - start_acq - correction); */
-/* 	      my_putting_rels += (end_rel - start_rel - correction); */
-/* 	      my_putting_opts += (start_rel - end_acq - correction); */
-/* #  endif */
-/* 	      my_putting_count++; */
-/* 	    }  */
-/* 	  else 			/\* removing *\/ */
-/* 	    { */
-/* #  if defined(DEBUG) */
-/* 	      my_removing_count_succ += succ; */
-/* #  endif	/\* debug *\/ */
-/* #  ifndef COMPUTE_THROUGHPUT */
-/* 	      my_removing_acqs += (end_acq - start_acq - correction); */
-/* 	      my_removing_rels += (end_rel - start_rel - correction); */
-/* 	      my_removing_opts += (start_rel - end_acq - correction); */
-/* #  endif */
-/* 	      my_removing_count++; */
-/* 	    } */
-/* 	}  */
-/*       else */
-/* 	{ //if(c < scale_update_get) { */
-/* #  if defined(DEBUG) */
-/* 	  my_getting_count_succ += succ; */
-/* #  endif */
-/* #  ifndef COMPUTE_THROUGHPUT */
-/* 	  my_getting_acqs += (end_acq - start_acq - correction); */
-/* 	  my_getting_rels += (end_rel - start_rel - correction); */
-/* 	  my_getting_opts += (start_rel - end_acq - correction); */
-/* #  endif */
-/* 	  my_getting_count++; */
-/* 	} */
+  /* #if defined(DETAILED_THROUGHPUT) */
+  /*       if(update)  */
+  /* 	{ */
+  /* 	  if(putting)  */
+  /* 	    { */
+  /* #  if defined(DEBUG) */
+  /* 	      my_putting_count_succ += succ; */
+  /* #  endif	/\* debug *\/ */
+  /* #  ifndef COMPUTE_THROUGHPUT */
+  /* 	      my_putting_acqs += (end_acq - start_acq - correction); */
+  /* 	      my_putting_rels += (end_rel - start_rel - correction); */
+  /* 	      my_putting_opts += (start_rel - end_acq - correction); */
+  /* #  endif */
+  /* 	      my_putting_count++; */
+  /* 	    }  */
+  /* 	  else 			/\* removing *\/ */
+  /* 	    { */
+  /* #  if defined(DEBUG) */
+  /* 	      my_removing_count_succ += succ; */
+  /* #  endif	/\* debug *\/ */
+  /* #  ifndef COMPUTE_THROUGHPUT */
+  /* 	      my_removing_acqs += (end_acq - start_acq - correction); */
+  /* 	      my_removing_rels += (end_rel - start_rel - correction); */
+  /* 	      my_removing_opts += (start_rel - end_acq - correction); */
+  /* #  endif */
+  /* 	      my_removing_count++; */
+  /* 	    } */
+  /* 	}  */
+  /*       else */
+  /* 	{ //if(c < scale_update_get) { */
+  /* #  if defined(DEBUG) */
+  /* 	  my_getting_count_succ += succ; */
+  /* #  endif */
+  /* #  ifndef COMPUTE_THROUGHPUT */
+  /* 	  my_getting_acqs += (end_acq - start_acq - correction); */
+  /* 	  my_getting_rels += (end_rel - start_rel - correction); */
+  /* 	  my_getting_opts += (start_rel - end_acq - correction); */
+  /* #  endif */
+  /* 	  my_getting_count++; */
+  /* 	} */
 
-/* #else  /\* not detaild throughput *\/ */
-/*       my_getting_count++; */
-/* #endif */
+  /* #else  /\* not detaild throughput *\/ */
+  /*       my_getting_count++; */
+  /* #endif */
     
 #if defined(DEBUG)
-  printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", 
-	 put_num_restarts, put_num_failed_expand, put_num_failed_on_new);
+  if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
+    {
+      printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", 
+	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new);
+    }
 #endif
     
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
@@ -614,12 +617,12 @@ main( int argc, char **argv )
 #  define LLU long long unsigned int
 
 #  if defined(DEBUG)
+  printf("puts - rems  : %d\n", (int) (putting_count_total_succ - removing_count_total_succ));
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
   double getting_perc = 100.0 * (1 - ((double)(total - getting_count_total) / total));
   double removing_perc = 100.0 * (1 - ((double)(total - removing_count_total) / total));
-
   printf("puts: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) putting_count_total, 
 	 (LLU) putting_count_total_succ,
 	 (1 - (double) (putting_count_total - putting_count_total_succ) / putting_count_total) * 100,
@@ -632,7 +635,6 @@ main( int argc, char **argv )
 	 (LLU) removing_count_total_succ,
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
-  printf("puts - rems: %d\n", (int) (putting_count_total_succ - removing_count_total_succ));
 #  endif
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t( %f\n", num_threads, throughput);

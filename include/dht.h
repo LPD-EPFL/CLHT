@@ -18,7 +18,7 @@
 #endif
 
 #define CACHE_LINE_SIZE 64
-#define ENTRIES_PER_BUCKET 5
+#define ENTRIES_PER_BUCKET 6
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -57,9 +57,8 @@ typedef uintptr_t ssht_addr_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  uint64_t ts;
-  ssht_addr_t key[ENTRIES_PER_BUCKET];
   uint64_t lock;
+  ssht_addr_t key[ENTRIES_PER_BUCKET];
   struct bucket_s *next;
 } bucket_t;
 
@@ -90,10 +89,10 @@ uint32_t ht_hash( hashtable_t *hashtable, uint64_t key );
 uint32_t ht_put( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
-void* ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
+ssht_addr_t ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
-void* ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
+ssht_addr_t ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
 
 /* Dealloc the hashtable */
 void ht_destroy( hashtable_t *hashtable);
