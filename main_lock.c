@@ -239,8 +239,8 @@ procedure(void *threadid)
 	    } 
 	  else 
 	    {
-	      void* removed = ht_remove(hashtable, key, bin);
-	      if(removed != NULL) 
+	      ssht_addr_t removed = ht_remove(hashtable, key, bin);
+	      if(removed != 0) 
 		{
 		  succ = 1;
 		  putting = true;
@@ -251,7 +251,7 @@ procedure(void *threadid)
 	} 
       else
 	{ 
-	  if(ht_get(hashtable, key, bin) != NULL) 
+	  if(ht_get(hashtable, key, bin) != 0) 
 	    {
 	      succ = 1;
 	      DPP(my_getting_count_succ);

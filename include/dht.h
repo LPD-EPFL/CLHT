@@ -62,6 +62,13 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   struct bucket_s *next;
 } bucket_t;
 
+typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_nxt
+{
+  ssht_addr_t key[ENTRIES_PER_BUCKET + 1];
+  struct bucket_s *next;
+} bucket_nxt_t;
+
+
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
@@ -69,20 +76,38 @@ typedef struct ALIGNED(64) hashtable_s
 } hashtable_t;
 
 
+  /* while (!CAS_U64_BOOL(lock, 0, 1))		\ */
+
+/* #define TTAS */
+
+#if defined(TTAS)
 #define LOCK_ACQ(lock)				\
   while (*lock != 0)				\
     {						\
       _mm_lfence();				\
       _mm_pause();				\
     }						\
-  while (!CAS_U64_BOOL(lock, 0, 1))		\
+  while (FAI_U64(lock))				\
     {						\
       _mm_pause();				\
       DPP(put_num_restarts);			\
     }						
 
 #define LOCK_RLS(lock)				\
+  _mm_mfence();					\
   *lock = 0;	  
+#else
+#define LOCK_ACQ(lock)				\
+  while (FAI_U64(lock))				\
+    {						\
+      _mm_pause();				\
+      DPP(put_num_restarts);			\
+    }						
+
+#define LOCK_RLS(lock)				\
+  _mm_mfence();					\
+  *lock = 0;	  
+#endif
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t capacity );

@@ -5,6 +5,8 @@
 #include "dht.h"
 #endif
 
+#define READ_ONLY_FAIL
+
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
 __thread uint32_t put_num_failed_expand = 0;
@@ -47,15 +49,13 @@ __ac_Jenkins_hash_64(uint64_t key)
 bucket_t*
 create_bucket() 
 {
-  bucket_t* bucket = NULL;
-    
-  bucket = malloc(sizeof(bucket_t ));
-  /* bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t )); */
+  bucket_t* bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t ));
+  /* bucket = malloc(sizeof(bucket_t )); */
   if(bucket == NULL)
     {
       return NULL;
     }
-    
+
   bucket->lock = 0;
 
   uint32_t j;
@@ -89,8 +89,9 @@ ht_create(uint32_t capacity)
       return NULL;
     }
     
-  hashtable->table = calloc(capacity, (sizeof(bucket_t)));
-  if(hashtable->table  == NULL ) 
+  /* hashtable->table = calloc(capacity, (sizeof(bucket_t))); */
+  hashtable->table = (hashtable_t*) memalign(CACHE_LINE_SIZE, capacity * (sizeof(bucket_t)));
+  if(hashtable->table == NULL ) 
     {
       free(hashtable);
       return NULL;
@@ -211,11 +212,12 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
   bucket_t* bucket = hashtable->table + bin;
   bucket_t* bucket_first = bucket;
 
+#if defined(READ_ONLY_FAIL)
   if (!ht_get(hashtable, key, bin))
     {
       return false;
     }
-
+#endif  /* READ_ONLY_FAIL */
 
   LOCK_ACQ(&bucket_first->lock);
   uint32_t j;

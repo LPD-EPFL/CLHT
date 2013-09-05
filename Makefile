@@ -153,7 +153,7 @@ throughput_mcs: main_lock.c $(OBJ_FILES)
 throughput_array: main_lock.c $(OBJ_FILES) 
 	$(GCC) -DUSE_ARRAY_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_array $(LIBS)
 
-throughput_ticket: main_lock.c $(OBJ_FILES) src/dht.c
+throughput_ticket: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 	$(GCC) -DUSE_TICKET_LOCKS -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o throughput_ticket $(LIBS)
 
 throughput_spinlock: main_lock.c $(OBJ_FILES) src/dht.c
