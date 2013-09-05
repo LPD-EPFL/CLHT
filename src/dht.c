@@ -9,8 +9,6 @@
 #include "dht.h"
 #endif
 
-#define READ_ONLY_FAIL
-
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
 __thread uint32_t put_num_failed_expand = 0;

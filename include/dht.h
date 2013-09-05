@@ -9,7 +9,8 @@
 #define true 1
 #define false 0
 
-#define DEBUG
+#define READ_ONLY_FAIL
+/* #define DEBUG */
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
