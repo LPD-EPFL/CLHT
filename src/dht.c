@@ -116,10 +116,6 @@ ht_create(uint32_t capacity)
 
   hashtable->capacity = capacity;
     
-  /* if( ( num_buckets = calloc( capacity, sizeof( int ) ) ) == NULL ) { */
-  /*   return NULL; */
-  /* } */
-    
   return hashtable;
 }
 
@@ -129,7 +125,6 @@ ht_hash( hashtable_t *hashtable, uint64_t key )
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
-    
 	/* return hashval % hashtable->capacity; */
   return key % hashtable->capacity;
 }
