@@ -1,9 +1,15 @@
 #include <math.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <string.h>
+
 #ifdef __sparc__
 #include "../include/dht.h"
 #else
 #include "dht.h"
 #endif
+
+#define READ_ONLY_FAIL
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -48,14 +54,13 @@ bucket_t*
 create_bucket() 
 {
   bucket_t* bucket = NULL;
-    
-  bucket = malloc(sizeof(bucket_t ));
-  /* bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t )); */
+  bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t ));
+  /* bucket = malloc(sizeof(bucket_t)); */
   if(bucket == NULL)
     {
       return NULL;
     }
-    
+
   bucket->lock = 0;
 
   uint32_t j;
@@ -89,12 +94,16 @@ ht_create(uint32_t capacity)
       return NULL;
     }
     
-  hashtable->table = calloc(capacity, (sizeof(bucket_t)));
-  if(hashtable->table  == NULL ) 
+  /* hashtable->table = calloc(capacity, (sizeof(bucket_t))); */
+  hashtable->table = (bucket_t*) memalign(CACHE_LINE_SIZE, capacity * (sizeof(bucket_t)));
+  if(hashtable->table == NULL ) 
     {
+      printf("** alloc: hashtable->table\n"); fflush(stdout);
       free(hashtable);
       return NULL;
     }
+
+  memset(hashtable->table, 0, capacity * (sizeof(bucket_t)));
     
   uint32_t i;
   for(i = 0; i < capacity; i++)
@@ -211,11 +220,12 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
   bucket_t* bucket = hashtable->table + bin;
   bucket_t* bucket_first = bucket;
 
+#if defined(READ_ONLY_FAIL)
   if (!ht_get(hashtable, key, bin))
     {
       return false;
     }
-
+#endif  /* READ_ONLY_FAIL */
 
   LOCK_ACQ(&bucket_first->lock);
   uint32_t j;
