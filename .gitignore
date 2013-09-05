@@ -44,6 +44,7 @@
 /throughput_mp
 /throughput_mutex
 /throughput_spinlock
+/throughput_ticke_no_pre
 /throughput_ticket
 /throughput_ticket_lf
 /throughput_ticket_no_pre
