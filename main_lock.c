@@ -441,6 +441,11 @@ main( int argc, char **argv )
     }
 
 
+  if (range <= initial)
+    {
+      range = 2 * initial;
+    }
+
   capacity = initial / load_factor;
   num_elements = range;
   filling_rate = (double) initial / range;

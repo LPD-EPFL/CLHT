@@ -1,4 +1,8 @@
 #include <math.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <string.h>
+
 #ifdef __sparc__
 #include "../include/dht.h"
 #else
@@ -49,8 +53,9 @@ __ac_Jenkins_hash_64(uint64_t key)
 bucket_t*
 create_bucket() 
 {
-  bucket_t* bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t ));
-  /* bucket = malloc(sizeof(bucket_t )); */
+  bucket_t* bucket = NULL;
+  bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t ));
+  /* bucket = malloc(sizeof(bucket_t)); */
   if(bucket == NULL)
     {
       return NULL;
@@ -90,12 +95,15 @@ ht_create(uint32_t capacity)
     }
     
   /* hashtable->table = calloc(capacity, (sizeof(bucket_t))); */
-  hashtable->table = (hashtable_t*) memalign(CACHE_LINE_SIZE, capacity * (sizeof(bucket_t)));
+  hashtable->table = (bucket_t*) memalign(CACHE_LINE_SIZE, capacity * (sizeof(bucket_t)));
   if(hashtable->table == NULL ) 
     {
+      printf("** alloc: hashtable->table\n"); fflush(stdout);
       free(hashtable);
       return NULL;
     }
+
+  memset(hashtable->table, 0, capacity * (sizeof(bucket_t)));
     
   uint32_t i;
   for(i = 0; i < capacity; i++)
