@@ -10,7 +10,7 @@ ifeq ($(M),1)
 MC=-DMEASURE_CONTENTION
 endif
 
-LIBS+=-lsync
+LIBS+=
 LIBS_MP+=-lssmp
 
 UNAME := $(shell uname -n)
