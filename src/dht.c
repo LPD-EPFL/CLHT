@@ -205,7 +205,7 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 
 
 
-  /* Remove a key-value entry from a hash table. */
+/* Remove a key-value entry from a hash table. */
 ssht_addr_t
 ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 {
