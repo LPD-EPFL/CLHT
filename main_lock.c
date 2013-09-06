@@ -52,15 +52,12 @@ uint32_t rand_max;
 static volatile int stop;
 __thread uint32_t phys_id;
 
-volatile ticks *putting_acqs;
-volatile ticks *putting_rels;
-volatile ticks *putting_opts;
-volatile ticks *getting_acqs;
-volatile ticks *getting_rels;
-volatile ticks *getting_opts;
-volatile ticks *removing_acqs;
-volatile ticks *removing_rels;
-volatile ticks *removing_opts;
+volatile ticks *putting_succ;
+volatile ticks *putting_fail;
+volatile ticks *getting_succ;
+volatile ticks *getting_fail;
+volatile ticks *removing_succ;
+volatile ticks *removing_fail;
 volatile ticks *putting_count;
 volatile ticks *putting_count_succ;
 volatile ticks *getting_count;
@@ -127,15 +124,12 @@ procedure(void *threadid)
   set_cpu(phys_id);
     
 #ifndef COMPUTE_THROUGHPUT
-  ticks my_putting_acqs = 0;
-  ticks my_putting_rels = 0;
-  ticks my_putting_opts = 0;
-  ticks my_getting_acqs = 0;
-  ticks my_getting_rels = 0;
-  ticks my_getting_opts = 0;
-  ticks my_removing_acqs = 0;
-  ticks my_removing_rels = 0;
-  ticks my_removing_opts = 0;
+  ticks my_putting_succ = 0;
+  ticks my_putting_fail = 0;
+  ticks my_getting_succ = 0;
+  ticks my_getting_fail = 0;
+  ticks my_removing_succ = 0;
+  ticks my_removing_fail = 0;
 #endif
   uint64_t my_putting_count = 0;
   uint64_t my_getting_count = 0;
@@ -149,7 +143,6 @@ procedure(void *threadid)
     
 #ifndef COMPUTE_THROUGHPUT
   ticks start_acq, end_acq;
-  ticks start_rel, end_rel;
   ticks correction = getticks_correction_calc();
 #endif
     
@@ -231,21 +224,43 @@ procedure(void *threadid)
 	    {
 	      if(ht_put( hashtable, key, bin ))
 		{
+#ifndef COMPUTE_THROUGHPUT
+		  end_acq = getticks();
+		  my_putting_succ += (end_acq - start_acq - correction);
+#endif
 		  succ = 1;
 		  putting = false;
 		  DPP(my_putting_count_succ);
 		}
+#ifndef COMPUTE_THROUGHPUT
+	      else 
+		{
+		  end_acq = getticks();
+		  my_putting_fail += (end_acq - start_acq - correction);
+		}
+#endif
 	      my_putting_count++;
 	    } 
-	  else 
+	    else 
 	    {
 	      ssht_addr_t removed = ht_remove(hashtable, key, bin);
 	      if(removed != 0) 
 		{
+#ifndef COMPUTE_THROUGHPUT
+	      end_acq = getticks();
+	      my_removing_succ += (end_acq - start_acq - correction);
+#endif
 		  succ = 1;
 		  putting = true;
 		  DPP(my_removing_count_succ);
 		}
+#ifndef COMPUTE_THROUGHPUT
+	      else
+		{
+		  end_acq = getticks();
+		  my_removing_fail += (end_acq - start_acq - correction);
+		}
+#endif
 	      my_removing_count++;
 	    }
 	} 
@@ -253,9 +268,20 @@ procedure(void *threadid)
 	{ 
 	  if(ht_get(hashtable, key, bin) != 0) 
 	    {
+#ifndef COMPUTE_THROUGHPUT
+	      end_acq = getticks();
+	      my_getting_succ += (end_acq - start_acq - correction);
+#endif
 	      succ = 1;
 	      DPP(my_getting_count_succ);
 	    }
+#ifndef COMPUTE_THROUGHPUT
+	  else
+	    {
+	      end_acq = getticks();
+	      my_getting_fail += (end_acq - start_acq - correction);
+	    }
+#endif
 	  my_getting_count++;
 	}
     }
@@ -273,8 +299,8 @@ procedure(void *threadid)
   /* 	      my_putting_count_succ += succ; */
   /* #  endif	/\* debug *\/ */
   /* #  ifndef COMPUTE_THROUGHPUT */
-  /* 	      my_putting_acqs += (end_acq - start_acq - correction); */
-  /* 	      my_putting_rels += (end_rel - start_rel - correction); */
+  /* 	      my_putting_succ += (end_acq - start_acq - correction); */
+  /* 	      my_putting_fail += (end_rel - start_rel - correction); */
   /* 	      my_putting_opts += (start_rel - end_acq - correction); */
   /* #  endif */
   /* 	      my_putting_count++; */
@@ -285,8 +311,8 @@ procedure(void *threadid)
   /* 	      my_removing_count_succ += succ; */
   /* #  endif	/\* debug *\/ */
   /* #  ifndef COMPUTE_THROUGHPUT */
-  /* 	      my_removing_acqs += (end_acq - start_acq - correction); */
-  /* 	      my_removing_rels += (end_rel - start_rel - correction); */
+  /* 	      my_removing_succ += (end_acq - start_acq - correction); */
+  /* 	      my_removing_fail += (end_rel - start_rel - correction); */
   /* 	      my_removing_opts += (start_rel - end_acq - correction); */
   /* #  endif */
   /* 	      my_removing_count++; */
@@ -298,8 +324,8 @@ procedure(void *threadid)
   /* 	  my_getting_count_succ += succ; */
   /* #  endif */
   /* #  ifndef COMPUTE_THROUGHPUT */
-  /* 	  my_getting_acqs += (end_acq - start_acq - correction); */
-  /* 	  my_getting_rels += (end_rel - start_rel - correction); */
+  /* 	  my_getting_succ += (end_acq - start_acq - correction); */
+  /* 	  my_getting_fail += (end_rel - start_rel - correction); */
   /* 	  my_getting_opts += (start_rel - end_acq - correction); */
   /* #  endif */
   /* 	  my_getting_count++; */
@@ -309,7 +335,7 @@ procedure(void *threadid)
   /*       my_getting_count++; */
   /* #endif */
     
-#if defined(DEBUG)
+#if defined(DEBUG) && defined(COMPUTE_THROUGHPUT)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
       printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", 
@@ -336,15 +362,12 @@ procedure(void *threadid)
 #endif
 
 #ifndef COMPUTE_THROUGHPUT
-  putting_acqs[ID] += my_putting_acqs;
-  putting_rels[ID] += my_putting_rels;
-  putting_opts[ID] += my_putting_opts;
-  getting_acqs[ID] += my_getting_acqs;
-  getting_rels[ID] += my_getting_rels;
-  getting_opts[ID] += my_getting_opts;
-  removing_acqs[ID] += my_removing_acqs;
-  removing_rels[ID] += my_removing_rels;
-  removing_opts[ID] += my_removing_opts;
+  putting_succ[ID] += my_putting_succ;
+  putting_fail[ID] += my_putting_fail;
+  getting_succ[ID] += my_getting_succ;
+  getting_fail[ID] += my_getting_fail;
+  removing_succ[ID] += my_removing_succ;
+  removing_fail[ID] += my_removing_fail;
 #endif
   putting_count[ID] += my_putting_count;
   getting_count[ID] += my_getting_count;
@@ -474,15 +497,12 @@ main( int argc, char **argv )
   hashtable = ht_create( capacity );
 
   /* Initializes the local data */
-  putting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  putting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  putting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  getting_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  getting_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  getting_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  removing_acqs = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  removing_rels = (ticks *) calloc( num_threads , sizeof( ticks ) );
-  removing_opts = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  putting_fail = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  getting_fail = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
+  removing_fail = (ticks *) calloc( num_threads , sizeof( ticks ) );
   putting_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
   putting_count_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );
   getting_count = (ticks *) calloc( num_threads , sizeof( ticks ) );
@@ -538,15 +558,12 @@ main( int argc, char **argv )
       duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
     }
     
-  ticks putting_acq_total = 0;
-  ticks putting_rel_total = 0;
-  ticks putting_opt_total = 0;
-  ticks getting_acq_total = 0;
-  ticks getting_rel_total = 0;
-  ticks getting_opt_total = 0;
-  ticks removing_acq_total = 0;
-  ticks removing_rel_total = 0;
-  ticks removing_opt_total = 0;
+  ticks putting_suc_total = 0;
+  ticks putting_fal_total = 0;
+  ticks getting_suc_total = 0;
+  ticks getting_fal_total = 0;
+  ticks removing_suc_total = 0;
+  ticks removing_fal_total = 0;
   uint64_t putting_count_total = 0;
   uint64_t putting_count_total_succ = 0;
   uint64_t getting_count_total = 0;
@@ -556,15 +573,12 @@ main( int argc, char **argv )
     
   for(t=0; t < num_threads; t++) 
     {
-      putting_acq_total += putting_acqs[t];
-      putting_rel_total += putting_rels[t];
-      putting_opt_total += putting_opts[t];
-      getting_acq_total += getting_acqs[t];
-      getting_rel_total += getting_rels[t];
-      getting_opt_total += getting_opts[t];
-      removing_acq_total += removing_acqs[t];
-      removing_rel_total += removing_rels[t];
-      removing_opt_total += removing_opts[t];
+      putting_suc_total += putting_succ[t];
+      putting_fal_total += putting_fail[t];
+      getting_suc_total += getting_succ[t];
+      getting_fal_total += getting_fail[t];
+      removing_suc_total += removing_succ[t];
+      removing_fal_total += removing_fail[t];
       putting_count_total += putting_count[t];
       putting_count_total_succ += putting_count_succ[t];
       getting_count_total += getting_count[t];
@@ -574,46 +588,40 @@ main( int argc, char **argv )
     }
   if(putting_count_total == 0) 
     {
-      putting_acq_total = 0;
-      putting_rel_total = 0;
-      putting_opt_total = 0;
+      putting_suc_total = 0;
+      putting_fal_total = 0;
       putting_count_total = 1;
+      putting_count_total_succ = 2;
     }
     
   if(getting_count_total == 0) 
     {
-      getting_acq_total = 0;
-      getting_rel_total = 0;
-      getting_opt_total = 0;
+      getting_suc_total = 0;
+      getting_fal_total = 0;
       getting_count_total = 1;
+      getting_count_total_succ = 2;
     }
     
   if(removing_count_total == 0) 
     {
-      removing_acq_total = 0;
-      removing_rel_total = 0;
-      removing_opt_total = 0;
+      removing_suc_total = 0;
+      removing_fal_total = 0;
       removing_count_total = 1;
+      removing_count_total_succ = 2;
     }
     
 #ifndef COMPUTE_THROUGHPUT
 #  if defined(DEBUG)
-  printf("#thread put_acq put_rel put_cs  put_tot get_acq get_rel get_cs  get_tot rem_acq rem_rel rem_cs  rem_tot\n");
+  printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n");
 #  endif
-  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
 	 num_threads,
-	 putting_acq_total / putting_count_total,
-	 putting_rel_total / putting_count_total,
-	 putting_opt_total / putting_count_total,
-	 putting_acq_total / putting_count_total + putting_rel_total / putting_count_total + putting_opt_total / putting_count_total,
-	 getting_acq_total / getting_count_total,
-	 getting_rel_total / getting_count_total,
-	 getting_opt_total / getting_count_total,
-	 getting_acq_total / getting_count_total + getting_rel_total / getting_count_total + getting_opt_total / getting_count_total,
-	 removing_acq_total / removing_count_total,
-	 removing_rel_total / removing_count_total,
-	 removing_opt_total / removing_count_total,
-	 removing_acq_total / removing_count_total + removing_rel_total / removing_count_total + removing_opt_total / removing_count_total
+	 getting_suc_total / getting_count_total_succ,
+	 getting_fal_total / (getting_count_total - getting_count_total_succ),
+	 putting_suc_total / putting_count_total_succ,
+	 putting_fal_total / (putting_count_total - putting_count_total_succ),
+	 removing_suc_total / removing_count_total_succ,
+	 removing_fal_total / (removing_count_total - removing_count_total_succ)
 	 );
 #endif
     

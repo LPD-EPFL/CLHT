@@ -11,6 +11,8 @@
 /external
 /hclh.o
 /htlock.o
+/hyht
+/hylzht
 /latency_array
 /latency_clh
 /latency_hclh
