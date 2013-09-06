@@ -76,7 +76,6 @@ int *num_buckets;
 hashtable_t* 
 ht_create(uint32_t capacity) 
 {
-    
   hashtable_t *hashtable = NULL;
     
   if(capacity == 0)

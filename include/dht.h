@@ -10,7 +10,7 @@
 #define false 0
 
 #define READ_ONLY_FAIL
-/* #define DEBUG */
+#define DEBUG
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -62,13 +62,6 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   struct bucket_s *next;
 } bucket_t;
-
-typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_nxt
-{
-  ssht_addr_t key[ENTRIES_PER_BUCKET + 1];
-  struct bucket_s *next;
-} bucket_nxt_t;
-
 
 typedef struct ALIGNED(64) hashtable_s
 {
