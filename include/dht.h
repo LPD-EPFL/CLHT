@@ -4,14 +4,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-
-#if defined(LOCKS)
-#  include "lock_if.h"
-#endif
-
+#include "atomic_ops.h"
 
 #define true 1
 #define false 0
+
+#define READ_ONLY_FAIL
+#define DEBUG
+
+#if defined(DEBUG)
+#  define DPP(x)	x++				
+#else
+#  define DPP(x)
+#endif
 
 #define CACHE_LINE_SIZE 64
 #if defined(XEON)
@@ -51,32 +56,23 @@
 #define _mm_pause() cycle_relax()
 #endif
 
+#define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
+
 typedef uintptr_t ssht_addr_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
+  uint64_t lock;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   struct bucket_s *next;
 } bucket_t;
 
-#if defined(LOCKS)
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
-  volatile global_data the_locks;
-  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
+  ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
 } hashtable_t;
 
-#elif defined(MESSAGE_PASSING)
-typedef struct ALIGNED(64) hashtable_s
-{
-  uint32_t capacity;
-#  if defined(__tile__)
-  bucket_t *table;
-#  else
-  ALIGNED(CACHE_LINE_SIZE) bucket_t *table;
-#  endif
-} hashtable_t;
 
 
 
@@ -123,7 +119,6 @@ _mm_pause_rep(uint64_t w)
   *lock = 0;	  
 #endif
 
-
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t capacity );
 
@@ -131,13 +126,13 @@ hashtable_t* ht_create(uint32_t capacity );
 uint32_t ht_hash( hashtable_t *hashtable, uint64_t key );
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put( hashtable_t *hashtable, uint64_t key, void *value, uint32_t bin);
+uint32_t ht_put( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
-void* ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
+ssht_addr_t ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
-void* ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
+ssht_addr_t ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
 
 /* Dealloc the hashtable */
 void ht_destroy( hashtable_t *hashtable);

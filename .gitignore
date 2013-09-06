@@ -20,6 +20,7 @@
 /latency_spinlock
 /latency_ticket
 /latency_ttas
+/lf-ht
 /main_lock.c~
 /mcore_malloc.o
 /mcore_malloc_mp.o
@@ -44,6 +45,9 @@
 /throughput_mutex
 /throughput_spinlock
 /throughput_ticket
+/throughput_ticket_lf
+/throughput_ticket_no_pre
+/throughput_ticket_tas
 /throughput_ttas
 /ticket.o
 /top.sh

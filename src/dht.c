@@ -1,14 +1,26 @@
 #include <math.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <string.h>
+
 #ifdef __sparc__
 #include "../include/dht.h"
 #else
 #include "dht.h"
 #endif
 
+#ifdef DEBUG
+__thread uint32_t put_num_restarts = 0;
+__thread uint32_t put_num_failed_expand = 0;
+__thread uint32_t put_num_failed_on_new = 0;
+#endif
+
 #include "stdlib.h"
 #include "assert.h"
 
-static inline int
+__thread bucket_t* bucket_expand = NULL;
+
+inline int
 is_power_of_two (unsigned int x) 
 {
 return ((x != 0) && !(x & (x - 1)));
@@ -40,14 +52,15 @@ bucket_t*
 create_bucket() 
 {
   bucket_t* bucket = NULL;
-    
-  bucket = malloc(sizeof(bucket_t ));
-  /* bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t )); */
+  bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t ));
+  /* bucket = malloc(sizeof(bucket_t)); */
   if(bucket == NULL)
     {
       return NULL;
     }
-    
+
+  bucket->lock = 0;
+
   uint32_t j;
   for(j = 0; j < ENTRIES_PER_BUCKET; j++)
     {
@@ -63,7 +76,6 @@ int *num_buckets;
 hashtable_t* 
 ht_create(uint32_t capacity) 
 {
-    
   hashtable_t *hashtable = NULL;
     
   if(capacity == 0)
@@ -79,17 +91,21 @@ ht_create(uint32_t capacity)
       return NULL;
     }
     
-  hashtable->table = calloc(capacity, (sizeof(bucket_t)));
-  if(hashtable->table  == NULL ) 
+  /* hashtable->table = calloc(capacity, (sizeof(bucket_t))); */
+  hashtable->table = (bucket_t*) memalign(CACHE_LINE_SIZE, capacity * (sizeof(bucket_t)));
+  if(hashtable->table == NULL ) 
     {
+      printf("** alloc: hashtable->table\n"); fflush(stdout);
       free(hashtable);
       return NULL;
     }
+
+  memset(hashtable->table, 0, capacity * (sizeof(bucket_t)));
     
   uint32_t i;
   for(i = 0; i < capacity; i++)
     {
-      /* hashtable->table[i] = create_bucket(); */
+      hashtable->table[i].lock = 0;
       uint32_t j;
       for (j = 0; j < ENTRIES_PER_BUCKET; j++)
 	{
@@ -98,10 +114,6 @@ ht_create(uint32_t capacity)
     }
 
   hashtable->capacity = capacity;
-    
-  /* if( ( num_buckets = calloc( capacity, sizeof( int ) ) ) == NULL ) { */
-  /*   return NULL; */
-  /* } */
     
   return hashtable;
 }
@@ -112,25 +124,56 @@ ht_hash( hashtable_t *hashtable, uint64_t key )
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
-    
 	/* return hashval % hashtable->capacity; */
   return key % hashtable->capacity;
 }
 
-/* Insert a key-value entry into a hash table. */
-uint32_t
-ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin) 
+
+  /* Retrieve a key-value entry from a hash table. */
+inline ssht_addr_t
+ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 {
   bucket_t *bucket = hashtable->table + bin;
-
+    
   uint32_t j;
   do 
     {
-      ssht_addr_t* empty = NULL;
+      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	{
+	  if(bucket->key[j] == key) 
+	    {
+	      return key;
+	    }
+	}
+
+      bucket = bucket->next;
+    } while (bucket != NULL);
+  return false;
+}
+
+
+/* Insert a key-value entry into a hash table. */
+uint32_t
+ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
+{
+  bucket_t *bucket = hashtable->table + bin;
+  bucket_t* bucket_first = bucket;
+
+  if (ht_get(hashtable, key, bin))
+    {
+      return false;
+    }
+
+  uint32_t j;
+  LOCK_ACQ(&bucket_first->lock);
+  ssht_addr_t* empty = NULL;
+  do 
+    {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
 	  if (bucket->key[j] == key) 
 	    {
+	      LOCK_RLS(&bucket_first->lock);
 	      return false;
 	    }
 	  else if (empty == NULL && bucket->key[j] == 0)
@@ -143,50 +186,40 @@ ht_put(hashtable_t* hashtable, uint64_t key, void* value, uint32_t bin)
 	{
 	  if (empty == NULL)
 	    {
+	      DPP(put_num_failed_expand);
 	      bucket->next = create_bucket();
-	      assert(bucket->next != NULL);
 	      bucket->next->key[0] = key;
-	      return key;
 	    }
-	  else
+	  else 
 	    {
 	      *empty = key;
-	      return key;
 	    }
+
+	  LOCK_RLS(&bucket_first->lock);
+	  return true;
 	}
 
       bucket = bucket->next;
     } while (true);
 }
 
-  /* Retrieve a key-value entry from a hash table. */
-void*
-ht_get(hashtable_t *hashtable, uint64_t key, uint32_t bin)
-{
-  bucket_t *bucket = hashtable->table + bin;
-    
-  uint32_t j;
-  do 
-    {
-      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
-	{
-	  if(bucket->key[j] == key) 
-	    {
-	      return key;
-	    }
-	}
 
-      bucket = bucket->next;
-    } while (bucket != NULL);
-  return NULL;
-}
 
   /* Remove a key-value entry from a hash table. */
-void*
-ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
+ssht_addr_t
+ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 {
   bucket_t* bucket = hashtable->table + bin;
+  bucket_t* bucket_first = bucket;
 
+#if defined(READ_ONLY_FAIL)
+  if (!ht_get(hashtable, key, bin))
+    {
+      return false;
+    }
+#endif  /* READ_ONLY_FAIL */
+
+  LOCK_ACQ(&bucket_first->lock);
   uint32_t j;
   do 
     {
@@ -195,13 +228,14 @@ ht_remove( hashtable_t *hashtable, uint64_t key, int bin )
 	  if(bucket->key[j] == key) 
 	    {
 	      bucket->key[j] = 0;
-	      return true;
+	      LOCK_RLS(&bucket_first->lock);
+	      return key;
 	    }
 	}
-
       bucket = bucket->next;
     } while (bucket != NULL);
-  return NULL;
+  LOCK_RLS(&bucket_first->lock);
+  return false;
 }
 
 void
