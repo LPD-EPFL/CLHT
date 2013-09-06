@@ -159,10 +159,12 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
   bucket_t *bucket = hashtable->table + bin;
   bucket_t* bucket_first = bucket;
 
+#if defined(READ_ONLY_FAIL)
   if (ht_get(hashtable, key, bin))
     {
       return false;
     }
+#endif
 
   uint32_t j;
   LOCK_ACQ(&bucket_first->lock);
