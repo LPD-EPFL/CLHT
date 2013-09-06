@@ -130,8 +130,37 @@ ht_hash( hashtable_t *hashtable, uint64_t key )
 
 
   /* Retrieve a key-value entry from a hash table. */
-inline ssht_addr_t
+inline void*
 ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
+{
+  bucket_t *bucket = hashtable->table + bin;
+    
+  uint32_t j;
+  do 
+    {
+      for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	{
+	  void* val = bucket->val[j];
+	  if(bucket->key[j] == key) 
+	    {
+	      if (bucket->val[j] == val)
+		{
+		  return val;
+		}
+	      else
+		{
+		  return NULL;
+		}
+	    }
+	}
+
+      bucket = bucket->next;
+    } while (bucket != NULL);
+  return NULL;
+}
+
+inline ssht_addr_t
+ht_exists(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 {
   bucket_t *bucket = hashtable->table + bin;
     
@@ -159,7 +188,7 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
   bucket_t *bucket = hashtable->table + bin;
   bucket_t* bucket_first = bucket;
 
-  if (ht_get(hashtable, key, bin))
+  if (ht_exists(hashtable, key, bin))
     {
       return false;
     }
@@ -167,6 +196,8 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
   uint32_t j;
   LOCK_ACQ(&bucket_first->lock);
   ssht_addr_t* empty = NULL;
+  void** empty_v = NULL;
+
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
@@ -179,6 +210,7 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	  else if (empty == NULL && bucket->key[j] == 0)
 	    {
 	      empty = &bucket->key[j];
+	      empty_v = &bucket->val[j];
 	    }
 	}
         
@@ -189,9 +221,11 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	      DPP(put_num_failed_expand);
 	      bucket->next = create_bucket();
 	      bucket->next->key[0] = key;
+	      bucket->next->val[0] = (void*) bucket;
 	    }
 	  else 
 	    {
+	      *empty_v = (void*) bucket;
 	      *empty = key;
 	    }
 
@@ -204,7 +238,6 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 }
 
 
-
 /* Remove a key-value entry from a hash table. */
 ssht_addr_t
 ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
@@ -213,7 +246,7 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
   bucket_t* bucket_first = bucket;
 
 #if defined(READ_ONLY_FAIL)
-  if (!ht_get(hashtable, key, bin))
+  if (!ht_exists(hashtable, key, bin))
     {
       return false;
     }

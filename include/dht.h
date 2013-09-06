@@ -22,7 +22,7 @@
 #if defined(XEON)
 #  define ENTRIES_PER_BUCKET 14
 #else
-#  define ENTRIES_PER_BUCKET 6
+#  define ENTRIES_PER_BUCKET 3
 #endif
 
 #ifndef ALIGNED
@@ -64,6 +64,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   uint64_t lock;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
+  void* val[ENTRIES_PER_BUCKET];
   struct bucket_s *next;
 } bucket_t;
 
@@ -72,9 +73,6 @@ typedef struct ALIGNED(64) hashtable_s
   uint32_t capacity;
   ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
 } hashtable_t;
-
-
-
 
 
 static inline void
@@ -129,7 +127,7 @@ uint32_t ht_hash( hashtable_t *hashtable, uint64_t key );
 uint32_t ht_put( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
-ssht_addr_t ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
+void* ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
 ssht_addr_t ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
