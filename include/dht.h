@@ -14,7 +14,11 @@
 #define false 0
 
 #define CACHE_LINE_SIZE 64
-#define ENTRIES_PER_BUCKET 15
+#if defined(XEON)
+#  define ENTRIES_PER_BUCKET 14
+#else
+#  define ENTRIES_PER_BUCKET 6
+#endif
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -74,8 +78,49 @@ typedef struct ALIGNED(64) hashtable_s
 #  endif
 } hashtable_t;
 
-#else 
-#  error "defined either LOCKS or MESSAGE_PASSING"
+
+
+
+static inline void
+_mm_pause_rep(uint64_t w)
+{
+  while (w--)
+    {
+      _mm_pause();
+    }
+}
+
+  /* while (!CAS_U64_BOOL(lock, 0, 1))		\ */
+
+/* #define TTAS */
+
+#if defined(TTAS)
+#define LOCK_ACQ(lock)				\
+  while (*lock != 0)				\
+    {						\
+      _mm_lfence();				\
+      _mm_pause();				\
+    }						\
+  while (FAI_U64(lock))				\
+    {						\
+      _mm_pause();				\
+      DPP(put_num_restarts);			\
+    }						
+
+#define LOCK_RLS(lock)				\
+  _mm_mfence();					\
+  *lock = 0;	  
+#else
+#define LOCK_ACQ(lock)				\
+  while (FAI_U64(lock))				\
+    {						\
+      _mm_pause();				\
+      DPP(put_num_restarts);			\
+    }						
+
+#define LOCK_RLS(lock)				\
+  _mm_mfence();					\
+  *lock = 0;	  
 #endif
 
 
