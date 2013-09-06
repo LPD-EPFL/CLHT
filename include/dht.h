@@ -63,13 +63,6 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   struct bucket_s *next;
 } bucket_t;
 
-typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_nxt
-{
-  ssht_addr_t key[ENTRIES_PER_BUCKET + 1];
-  struct bucket_s *next;
-} bucket_nxt_t;
-
-
 typedef struct ALIGNED(64) hashtable_s
 {
   uint32_t capacity;
