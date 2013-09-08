@@ -10,7 +10,7 @@
 #define false 0
 
 #define READ_ONLY_FAIL
-#define DEBUG
+/* #define DEBUG */
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -86,6 +86,7 @@ _mm_pause_rep(uint64_t w)
 #define TAS_WITH_TAS
 /* #define TAS_WITH_CAS */
 /* #define TAS_WITH_SWAP */
+
 /* #define TAS_RLS_MFENCE */
 
   /* while (!CAS_U64_BOOL(lock, 0, 1))		\ */
@@ -99,7 +100,14 @@ _mm_pause_rep(uint64_t w)
     }						
 #elif defined(TAS_WITH_TAS)			
 #  define LOCK_ACQ(lock)			\
-  while (!TAS_U8((uint8_t*) (lock)))		\
+  while (TAS_U8((uint8_t*) (lock)))		\
+    {						\
+      _mm_pause();				\
+      DPP(put_num_restarts);			\
+    }						
+#elif defined(TAS_WITH_SWAP)			
+#  define LOCK_ACQ(lock)			\
+  while (SWAP_U64(lock, 1))			\
     {						\
       _mm_pause();				\
       DPP(put_num_restarts);			\
@@ -107,7 +115,7 @@ _mm_pause_rep(uint64_t w)
 #endif
 
 
-#if defined(TAS_MFENCE)
+#if defined(TAS_RLS_MFENCE)
 #  define LOCK_RLS(lock)			\
   _mm_mfence();					\
   *lock = 0;	  
