@@ -12,6 +12,7 @@
 /hclh.o
 /htlock.o
 /hyht
+/hyht_no_val
 /hylzht
 /latency_array
 /latency_clh
