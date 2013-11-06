@@ -171,9 +171,8 @@ procedure(void *threadid)
 	{
 	  i--;
 	}
-      
-      MEM_BARRIER;
     }
+  MEM_BARRIER;
 
 
   barrier_cross(&barrier);
@@ -385,6 +384,7 @@ procedure(void *threadid)
 int
 main( int argc, char **argv ) 
 {
+  set_cpu(the_cores[0]);
     
   struct option long_options[] = {
     // These options don't set a flag
@@ -469,6 +469,8 @@ main( int argc, char **argv )
       range = 2 * initial;
     }
 
+  printf("Sizeof initial: %.2f MB\n", initial * sizeof(uint64_t) / 1024 / 1024.0);
+
   capacity = initial / load_factor;
   num_elements = range;
   filling_rate = (double) initial / range;
@@ -538,7 +540,7 @@ main( int argc, char **argv )
   pthread_attr_destroy(&attr);
     
   barrier_cross(&barrier_global);
-    
+  printf("ready!\n");
   gettimeofday(&start, NULL);
   nanosleep(&timeout, NULL);
 
