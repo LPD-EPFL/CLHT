@@ -27,6 +27,15 @@ LIBS+= -lrt -lpthread -lm -lnuma
 LIBS_MP+= -lrt -lm -lnuma
 endif
 
+ifeq ($(UNAME), lpdpc4)
+PLATFORM=-DOPTERON
+GCC=gcc
+PLATFORM_NUMA=0
+OPTIMIZE=
+LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
+endif
+
 ifeq ($(UNAME), diascld9)
 PLATFORM=-DOPTERON2
 GCC=gcc
@@ -90,13 +99,12 @@ INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 OBJ_FILES := 
 OBJ_FILES_MP :=
 
-all: $(ALL)
+all: hyht hyht_lat hylzht
 
 
 
 dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
-
 
 
 hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
