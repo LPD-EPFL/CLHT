@@ -23,7 +23,7 @@
 #if defined(XEON)
 #  define ENTRIES_PER_BUCKET 14
 #else
-#  define ENTRIES_PER_BUCKET 3
+#  define ENTRIES_PER_BUCKET 7
 #endif
 
 #ifndef ALIGNED
@@ -61,18 +61,27 @@
 
 typedef uintptr_t ssht_addr_t;
 
+typedef uint64_t lock_t;
+
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  uint64_t lock;
+  lock_t lock;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   void* val[ENTRIES_PER_BUCKET];
-  struct bucket_s *next;
+  struct bucket_s* next;
 } bucket_t;
 
 typedef struct ALIGNED(64) hashtable_s
 {
-  uint32_t capacity;
-  ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
+  union
+  {
+    struct
+    {
+      size_t capacity;
+      ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
+    };
+    uint8_t padding[CACHE_LINE_SIZE];
+  };
 } hashtable_t;
 
 
@@ -91,30 +100,26 @@ _mm_pause_rep(uint64_t w)
 
 #if defined(TTAS)
 #define LOCK_ACQ(lock)				\
-  while (*lock != 0)				\
+  do						\
     {						\
-      _mm_lfence();				\
-      _mm_pause();				\
+      while (*lock != 0)			\
+	{					\
+	  _mm_lfence();				\
+	  _mm_pause_rep(16);			\
+	}					\
     }						\
-  while (FAI_U64(lock))				\
-    {						\
-      _mm_pause();				\
-      DPP(put_num_restarts);			\
-    }						
-
+  while (FAI_U64(lock));
 #define LOCK_RLS(lock)				\
-  _mm_mfence();					\
   *lock = 0;	  
 #else
 #define LOCK_ACQ(lock)				\
   while (FAI_U64(lock))				\
     {						\
-      _mm_pause();				\
+      _mm_pause_rep(16);			\
       DPP(put_num_restarts);			\
     }						
 
 #define LOCK_RLS(lock)				\
-  _mm_mfence();					\
   *lock = 0;	  
 #endif
 
