@@ -213,14 +213,13 @@ procedure(void *threadid)
       	  succ = 0;
       	}
 
-        
-#if !defined(COMPUTE_THROUGHPUT)
-      start_acq = getticks();
-#endif
       if(update) 
 	{
 	  if(putting) 
 	    {
+#if !defined(COMPUTE_THROUGHPUT)
+      start_acq = getticks();
+#endif
 	      if(ht_put( hashtable, key, bin ))
 		{
 #if !defined(COMPUTE_THROUGHPUT)
@@ -240,14 +239,17 @@ procedure(void *threadid)
 #endif
 	      my_putting_count++;
 	    } 
-	    else 
+	  else 
 	    {
+#if !defined(COMPUTE_THROUGHPUT)
+      start_acq = getticks();
+#endif
 	      ssht_addr_t removed = ht_remove(hashtable, key, bin);
 	      if(removed != 0) 
 		{
 #if !defined(COMPUTE_THROUGHPUT)
-	      end_acq = getticks();
-	      my_removing_succ += (end_acq - start_acq - correction);
+		  end_acq = getticks();
+		  my_removing_succ += (end_acq - start_acq - correction);
 #endif
 		  succ = 1;
 		  putting = true;
@@ -265,6 +267,9 @@ procedure(void *threadid)
 	} 
       else
 	{ 
+#if !defined(COMPUTE_THROUGHPUT)
+      start_acq = getticks();
+#endif
 	  if(ht_get(hashtable, key, bin) != 0) 
 	    {
 #if !defined(COMPUTE_THROUGHPUT)
@@ -334,7 +339,7 @@ procedure(void *threadid)
   /*       my_getting_count++; */
   /* #endif */
     
-#if defined(DEBUG) && defined(COMPUTE_THROUGHPUT)
+#if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
       printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", 
@@ -469,11 +474,13 @@ main( int argc, char **argv )
       range = 2 * initial;
     }
 
-  double kb = initial * sizeof(uint64_t) / 1024.0;
+
+  capacity = initial / load_factor;
+
+  double kb = capacity * sizeof(bucket_t) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
-  capacity = initial / load_factor;
   num_elements = range;
   filling_rate = (double) initial / range;
   update_rate = update / 100.0;
@@ -618,7 +625,7 @@ main( int argc, char **argv )
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
-  printf("%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\n",
+  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
 	 num_threads,
 	 getting_suc_total / getting_count_total_succ,
 	 getting_fal_total / (getting_count_total - getting_count_total_succ),
@@ -630,10 +637,10 @@ main( int argc, char **argv )
 #endif
 
     
-#ifndef COMPUTE_THROUGHPUT
-#  define LLU long long unsigned int
+/* #ifdef COMPUTE_THROUGHPUT */
+#define LLU long long unsigned int
 
-#  if defined(DEBUG)
+#if defined(DEBUG)
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
   printf("puts - rems  : %d\n", pr);
   int size_after = ht_size(hashtable, hashtable->capacity);
@@ -657,10 +664,10 @@ main( int argc, char **argv )
 	 (LLU) removing_count_total_succ,
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
-#  endif
+#endif
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t( %f\n", num_threads, throughput);
-#endif
+/* #endif */
     
   ht_destroy( hashtable );
     
