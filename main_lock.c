@@ -117,19 +117,19 @@ barrier_t barrier, barrier_global;
 void*
 procedure(void *threadid) 
 {
-  uint64_t id_tmp = (uint64_t)threadid;
+  long id_tmp = (long) threadid;
   uint8_t ID = (uint8_t) id_tmp;
   phys_id = the_cores[ID];
     
   set_cpu(phys_id);
     
-#ifndef COMPUTE_THROUGHPUT
-  ticks my_putting_succ = 0;
-  ticks my_putting_fail = 0;
-  ticks my_getting_succ = 0;
-  ticks my_getting_fail = 0;
-  ticks my_removing_succ = 0;
-  ticks my_removing_fail = 0;
+#if !defined(COMPUTE_THROUGHPUT)
+  volatile ticks my_putting_succ = 0;
+  volatile ticks my_putting_fail = 0;
+  volatile ticks my_getting_succ = 0;
+  volatile ticks my_getting_fail = 0;
+  volatile ticks my_removing_succ = 0;
+  volatile ticks my_removing_fail = 0;
 #endif
   uint64_t my_putting_count = 0;
   uint64_t my_getting_count = 0;
@@ -141,9 +141,9 @@ procedure(void *threadid)
   uint64_t my_removing_count_succ = 0;
 #endif
     
-#ifndef COMPUTE_THROUGHPUT
-  ticks start_acq, end_acq;
-  ticks correction = getticks_correction_calc();
+#if !defined(COMPUTE_THROUGHPUT)
+  volatile ticks start_acq, end_acq;
+  volatile ticks correction = getticks_correction_calc();
 #endif
     
   seeds = seed_rand();
@@ -214,7 +214,7 @@ procedure(void *threadid)
       	}
 
         
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
       start_acq = getticks();
 #endif
       if(update) 
@@ -223,7 +223,7 @@ procedure(void *threadid)
 	    {
 	      if(ht_put( hashtable, key, bin ))
 		{
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 		  end_acq = getticks();
 		  my_putting_succ += (end_acq - start_acq - correction);
 #endif
@@ -231,7 +231,7 @@ procedure(void *threadid)
 		  putting = false;
 		  DPP(my_putting_count_succ);
 		}
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 	      else 
 		{
 		  end_acq = getticks();
@@ -245,7 +245,7 @@ procedure(void *threadid)
 	      ssht_addr_t removed = ht_remove(hashtable, key, bin);
 	      if(removed != 0) 
 		{
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 	      end_acq = getticks();
 	      my_removing_succ += (end_acq - start_acq - correction);
 #endif
@@ -253,7 +253,7 @@ procedure(void *threadid)
 		  putting = true;
 		  DPP(my_removing_count_succ);
 		}
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 	      else
 		{
 		  end_acq = getticks();
@@ -267,14 +267,14 @@ procedure(void *threadid)
 	{ 
 	  if(ht_get(hashtable, key, bin) != 0) 
 	    {
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 	      end_acq = getticks();
 	      my_getting_succ += (end_acq - start_acq - correction);
 #endif
 	      succ = 1;
 	      DPP(my_getting_count_succ);
 	    }
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 	  else
 	    {
 	      end_acq = getticks();
@@ -285,7 +285,7 @@ procedure(void *threadid)
 	}
     }
         
-  /* #ifndef COMPUTE_THROUGHPUT */
+  /* #if !defined(COMPUTE_THROUGHPUT) */
   /*       end_rel = getticks(); */
   /* #endif */
         
@@ -360,7 +360,7 @@ procedure(void *threadid)
     }  
 #endif
 
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
   putting_succ[ID] += my_putting_succ;
   putting_fail[ID] += my_putting_fail;
   getting_succ[ID] += my_getting_succ;
@@ -397,7 +397,7 @@ main( int argc, char **argv )
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 4;
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 2;
 
   int i, c;
   while(1) 
@@ -469,7 +469,9 @@ main( int argc, char **argv )
       range = 2 * initial;
     }
 
-  printf("Sizeof initial: %.2f MB\n", initial * sizeof(uint64_t) / 1024 / 1024.0);
+  double kb = initial * sizeof(uint64_t) / 1024.0;
+  double mb = kb / 1024.0;
+  printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
   capacity = initial / load_factor;
   num_elements = range;
@@ -524,7 +526,7 @@ main( int argc, char **argv )
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     
-  uint64_t t;
+  long t;
   for(t = 0; t < num_threads; t++){
     
     //printf("In main: creating thread %ld\n", t);
@@ -540,7 +542,6 @@ main( int argc, char **argv )
   pthread_attr_destroy(&attr);
     
   barrier_cross(&barrier_global);
-  printf("ready!\n");
   gettimeofday(&start, NULL);
   nanosleep(&timeout, NULL);
 
@@ -560,18 +561,18 @@ main( int argc, char **argv )
       duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
     }
     
-  ticks putting_suc_total = 0;
-  ticks putting_fal_total = 0;
-  ticks getting_suc_total = 0;
-  ticks getting_fal_total = 0;
-  ticks removing_suc_total = 0;
-  ticks removing_fal_total = 0;
-  uint64_t putting_count_total = 0;
-  uint64_t putting_count_total_succ = 0;
-  uint64_t getting_count_total = 0;
-  uint64_t getting_count_total_succ = 0;
-  uint64_t removing_count_total = 0;
-  uint64_t removing_count_total_succ = 0;
+  volatile ticks putting_suc_total = 1;
+  volatile ticks putting_fal_total = 1;
+  volatile ticks getting_suc_total = 1;
+  volatile ticks getting_fal_total = 1;
+  volatile ticks removing_suc_total = 1;
+  volatile ticks removing_fal_total = 1;
+  volatile uint64_t putting_count_total = 1;
+  volatile uint64_t putting_count_total_succ = 2;
+  volatile uint64_t getting_count_total = 1;
+  volatile uint64_t getting_count_total_succ = 2;
+  volatile uint64_t removing_count_total = 1;
+  volatile uint64_t removing_count_total_succ = 2;
     
   for(t=0; t < num_threads; t++) 
     {
@@ -588,6 +589,7 @@ main( int argc, char **argv )
       removing_count_total += removing_count[t];
       removing_count_total_succ += removing_count_succ[t];
     }
+
   if(putting_count_total == 0) 
     {
       putting_suc_total = 0;
@@ -612,11 +614,11 @@ main( int argc, char **argv )
       removing_count_total_succ = 2;
     }
     
-#ifndef COMPUTE_THROUGHPUT
+#if !defined(COMPUTE_THROUGHPUT)
 #  if defined(DEBUG)
-  printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n");
+  printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
-  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+  printf("%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\n",
 	 num_threads,
 	 getting_suc_total / getting_count_total_succ,
 	 getting_fal_total / (getting_count_total - getting_count_total_succ),
@@ -626,9 +628,9 @@ main( int argc, char **argv )
 	 removing_fal_total / (removing_count_total - removing_count_total_succ)
 	 );
 #endif
+
     
-    
-#ifdef COMPUTE_THROUGHPUT
+#ifndef COMPUTE_THROUGHPUT
 #  define LLU long long unsigned int
 
 #  if defined(DEBUG)
