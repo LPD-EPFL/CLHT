@@ -46,7 +46,7 @@ double duration__ = 0;
 
 static inline unsigned long* seed_rand() {
   unsigned long* seeds;
-  seeds = (unsigned long*) malloc(3 * sizeof(unsigned long));
+  seeds = (unsigned long*) memalign(64, 64);
   seeds[0] = getticks() % 123456789;
   seeds[1] = getticks() % 362436069;
   seeds[2] = getticks() % 521288629;

@@ -120,7 +120,7 @@ ht_create(uint32_t capacity)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash( hashtable_t *hashtable, uint64_t key ) 
+ht_hash( hashtable_t *hashtable, ssht_addr_t key ) 
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
@@ -160,10 +160,8 @@ ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 }
 
 inline ssht_addr_t
-ht_exists(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
+bucket_exists(bucket_t* bucket, ssht_addr_t key)
 {
-  bucket_t *bucket = hashtable->table + bin;
-    
   uint32_t j;
   do 
     {
@@ -171,7 +169,7 @@ ht_exists(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 	{
 	  if(bucket->key[j] == key) 
 	    {
-	      return key;
+	      return true;
 	    }
 	}
 
@@ -185,19 +183,21 @@ ht_exists(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 uint32_t
 ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
 {
-  bucket_t *bucket = hashtable->table + bin;
-  bucket_t* bucket_first = bucket;
-
-  if (ht_exists(hashtable, key, bin))
+  bucket_t* bucket = hashtable->table + bin;
+#if defined(READ_ONLY_FAIL)
+  if (bucket_exists(bucket, key))
     {
       return false;
     }
+#endif
+  bucket_t* bucket_first = bucket;
 
-  uint32_t j;
+
   LOCK_ACQ(&bucket_first->lock);
   ssht_addr_t* empty = NULL;
   void** empty_v = NULL;
 
+  uint32_t j;
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
@@ -243,14 +243,15 @@ ssht_addr_t
 ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 {
   bucket_t* bucket = hashtable->table + bin;
-  bucket_t* bucket_first = bucket;
-
 #if defined(READ_ONLY_FAIL)
-  if (!ht_exists(hashtable, key, bin))
+  if (!bucket_exists(bucket, key))
     {
       return false;
     }
 #endif  /* READ_ONLY_FAIL */
+
+  bucket_t* bucket_first = bucket;
+
 
   LOCK_ACQ(&bucket_first->lock);
   uint32_t j;

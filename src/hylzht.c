@@ -117,7 +117,7 @@ ht_create(uint32_t capacity)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash( hashtable_t *hashtable, uint64_t key ) 
+ht_hash( hashtable_t *hashtable, ssht_addr_t key ) 
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
