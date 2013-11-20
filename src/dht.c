@@ -130,7 +130,7 @@ ht_hash( hashtable_t *hashtable, ssht_addr_t key )
 
 
   /* Retrieve a key-value entry from a hash table. */
-inline void*
+void*
 ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 {
   bucket_t *bucket = hashtable->table + bin;
@@ -190,21 +190,21 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
       return false;
     }
 #endif
-  bucket_t* bucket_first = bucket;
+  lock_t* lock = &bucket->lock;
 
-
-  LOCK_ACQ(&bucket_first->lock);
   ssht_addr_t* empty = NULL;
   void** empty_v = NULL;
 
   uint32_t j;
+
+  LOCK_ACQ(lock);
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
 	  if (bucket->key[j] == key) 
 	    {
-	      LOCK_RLS(&bucket_first->lock);
+	      LOCK_RLS(lock);
 	      return false;
 	    }
 	  else if (empty == NULL && bucket->key[j] == 0)
@@ -229,7 +229,7 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	      *empty = key;
 	    }
 
-	  LOCK_RLS(&bucket_first->lock);
+	  LOCK_RLS(lock);
 	  return true;
 	}
 
@@ -250,11 +250,10 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
     }
 #endif  /* READ_ONLY_FAIL */
 
-  bucket_t* bucket_first = bucket;
-
-
-  LOCK_ACQ(&bucket_first->lock);
+  lock_t* lock = &bucket->lock;
   uint32_t j;
+
+  LOCK_ACQ(lock);
   do 
     {
       for(j = 0; j < ENTRIES_PER_BUCKET; j++) 
@@ -262,13 +261,13 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 	  if(bucket->key[j] == key) 
 	    {
 	      bucket->key[j] = 0;
-	      LOCK_RLS(&bucket_first->lock);
+	      LOCK_RLS(lock);
 	      return key;
 	    }
 	}
       bucket = bucket->next;
     } while (bucket != NULL);
-  LOCK_RLS(&bucket_first->lock);
+  LOCK_RLS(lock);
   return false;
 }
 
