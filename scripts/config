@@ -39,6 +39,9 @@ then
     else
 	cores=$(seq 6 6 48);
     fi;
+elif [ "$cores" = "insocket" ];
+then
+	cores="2 3 4 5 $(seq 6 6 48)";
 elif [ "$cores" = "step" ];
 then
     if [ $unm = "maglite" ];
