@@ -520,16 +520,17 @@ main( int argc, char **argv )
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     
   long t;
-  for(t = 0; t < num_threads; t++){
-    
-    //printf("In main: creating thread %ld\n", t);
-    rc = pthread_create(&threads[t], &attr, test, (void *)t);
-    if (rc){
-      printf("ERROR; return code from pthread_create() is %d\n", rc);
-      exit(-1);
-    }
+  for(t = 0; t < num_threads; t++)
+    {
+      //printf("In main: creating thread %ld\n", t);
+      rc = pthread_create(&threads[t], &attr, test, (void *)t);
+      if (rc)
+	{
+	  printf("ERROR; return code from pthread_create() is %d\n", rc);
+	  exit(-1);
+	}
         
-  }
+    }
     
   /* Free attribute and wait for the other threads */
   pthread_attr_destroy(&attr);
@@ -540,7 +541,7 @@ main( int argc, char **argv )
 
   stop = 1;
   gettimeofday(&end, NULL);
-    
+  duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
     
   for(t = 0; t < num_threads; t++) 
     {
@@ -550,8 +551,6 @@ main( int argc, char **argv )
 	  printf("ERROR; return code from pthread_join() is %d\n", rc);
 	  exit(-1);
 	}
-        
-      duration = (end.tv_sec * 1000 + end.tv_usec / 1000) - (start.tv_sec * 1000 + start.tv_usec / 1000);
     }
     
   volatile ticks putting_suc_total = 1;
@@ -623,7 +622,6 @@ main( int argc, char **argv )
 #endif
 
     
-/* #ifdef COMPUTE_THROUGHPUT */
 #define LLU long long unsigned int
 
 #if defined(DEBUG)
@@ -653,7 +651,6 @@ main( int argc, char **argv )
 #endif
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t( %f\n", num_threads, throughput);
-/* #endif */
     
   ht_destroy( hashtable );
     
