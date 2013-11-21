@@ -114,8 +114,26 @@ void barrier_cross(barrier_t *b)
 }
 barrier_t barrier, barrier_global;
 
+
+#if defined(COMPUTE_THROUGHPUT)
+#  define START_TS()
+#  define END_TS()
+#  define ADD_DUR(tar)
+#  define ADD_DUR_FAIL(tar)
+#else
+#  define START_TS()   start_acq = getticks()
+#  define END_TS()     end_acq = getticks()
+#  define ADD_DUR(tar) tar += (end_acq - start_acq - correction)
+#  define ADD_DUR_FAIL(tar)					\
+  else								\
+    {								\
+      ADD_DUR(tar);						\
+    }
+
+#endif
+
 void*
-procedure(void *threadid) 
+test(void *threadid) 
 {
   long id_tmp = (long) threadid;
   uint8_t ID = (uint8_t) id_tmp;
@@ -135,11 +153,9 @@ procedure(void *threadid)
   uint64_t my_getting_count = 0;
   uint64_t my_removing_count = 0;
 
-#if defined(DEBUG)
   uint64_t my_putting_count_succ = 0;
   uint64_t my_getting_count_succ = 0;
   uint64_t my_removing_count_succ = 0;
-#endif
     
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks start_acq, end_acq;
@@ -217,75 +233,47 @@ procedure(void *threadid)
 	{
 	  if(putting) 
 	    {
-#if !defined(COMPUTE_THROUGHPUT)
-      start_acq = getticks();
-#endif
-	      if(ht_put( hashtable, key, bin ))
+	      START_TS();
+	      int res = ht_put( hashtable, key, bin );
+	      END_TS();
+	      if(res)
 		{
-#if !defined(COMPUTE_THROUGHPUT)
-		  end_acq = getticks();
-		  my_putting_succ += (end_acq - start_acq - correction);
-#endif
+		  ADD_DUR(my_putting_succ);
 		  succ = 1;
 		  putting = false;
-		  DPP(my_putting_count_succ);
+		  my_putting_count_succ++;
 		}
-#if !defined(COMPUTE_THROUGHPUT)
-	      else 
-		{
-		  end_acq = getticks();
-		  my_putting_fail += (end_acq - start_acq - correction);
-		}
-#endif
+	      ADD_DUR_FAIL(my_putting_fail);
 	      my_putting_count++;
 	    } 
 	  else 
 	    {
-#if !defined(COMPUTE_THROUGHPUT)
-      start_acq = getticks();
-#endif
+	      START_TS();
 	      ssht_addr_t removed = ht_remove(hashtable, key, bin);
+	      END_TS();
 	      if(removed != 0) 
 		{
-#if !defined(COMPUTE_THROUGHPUT)
-		  end_acq = getticks();
-		  my_removing_succ += (end_acq - start_acq - correction);
-#endif
+		  ADD_DUR(my_removing_succ);
 		  succ = 1;
 		  putting = true;
-		  DPP(my_removing_count_succ);
+		  my_removing_count_succ++;
 		}
-#if !defined(COMPUTE_THROUGHPUT)
-	      else
-		{
-		  end_acq = getticks();
-		  my_removing_fail += (end_acq - start_acq - correction);
-		}
-#endif
+	      ADD_DUR_FAIL(my_removing_fail);
 	      my_removing_count++;
 	    }
 	} 
       else
 	{ 
-#if !defined(COMPUTE_THROUGHPUT)
-      start_acq = getticks();
-#endif
-	  if(ht_get(hashtable, key, bin) != 0) 
+	  START_TS();
+	  void* res = ht_get(hashtable, key, bin);
+	  END_TS();
+	  if(res != NULL) 
 	    {
-#if !defined(COMPUTE_THROUGHPUT)
-	      end_acq = getticks();
-	      my_getting_succ += (end_acq - start_acq - correction);
-#endif
+	      ADD_DUR(my_getting_succ);
 	      succ = 1;
-	      DPP(my_getting_count_succ);
+	      my_getting_count_succ++;
 	    }
-#if !defined(COMPUTE_THROUGHPUT)
-	  else
-	    {
-	      end_acq = getticks();
-	      my_getting_fail += (end_acq - start_acq - correction);
-	    }
-#endif
+	  ADD_DUR_FAIL(my_getting_fail);
 	  my_getting_count++;
 	}
     }
@@ -377,11 +365,9 @@ procedure(void *threadid)
   getting_count[ID] += my_getting_count;
   removing_count[ID]+= my_removing_count;
 
-#if defined(DEBUG)
   putting_count_succ[ID] += my_putting_count_succ;
   getting_count_succ[ID] += my_getting_count_succ;
   removing_count_succ[ID]+= my_removing_count_succ;
-#endif	/* debug */
 
   pthread_exit(NULL);
 }
@@ -537,7 +523,7 @@ main( int argc, char **argv )
   for(t = 0; t < num_threads; t++){
     
     //printf("In main: creating thread %ld\n", t);
-    rc = pthread_create(&threads[t], &attr, procedure, (void *)t);
+    rc = pthread_create(&threads[t], &attr, test, (void *)t);
     if (rc){
       printf("ERROR; return code from pthread_create() is %d\n", rc);
       exit(-1);
