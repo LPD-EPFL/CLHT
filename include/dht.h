@@ -20,11 +20,7 @@
 #endif
 
 #define CACHE_LINE_SIZE 64
-#if defined(XEON)
-#  define ENTRIES_PER_BUCKET 14
-#else
-#  define ENTRIES_PER_BUCKET 7
-#endif
+#define ENTRIES_PER_BUCKET 3
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -97,6 +93,11 @@ _mm_pause_rep(uint64_t w)
   /* while (!CAS_U64_BOOL(lock, 0, 1))		\ */
 
 /* #define TTAS */
+#if defined(XEON)
+#define FENCE_RLS() _mm_mfence();
+#else
+#define FENCE_RLS()
+#endif
 
 #if defined(TTAS)
 #define LOCK_ACQ(lock)				\
@@ -110,6 +111,7 @@ _mm_pause_rep(uint64_t w)
     }						\
   while (FAI_U64(lock));
 #define LOCK_RLS(lock)				\
+  FENCE_RLS();					\
   *lock = 0;	  
 #else
 #define LOCK_ACQ(lock)				\
@@ -120,7 +122,9 @@ _mm_pause_rep(uint64_t w)
     }						
 
 #define LOCK_RLS(lock)				\
+  FENCE_RLS();					\
   *lock = 0;	  
+
 #endif
 
 /* Create a new hashtable. */
