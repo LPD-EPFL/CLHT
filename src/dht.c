@@ -18,8 +18,6 @@ __thread uint32_t put_num_failed_on_new = 0;
 #include "stdlib.h"
 #include "assert.h"
 
-__thread bucket_t* bucket_expand = NULL;
-
 inline int
 is_power_of_two (unsigned int x) 
 {
@@ -71,12 +69,10 @@ create_bucket()
   return bucket;
 }
 
-int *num_buckets;
-
 hashtable_t* 
 ht_create(uint32_t capacity) 
 {
-  hashtable_t *hashtable = NULL;
+  hashtable_t* hashtable = NULL;
     
   if(capacity == 0)
     {

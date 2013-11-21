@@ -14,8 +14,6 @@ __thread uint32_t put_num_failed_on_new = 0;
 #include "stdlib.h"
 #include "assert.h"
 
-__thread bucket_t* bucket_expand = NULL;
-
 inline int
 is_power_of_two (unsigned int x) 
 {
@@ -67,12 +65,10 @@ create_bucket()
   return bucket;
 }
 
-int *num_buckets;
-
 hashtable_t* 
 ht_create(uint32_t capacity) 
 {
-  hashtable_t *hashtable = NULL;
+  hashtable_t* hashtable = NULL;
     
   if(capacity == 0)
     {
@@ -214,7 +210,6 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	    }
 	}
         
-      
       if (bu_last < ENTRIES_PER_BUCKET)
 	{
 	  bucket->val[bu_last] = (void*) bucket;
@@ -263,7 +258,6 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 	  if(bucket->key[j] == key) 
 	    {
 	      bucket_t* blast = bucket;
-	      _mm_mfence();
 	      while (blast->next != NULL && blast->next->last)
 		{
 		  blast = blast->next;
