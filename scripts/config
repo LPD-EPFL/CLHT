@@ -41,7 +41,21 @@ then
     fi;
 elif [ "$cores" = "insocket" ];
 then
+    if [ $unm = "maglite" ];
+    then
+	cores=$(seq 8 8 64);
+    elif [ $unm = "parsasrv1.epfl.ch" ];
+    then
+	cores=$(seq 6 6 36);
+    elif [ $unm = "diassrv8" ];
+    then
+	cores="$(seq 2 1 9) $(seq 10 10 80)";
+    elif [ $unm = "lpdpc34" ];
+    then
+	cores=$(seq 2 1 8);
+    else
 	cores="2 3 4 5 $(seq 6 6 48)";
+    fi;
 elif [ "$cores" = "step" ];
 then
     if [ $unm = "maglite" ];
