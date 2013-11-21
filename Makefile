@@ -37,7 +37,7 @@ LIBS_MP+= -lrt -lm -lnuma
 endif
 
 ifeq ($(UNAME), lpdpc4)
-PLATFORM=-DOPTERON
+PLATFORM=-DCOREi7
 GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
@@ -110,7 +110,7 @@ OBJ_FILES_MP :=
 
 default: all
 
-all: hyht hyhtp hyht_lat hylzht
+all: hyht hyhtp hyht_lat hyhtp_lat hylzht
 
 dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
@@ -122,6 +122,10 @@ hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 hyhtp: main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht_packed.c -o hyhtp $(LIBS)
 
+hyhtp_lat: main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
+	$(GCC) -D_GNU_SOURCE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht_packed.c -o hyhtp_lat $(LIBS)
+
+
 hyht_lat: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o hyhtl $(LIBS)
 
@@ -131,4 +135,4 @@ hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
 
 
 clean:				
-	rm -f *.o hyht hyht_lat hylzht hyhtp
+	rm -f *.o hyht hyht_lat hylzht hyhtp hyhtp_lat

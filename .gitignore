@@ -1,7 +1,9 @@
+*~
 /#main_lock.c#
 /.#main_lock.c
 /.gitignore~
 /.nfs00000000083a09c60000001a
+/.nfs00000000084a10c300000011
 /Makefile~
 /alock.o
 /core
@@ -16,6 +18,7 @@
 /hyht_no_val
 /hyhtl
 /hyhtp
+/hyhtp_lat
 /hylzht
 /latency_array
 /latency_clh
@@ -61,4 +64,3 @@
 /top.sh
 /top.sh~
 /ttas.o
-*~

@@ -91,12 +91,12 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-#define TAS_WITH_FAI
-/* #define TAS_WITH_TAS */
+/* #define TAS_WITH_FAI */
+#define TAS_WITH_TAS
 /* #define TAS_WITH_CAS */
 /* #define TAS_WITH_SWAP */
 
-#if defined(XEON)
+#if defined(XEON) | defined(COREi7)
 #  define TAS_RLS_MFENCE() _mm_mfence();
 #else
 #  define TAS_RLS_MFENCE()
@@ -104,7 +104,7 @@ _mm_pause_rep(uint64_t w)
 
 #if defined(TAS_WITH_FAI)
 #  define LOCK_ACQ(lock)			\
-  while (FAI_U64(lock))				\
+  while (FAI_U32((uint32_t*) lock))		\
     {						\
       _mm_pause();				\
       DPP(put_num_restarts);			\
@@ -118,7 +118,7 @@ _mm_pause_rep(uint64_t w)
     }						
 #elif defined(TAS_WITH_SWAP)			
 #  define LOCK_ACQ(lock)			\
-  while (SWAP_U64(lock, 1))			\
+  while (SWAP_U32((uint32_t*) lock, 1))		\
     {						\
       _mm_pause();				\
       DPP(put_num_restarts);			\
