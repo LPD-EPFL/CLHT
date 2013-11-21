@@ -125,7 +125,8 @@ ht_hash( hashtable_t* hashtable, ssht_addr_t key )
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
 	/* return hashval % hashtable->capacity; */
-  return key % hashtable->capacity;
+  /* return key % hashtable->capacity; */
+  return key & (hashtable->capacity - 1);
 }
 
 
