@@ -372,7 +372,3 @@ ht_print(hashtable_t *hashtable, uint32_t capacity)
     }
   fflush(stdout);
 }
-
-
-
-
