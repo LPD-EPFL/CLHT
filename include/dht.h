@@ -90,14 +90,16 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-/* #define TAS_WITH_FAI */
-#define TAS_WITH_TAS
+#define TAS_WITH_FAI
+/* #define TAS_WITH_TAS */
 /* #define TAS_WITH_CAS */
 /* #define TAS_WITH_SWAP */
 
-/* #define TAS_RLS_MFENCE */
-
-  /* while (!CAS_U64_BOOL(lock, 0, 1))		\ */
+#if defined(XEON)
+#  define TAS_RLS_MFENCE() _mm_mfence();
+#else
+#  define TAS_RLS_MFENCE()
+#endif
 
 #if defined(TAS_WITH_FAI)
 #  define LOCK_ACQ(lock)			\
@@ -122,15 +124,9 @@ _mm_pause_rep(uint64_t w)
     }						
 #endif
 
-
-#if defined(TAS_RLS_MFENCE)
-#  define LOCK_RLS(lock)			\
-  _mm_mfence();					\
+#define LOCK_RLS(lock)				\
+  TAS_RLS_MFENCE();				\
   *lock = 0;	  
-#else
-#  define LOCK_RLS(lock)			\
-  *lock = 0;	  
-#endif
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t capacity );
