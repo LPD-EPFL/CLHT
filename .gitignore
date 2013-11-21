@@ -15,6 +15,7 @@
 /hyht
 /hyht_no_val
 /hyhtl
+/hyhtp
 /hylzht
 /latency_array
 /latency_clh
@@ -60,3 +61,4 @@
 /top.sh
 /top.sh~
 /ttas.o
+*~
