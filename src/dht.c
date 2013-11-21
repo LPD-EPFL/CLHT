@@ -120,7 +120,7 @@ ht_create(uint32_t capacity)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash( hashtable_t *hashtable, ssht_addr_t key ) 
+ht_hash( hashtable_t* hashtable, ssht_addr_t key ) 
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
@@ -133,7 +133,7 @@ ht_hash( hashtable_t *hashtable, ssht_addr_t key )
 void*
 ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 {
-  bucket_t *bucket = hashtable->table + bin;
+  bucket_t* bucket = hashtable->table + bin;
     
   uint32_t j;
   do 
