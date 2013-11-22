@@ -36,7 +36,7 @@
 
 
 hashtable_t *hashtable;
-int capacity = 256;
+int num_buckets = 256;
 int num_threads = 1;
 int num_elements = 2048;
 int duration = 1000;
@@ -197,14 +197,14 @@ test(void *threadid)
   if (!ID)
     {
       printf("size of ht is: %lu\n", ht_size(hashtable));
-      /* ht_print(hashtable, capacity); */
+      /* ht_print(hashtable, num_buckets); */
     }
 #else
   if (!ID)
     {
-      if(ht_size(hashtable, capacity) == 3321445)
+      if(ht_size(hashtable, num_buckets) == 3321445)
 	{
-	  printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+	  printf("size of ht is: %u\n", ht_size(hashtable, num_buckets));
 	}
     }  
 #endif
@@ -229,11 +229,11 @@ test(void *threadid)
       	  succ = 0;
       	}
 
-      /* uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000000)) < 1; */
-      /* if (resize) */
-      /* 	{ */
-      /* 	  ht_resize_pes(&hashtable); */
-      /* 	} */
+      uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000000)) < 1;
+      if (resize)
+      	{
+      	  ht_resize_pes(&hashtable);
+      	}
 
 
       if(update) 
@@ -353,9 +353,9 @@ test(void *threadid)
 #else
   if (!ID)
     {
-      if(ht_size(hashtable, capacity) == 3321445)
+      if(ht_size(hashtable, num_buckets) == 3321445)
 	{
-	  printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+	  printf("size of ht is: %u\n", ht_size(hashtable, num_buckets));
 	}
     }  
 #endif
@@ -468,9 +468,9 @@ main( int argc, char **argv )
     }
 
 
-  capacity = initial / load_factor;
+  num_buckets = initial / load_factor;
 
-  double kb = capacity * sizeof(bucket_t) / 1024.0;
+  double kb = num_buckets * sizeof(bucket_t) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
@@ -481,7 +481,7 @@ main( int argc, char **argv )
 
 
   /* printf("num_threads = %u\n", num_threads); */
-  /* printf("cap: = %u\n", capacity); */
+  /* printf("cap: = %u\n", num_buckets); */
   /* printf("num elem = %u\n", num_elements); */
   /* printf("filing rate= %f\n", filling_rate); */
   /* printf("update = %f\n", update_rate); */
@@ -498,7 +498,7 @@ main( int argc, char **argv )
     
   /* Initialize the hashtable */
 
-  hashtable = ht_create( capacity );
+  hashtable = ht_create( num_buckets );
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc( num_threads , sizeof( ticks ) );

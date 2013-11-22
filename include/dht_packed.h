@@ -74,7 +74,7 @@ typedef struct ALIGNED(64) hashtable_s
   {
     struct
     {
-      size_t capacity;
+      size_t num_buckets;
       ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
     };
     uint8_t padding[CACHE_LINE_SIZE];
@@ -130,7 +130,7 @@ _mm_pause_rep(uint64_t w)
   *lock = 0;	  
 
 /* Create a new hashtable. */
-hashtable_t* ht_create(uint32_t capacity );
+hashtable_t* ht_create(uint32_t num_buckets );
 
 /* Hash a key for a particular hashtable. */
 uint32_t ht_hash( hashtable_t *hashtable, ssht_addr_t key );
@@ -147,9 +147,9 @@ ssht_addr_t ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin);
 /* Dealloc the hashtable */
 void ht_destroy( hashtable_t *hashtable);
 
-uint32_t ht_size( hashtable_t *hashtable, uint32_t capacity);
+uint32_t ht_size( hashtable_t *hashtable, uint32_t num_buckets);
 
-void ht_print(hashtable_t *hashtable, uint32_t capacity);
+void ht_print(hashtable_t *hashtable, uint32_t num_buckets);
 
 bucket_t* create_bucket();
 

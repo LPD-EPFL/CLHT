@@ -58,7 +58,7 @@ static inline unsigned long* seed_rand() {
  * GLOBALS
  * ################################################################### */
 
-int capacity;
+int num_buckets;
 int num_elements;
 int duration;
 float filling_rate;
@@ -208,9 +208,9 @@ dht_app()
   int c = 0;
   uint8_t scale_update = (update_rate * 128);
   uint32_t bucket_per_dsl;
-  if (capacity >= num_dsl)
+  if (num_buckets >= num_dsl)
     {
-      bucket_per_dsl = capacity / num_dsl;
+      bucket_per_dsl = num_buckets / num_dsl;
     }
   else
     {
@@ -240,7 +240,7 @@ dht_app()
       for(i = 0; i < num_elements_init; i++) 
 	{
 	  key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
-	  bin = key % capacity;
+	  bin = key % num_buckets;
 	  dsl = get_dsl(bin, bucket_per_dsl);
 	  if (value == NULL)
 	    {
@@ -281,7 +281,7 @@ dht_app()
   while (work)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
-      bin = key % capacity;
+      bin = key % num_buckets;
       dsl = get_dsl(bin, bucket_per_dsl);
         
       if(succ) 
@@ -376,20 +376,20 @@ dht_app()
 void
 dht_dsl()
 {
-  uint32_t capacity_mine = 0;
+  uint32_t num_buckets_mine = 0;
       uint32_t b;
-      for (b = 0; b < capacity; b++)
+      for (b = 0; b < num_buckets; b++)
 	{
 	  if (bucket_to_dsl[b] == dsl_seq[ID])
 	    {
-	      capacity_mine++;
+	      num_buckets_mine++;
 	    }
 	}
-      /* PRINT("DSL -- handling %4d buckets", capacity_mine); */
+      /* PRINT("DSL -- handling %4d buckets", num_buckets_mine); */
   
 
     
-  hashtable_t *hashtable = ht_create(capacity_mine);
+  hashtable_t *hashtable = ht_create(num_buckets_mine);
     
   ssmp_color_buf_t *cbuf = NULL;
   cbuf = (ssmp_color_buf_t *) malloc(sizeof(ssmp_color_buf_t));
@@ -443,13 +443,13 @@ dht_dsl()
 	  }
 	case SSHT_SIZ:
 	  {
-	    rpc->resp = ht_size(hashtable, capacity_mine);
+	    rpc->resp = ht_size(hashtable, num_buckets_mine);
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
 	case SSHT_PRN:
 	  {
-	    ht_print(hashtable, capacity_mine);
+	    ht_print(hashtable, num_buckets_mine);
 	    ssmp_send(msg->sender, msg);
 	    break;
 	  }
@@ -479,7 +479,7 @@ main(int argc, char **argv)
 
   if (argc == 10 || argc == 9) 
     {
-      capacity = atoi( argv[1] );
+      num_buckets = atoi( argv[1] );
       num_procs = atoi( argv[2] );
       num_elements = atoi( argv[3] );
       filling_rate = atof( argv[4] );
@@ -491,7 +491,7 @@ main(int argc, char **argv)
     } 
   else 
     {
-      printf("ERROR; usage ./main table_capacity num_procs num_elements filling_rate payload_size duration put_rate get_rate remove_rate dsl_per_cores\n");
+      printf("ERROR; usage ./main table_num_buckets num_procs num_elements filling_rate payload_size duration put_rate get_rate remove_rate dsl_per_cores\n");
       exit(-1);
     }
     
@@ -512,7 +512,7 @@ main(int argc, char **argv)
   rand_min = 1;
   rand_max = num_elements;
     
-  //capacity = pow2roundup(capacity);
+  //num_buckets = pow2roundup(num_buckets);
     
   if (seed == 0)
     srand((int)time(NULL));
@@ -538,17 +538,17 @@ main(int argc, char **argv)
   printf("dsl: %2d | app: %d\n", num_dsl, num_app);
 #endif
     
-  bucket_to_dsl = calloc(capacity, sizeof(uint8_t));
+  bucket_to_dsl = calloc(num_buckets, sizeof(uint8_t));
   assert(bucket_to_dsl != NULL);
 
-  if (capacity % num_dsl != 0)
+  if (num_buckets % num_dsl != 0)
     {
 #if defined(DEBUG)
-      printf("*** table capacity (%d) is not dividable by number of DSL (%d)\n", capacity, num_dsl);
+      printf("*** table num_buckets (%d) is not dividable by number of DSL (%d)\n", num_buckets, num_dsl);
 #endif	/* debug */
-      /* capacity++; */
-      uint32_t left = capacity % num_dsl;
-      uint32_t cap_mod = capacity - left;
+      /* num_buckets++; */
+      uint32_t left = num_buckets % num_dsl;
+      uint32_t cap_mod = num_buckets - left;
       uint32_t cap_per_dsl = cap_mod / num_dsl;
       uint32_t b;
       for (b = 0; b < cap_mod; b++)
@@ -562,9 +562,9 @@ main(int argc, char **argv)
     }
   else
     {
-      uint32_t cap_per_dsl = capacity / num_dsl;
+      uint32_t cap_per_dsl = num_buckets / num_dsl;
       uint32_t b;
-      for (b = 0; b < capacity; b++)
+      for (b = 0; b < num_buckets; b++)
 	{
 	  bucket_to_dsl[b] = dsl_seq[b / cap_per_dsl];
 	}

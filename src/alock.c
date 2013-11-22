@@ -1,6 +1,6 @@
 #include "alock.h"
 
-array_lock_t* init_alock_lock(uint32_t capacity, int do_global_init, char* key) {
+array_lock_t* init_alock_lock(uint32_t num_buckets, int do_global_init, char* key) {
   lock_shared_t *lock;
 
   int lockfd = shm_open(key, O_CREAT | O_EXCL | O_RDWR, S_IRWXU | S_IRWXG);
@@ -37,7 +37,7 @@ array_lock_t* init_alock_lock(uint32_t capacity, int do_global_init, char* key) 
 
   if (do_global_init) {
     bzero((void *)lock, sizeof(lock_shared_t));
-    lock->size = capacity;
+    lock->size = num_buckets;
     lock->flags[0].flag = 1;
     lock->tail=0;
   }
