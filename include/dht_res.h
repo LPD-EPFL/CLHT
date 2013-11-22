@@ -138,7 +138,7 @@ _mm_pause_rep(uint64_t w)
 #  define LOCK_ACQ_RES(lock)			\
   lock_acq_resize(lock)
 
-static inline bucket_t*
+static inline int
 lock_acq_chk_resize(lock_t* lock, bucket_t* b, hashtable_t* h, ssht_addr_t k)
 {
   lock_t l;
@@ -154,12 +154,10 @@ lock_acq_chk_resize(lock_t* lock, bucket_t* b, hashtable_t* h, ssht_addr_t k)
 	  _mm_mfence();
 	}
 
-      size_t bin = ht_hash(h->table_new, k);
-      bucket_t* bnew = h->table_new->table + bin;
-      return lock_acq_chk_resize(&bnew->lock, bnew, h->table_new, k);
+      return 0;
     }
 
-  return b;
+  return 1;
 }
 
 static inline void

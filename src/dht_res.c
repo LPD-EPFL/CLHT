@@ -181,64 +181,67 @@ bucket_exists(bucket_t* bucket, ssht_addr_t key)
 uint32_t
 ht_put(hashtable_t** h, ssht_addr_t key) 
 {
-
-  hashtable_t* hashtable = *h;
-  size_t bin = ht_hash(hashtable, key);
-
-  bucket_t* bucket = hashtable->table + bin;
-#if defined(READ_ONLY_FAIL)
-  if (bucket_exists(bucket, key))
-    {
-      return false;
-    }
-#endif
-  lock_t* lock = &bucket->lock;
+  hashtable_t* hashtable;
 
   ssht_addr_t* empty = NULL;
   void** empty_v = NULL;
+  lock_t* lock;
+  bucket_t* bucket;
 
-  uint32_t j;
-
-  bucket = LOCK_ACQ(lock, bucket, hashtable, key);
-  lock = &bucket->lock;
-
-  do 
+  do
     {
-      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+      hashtable = *h;
+      size_t bin = ht_hash(hashtable, key);
+
+      bucket = hashtable->table + bin;
+#if defined(READ_ONLY_FAIL)
+      if (bucket_exists(bucket, key))
 	{
-	  if (bucket->key[j] == key) 
-	    {
-	      LOCK_RLS(lock);
-	      return false;
-	    }
-	  else if (empty == NULL && bucket->key[j] == 0)
-	    {
-	      empty = &bucket->key[j];
-	      empty_v = &bucket->val[j];
-	    }
+	  return false;
 	}
+#endif
+      lock = &bucket->lock;
+    }
+  while (!LOCK_ACQ(lock, bucket, hashtable, key));
+
+    uint32_t j;
+    do 
+      {
+	for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	  {
+	    if (bucket->key[j] == key) 
+	      {
+		LOCK_RLS(lock);
+		return false;
+	      }
+	    else if (empty == NULL && bucket->key[j] == 0)
+	      {
+		empty = &bucket->key[j];
+		empty_v = &bucket->val[j];
+	      }
+	  }
         
-      if (bucket->next == NULL)
-	{
-	  if (empty == NULL)
-	    {
-	      DPP(put_num_failed_expand);
-	      bucket->next = create_bucket();
-	      bucket->next->key[0] = key;
-	      bucket->next->val[0] = (void*) bucket;
-	    }
-	  else 
-	    {
-	      *empty_v = (void*) bucket;
-	      *empty = key;
-	    }
+	if (bucket->next == NULL)
+	  {
+	    if (empty == NULL)
+	      {
+		DPP(put_num_failed_expand);
+		bucket->next = create_bucket();
+		bucket->next->key[0] = key;
+		bucket->next->val[0] = (void*) bucket;
+	      }
+	    else 
+	      {
+		*empty_v = (void*) bucket;
+		*empty = key;
+	      }
 
-	  LOCK_RLS(lock);
-	  return true;
-	}
+	    LOCK_RLS(lock);
+	    return true;
+	  }
 
-      bucket = bucket->next;
-    } while (true);
+	bucket = bucket->next;
+      } while (true);
 }
 
 
@@ -246,23 +249,26 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 ssht_addr_t
 ht_remove(hashtable_t** h, ssht_addr_t key)
 {
-
-  hashtable_t* hashtable = *h;
-  size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-#if defined(READ_ONLY_FAIL)
-  if (!bucket_exists(bucket, key))
+  hashtable_t* hashtable;
+  lock_t* lock;
+  bucket_t* bucket;
+  do
     {
-      return false;
+      hashtable = *h;
+      size_t bin = ht_hash(hashtable, key);
+
+      bucket = hashtable->table + bin;
+#if defined(READ_ONLY_FAIL)
+      if (!bucket_exists(bucket, key))
+	{
+	  return false;
+	}
+#endif
+      lock = &bucket->lock;
     }
-#endif  /* READ_ONLY_FAIL */
+  while (!LOCK_ACQ(lock, bucket, hashtable, key));
 
-  lock_t* lock = &bucket->lock;
   uint32_t j;
-
-  bucket = LOCK_ACQ(lock, bucket, hashtable, key);
-  lock = &bucket->lock;
-
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 

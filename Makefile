@@ -3,7 +3,7 @@ ifeq ($(DEBUG),1)
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
 else
   DEBUG_FLAGS=-Wall
-  COMPILE_FLAGS=-O3 -DADD_PADDING -DDEBUG
+  COMPILE_FLAGS=-O3 -DADD_PADDING # -DDEBUG
 endif
 
 ifeq ($(M),1)
@@ -11,7 +11,7 @@ MC=-DMEASURE_CONTENTION
 endif
 
 
-ALL= hyht hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
+ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
 
 LIBS+=
 LIBS_MP+=-lssmp
@@ -133,7 +133,7 @@ hyhtp_lat: main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
 
 
 hyht_lat: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
-	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o hyhtl $(LIBS)
+	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o hyht_lat $(LIBS)
 
 
 hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
