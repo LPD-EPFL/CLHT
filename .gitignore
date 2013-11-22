@@ -3,6 +3,7 @@
 /.#main_lock.c
 /.gitignore~
 /.nfs00000000083a09c60000001a
+/.nfs00000000084a0ac40000008e
 /.nfs00000000084a10c300000011
 /.nfs00000000084a10ce0000008d
 /Makefile~
@@ -17,6 +18,8 @@
 /htlock.o
 /hyht
 /hyht_no_val
+/hyht_res
+/hyht_res_lat
 /hyhtl
 /hyhtp
 /hyhtp_lat

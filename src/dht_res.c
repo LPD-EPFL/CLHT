@@ -345,7 +345,7 @@ int
 ht_resize_pes(hashtable_t** h)
 {
   hashtable_t* ht_old = *h;
-  if (ht_old->num_buckets > 65536)
+  if (ht_old->num_buckets > 16384)
     {
       return 0;
     }

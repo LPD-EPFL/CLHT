@@ -11,7 +11,7 @@ MC=-DMEASURE_CONTENTION
 endif
 
 
-ALL= hyht hylzht
+ALL= hyht hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
 
 LIBS+=
 LIBS_MP+=-lssmp
@@ -110,7 +110,7 @@ OBJ_FILES_MP :=
 
 default: all
 
-all: hyht hyhtp hyht_lat hyhtp_lat hylzht
+all: $(ALL)
 
 dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
@@ -118,6 +118,12 @@ dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 
 hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o hyht $(LIBS)
+
+hyht_res: main_lock_res.c $(OBJ_FILES) src/dht_res.c include/dht_res.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_res.c -o hyht_res $(LIBS)
+
+hyht_res_lat: main_lock_res.c $(OBJ_FILES) src/dht_res.c include/dht_res.h
+	$(GCC) -D_GNU_SOURCE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_res.c -o hyht_res_lat $(LIBS)
 
 hyhtp: main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht_packed.c -o hyhtp $(LIBS)
@@ -135,4 +141,4 @@ hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
 
 
 clean:				
-	rm -f *.o hyht hyht_lat hylzht hyhtp hyhtp_lat
+	rm -f *.o $(ALL)
