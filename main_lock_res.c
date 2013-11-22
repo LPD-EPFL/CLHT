@@ -233,18 +233,18 @@ test(void* thread)
       	  succ = 0;
       	}
 
-      uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000)) < 1;
-      if (resize)
-      	{
-	  START_TS();
-      	  if (ht_resize_pes(hashtable))
-	    {
-	      END_TS();
-#if !defined(COMPUTE_THROUGHPUT)
-	      printf("** resize cost: %lu\n", end_acq - start_acq - correction);
-#endif
-	    }
-      	}
+/*       uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000)) < 1; */
+/*       if (resize) */
+/*       	{ */
+/* 	  START_TS(); */
+/*       	  if (ht_resize_pes(hashtable)) */
+/* 	    { */
+/* 	      END_TS(); */
+/* #if !defined(COMPUTE_THROUGHPUT) */
+/* 	      printf("** resize cost: %lu\n", end_acq - start_acq - correction); */
+/* #endif */
+/* 	    } */
+/*       	} */
 
       if(update) 
 	{

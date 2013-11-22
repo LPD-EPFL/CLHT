@@ -80,8 +80,11 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       volatile uint32_t resize_bucket_done;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
+      uint8_t next_cl[64];
+      volatile uint32_t num_expands;
+      volatile uint32_t num_expands_threshold;
     };
-    uint8_t padding[CACHE_LINE_SIZE];
+    uint8_t padding[2*CACHE_LINE_SIZE];
   };
 } hashtable_t;
 
