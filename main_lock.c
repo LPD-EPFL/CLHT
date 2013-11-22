@@ -211,7 +211,6 @@ test(void *threadid)
 
   barrier_cross(&barrier_global);
 
-
   uint8_t update = false;
   int succ = 1;
   while (stop == 0) 
@@ -228,13 +227,6 @@ test(void *threadid)
 
       	  succ = 0;
       	}
-
-      uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000000)) < 1;
-      if (resize)
-      	{
-      	  ht_resize_pes(&hashtable);
-      	}
-
 
       if(update) 
 	{

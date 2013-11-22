@@ -151,7 +151,5 @@ size_t ht_size(hashtable_t* hashtable);
 void ht_print(hashtable_t* hashtable);
 
 bucket_t* create_bucket();
-void ht_resize_pes(hashtable_t** h);
-
 
 #endif /* _DHT_H_ */

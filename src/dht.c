@@ -335,35 +335,6 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
 }
 
 void
-ht_resize_pes(hashtable_t** h)
-{
-  hashtable_t* ht_old = *h;
-  printf("// resizing: from %5lu to %5lu buckets\n", ht_old->num_buckets, 2 * ht_old->num_buckets);
-
-  hashtable_t* ht_new = ht_create(2 * ht_old->num_buckets);
-  int32_t b;
-  for (b = 0; b < ht_old->num_buckets; b++)
-    {
-      bucket_t* bu_cur = ht_old->table + b;
-      bucket_cpy(bu_cur, ht_new);
-    }
-
-  if (ht_size(ht_old) != ht_size(ht_new))
-    {
-      printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new));
-    }
-
-  SWAP_PTR((volatile void*) h, (void*) ht_new);
-
-  for (b = ht_old->num_buckets - 1; b >= 0; b--)
-    {
-      bucket_t* bu_cur = ht_old->table + b;
-      LOCK_RLS(&bu_cur->lock);
-    }
-}
-
-
-void
 ht_destroy(hashtable_t* hashtable)
 {
   free(hashtable->table);
