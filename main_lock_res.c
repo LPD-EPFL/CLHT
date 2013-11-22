@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <malloc.h>
 #include "utils.h"
 #include "atomic_ops.h"
 #ifdef __sparc__
@@ -508,6 +509,7 @@ main(int argc, char **argv)
   /* Initialize the hashtable */
 
   hashtable_t** hashtable = (hashtable_t**) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
+  assert(hashtable != NULL);
   *hashtable = ht_create(num_buckets);
 
   /* Initializes the local data */
