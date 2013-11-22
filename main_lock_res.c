@@ -647,13 +647,14 @@ main(int argc, char **argv)
     
 #define LLU long long unsigned int
 
-#if defined(DEBUG)
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  printf("puts - rems  : %d\n", pr);
   int size_after = ht_size(*hashtable);
-  
+#if defined(DEBUG)
+  printf("puts - rems  : %d\n", pr);
+#endif
   assert(size_after == (initial + pr));
 
+#if defined(DEBUG)
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));

@@ -97,7 +97,7 @@ ht_create(uint32_t num_buckets)
   uint32_t i;
   for (i = 0; i < num_buckets; i++)
     {
-      hashtable->table[i].lock = 0;
+      hashtable->table[i].lock = LOCK_FREE;
       uint32_t j;
       for (j = 0; j < ENTRIES_PER_BUCKET; j++)
 	{
@@ -107,10 +107,14 @@ ht_create(uint32_t num_buckets)
 
   hashtable->num_buckets = num_buckets;
   hashtable->resize_lock = 0;
+  hashtable->resize_bucket_cur = 0;
+  hashtable->resize_bucket_done = 0;
+  hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
     
   return hashtable;
 }
+
 
 /* Hash a key for a particular hash table. */
 uint32_t
@@ -202,7 +206,7 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 #endif
       lock = &bucket->lock;
     }
-  while (!LOCK_ACQ(lock, bucket, hashtable, key));
+  while (!LOCK_ACQ(lock, hashtable));
 
     uint32_t j;
     do 
@@ -266,7 +270,7 @@ ht_remove(hashtable_t** h, ssht_addr_t key)
 #endif
       lock = &bucket->lock;
     }
-  while (!LOCK_ACQ(lock, bucket, hashtable, key));
+  while (!LOCK_ACQ(lock, hashtable));
 
   uint32_t j;
   do 
@@ -298,11 +302,7 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  if (bucket->key[j] == key) 
-	    {
-	      return false;
-	    }
-	  else if (empty == NULL && bucket->key[j] == 0)
+	  if (empty == NULL && bucket->key[j] == 0)
 	    {
 	      empty = &bucket->key[j];
 	      empty_v = &bucket->val[j];
@@ -343,38 +343,71 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
 	    }
 	}
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (bucket != NULL);
+}
 
+
+void
+ht_resize_help(hashtable_t* h)
+{
+  do
+    {
+      int32_t b = FAI_U32(&h->resize_bucket_cur);
+      if (b >= h->num_buckets)
+	{
+	  break;
+	}
+
+      bucket_t* bu_cur = h->table + b;
+      bucket_cpy(bu_cur, h->table_tmp);
+      IAF_U32(&h->resize_bucket_done);
+    }
+  while (1);
 }
 
 int 
 ht_resize_pes(hashtable_t** h)
 {
   hashtable_t* ht_old = *h;
-  if (ht_old->num_buckets > 16384)
+  if (ht_old->num_buckets > 1000000)
     {
       return 0;
     }
 
   if (TAS_U8(&ht_old->resize_lock))
     {
-      /* printf("  // abort: already being resized\n"); */
       return 0;
     }
   printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, 2 * ht_old->num_buckets);
 
   hashtable_t* ht_new = ht_create(2 * ht_old->num_buckets);
+#if HYHT_HELP_RESIZE == 1
+  ht_old->table_tmp = ht_new; 
+  ht_resize_help(ht_old);
+
+  while (ht_old->resize_bucket_done != ht_old->num_buckets)
+    {
+      _mm_mfence();
+    }
+#else
+
   int32_t b;
   for (b = 0; b < ht_old->num_buckets; b++)
     {
       bucket_t* bu_cur = ht_old->table + b;
       bucket_cpy(bu_cur, ht_new);
     }
+#endif
 
-  /* if (ht_size(ht_old) != ht_size(ht_new)) */
-  /*   { */
-  /*     printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new)); */
-  /*   } */
+#if defined(DEBUG)
+  if (ht_size(ht_old) != ht_size(ht_new))
+    {
+      printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new));
+    }
+#endif
+
+  
 
   SWAP_PTR((volatile void*) h, (void*) ht_new);
   ht_old->table_new = ht_new;
