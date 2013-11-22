@@ -132,23 +132,23 @@ _mm_pause_rep(uint64_t w)
 hashtable_t* ht_create(uint32_t capacity );
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash( hashtable_t *hashtable, ssht_addr_t key );
+uint32_t ht_hash(hashtable_t* hashtable, ssht_addr_t key );
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put( hashtable_t *hashtable, ssht_addr_t key, uint32_t bin);
+uint32_t ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
-void* ht_get( hashtable_t *hashtable, ssht_addr_t key, uint32_t bin);
+void* ht_get(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
-ssht_addr_t ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin);
+ssht_addr_t ht_remove(hashtable_t* hashtable, ssht_addr_t key, int bin);
 
 /* Dealloc the hashtable */
-void ht_destroy( hashtable_t *hashtable);
+void ht_destroy(hashtable_t* hashtable);
 
-size_t ht_size( hashtable_t *hashtable);
+size_t ht_size(hashtable_t* hashtable);
 
-void ht_print(hashtable_t *hashtable);
+void ht_print(hashtable_t* hashtable);
 
 bucket_t* create_bucket();
 void ht_resize_pes(hashtable_t** h);
