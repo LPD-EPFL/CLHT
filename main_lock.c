@@ -196,7 +196,7 @@ test(void *threadid)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+      printf("size of ht is: %lu\n", ht_size(hashtable));
       /* ht_print(hashtable, capacity); */
     }
 #else
@@ -228,6 +228,13 @@ test(void *threadid)
 
       	  succ = 0;
       	}
+
+      /* uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000000)) < 1; */
+      /* if (resize) */
+      /* 	{ */
+      /* 	  ht_resize_pes(&hashtable); */
+      /* 	} */
+
 
       if(update) 
 	{
@@ -341,7 +348,7 @@ test(void *threadid)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %u\n", ht_size(hashtable, capacity));
+      printf("size of ht is: %lu\n", ht_size(hashtable));
     }
 #else
   if (!ID)
@@ -627,7 +634,7 @@ main( int argc, char **argv )
 #if defined(DEBUG)
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
   printf("puts - rems  : %d\n", pr);
-  int size_after = ht_size(hashtable, hashtable->capacity);
+  int size_after = ht_size(hashtable);
   
   assert(size_after == (initial + pr));
 

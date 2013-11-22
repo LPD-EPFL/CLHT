@@ -268,6 +268,101 @@ ht_remove(hashtable_t* hashtable, ssht_addr_t key, int bin)
   return false;
 }
 
+static uint32_t
+ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
+{
+  bucket_t* bucket = hashtable->table + bin;
+  ssht_addr_t* empty = NULL;
+  void** empty_v = NULL;
+  uint32_t j;
+
+  do 
+    {
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	{
+	  if (bucket->key[j] == key) 
+	    {
+	      return false;
+	    }
+	  else if (empty == NULL && bucket->key[j] == 0)
+	    {
+	      empty = &bucket->key[j];
+	      empty_v = &bucket->val[j];
+	    }
+	}
+        
+      if (bucket->next == NULL)
+	{
+	  if (empty == NULL)
+	    {
+	      DPP(put_num_failed_expand);
+	      bucket->next = create_bucket();
+	      bucket->next->key[0] = key;
+	      bucket->next->val[0] = (void*) bucket;
+	    }
+	  else 
+	    {
+	      *empty_v = (void*) bucket;
+	      *empty = key;
+	    }
+	  return true;
+	}
+
+      bucket = bucket->next;
+    } while (true);
+}
+
+
+static inline void
+bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
+{
+  LOCK_ACQ(&bucket->lock);
+  uint32_t j;
+  do 
+    {
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	{
+	  ssht_addr_t key = bucket->key[j];
+	  if (key != 0) 
+	    {
+	      uint32_t bin = ht_hash(ht_new, key);
+	      ht_put_seq(ht_new, key, bin);
+	    }
+	}
+      bucket = bucket->next;
+    } while (bucket != NULL);
+
+}
+
+void
+ht_resize_pes(hashtable_t** h)
+{
+  hashtable_t* ht_old = *h;
+  printf("// resizing: from %5lu to %5lu buckets\n", ht_old->capacity, 2 * ht_old->capacity);
+
+  hashtable_t* ht_new = ht_create(2 * ht_old->capacity);
+  int32_t b;
+  for (b = 0; b < ht_old->capacity; b++)
+    {
+      bucket_t* bu_cur = ht_old->table + b;
+      bucket_cpy(bu_cur, ht_new);
+    }
+
+  if (ht_size(ht_old) != ht_size(ht_new))
+    {
+      printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new));
+    }
+
+  SWAP_PTR((volatile void*) h, (void*) ht_new);
+
+  for (b = ht_old->capacity - 1; b >= 0; b--)
+    {
+      bucket_t* bu_cur = ht_old->table + b;
+      LOCK_RLS(&bu_cur->lock);
+    }
+}
+
+
 void
 ht_destroy(hashtable_t* hashtable)
 {
@@ -277,9 +372,10 @@ ht_destroy(hashtable_t* hashtable)
 
 
 
-uint32_t
-ht_size(hashtable_t* hashtable, uint32_t capacity)
+size_t
+ht_size(hashtable_t* hashtable)
 {
+  uint32_t capacity = hashtable->capacity;
   bucket_t* bucket = NULL;
   size_t size = 0;
 
@@ -307,8 +403,9 @@ ht_size(hashtable_t* hashtable, uint32_t capacity)
 }
 
 void
-ht_print(hashtable_t* hashtable, uint32_t capacity)
+ht_print(hashtable_t* hashtable)
 {
+  uint32_t capacity = hashtable->capacity;
   bucket_t* bucket;
 
   printf("Number of buckets: %u\n", capacity);
