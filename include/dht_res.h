@@ -12,8 +12,14 @@
 
 #define READ_ONLY_FAIL
 /* #define DEBUG */
-#define HYHT_HELP_RESIZE      1
+#define HYHT_HELP_RESIZE      0
 #define HYHT_PERC_EXPANSIONS  0.01
+#define HYHT_MAX_EXPANSIONS   1
+#define HYHT_PERC_FULL_DOUBLE 80	   /* % */
+#define HYHT_RATIO_DOUBLE     2		  
+#define HYHT_PERC_FULL_HALVE  5		   /* % */
+#define HYHT_RATIO_HALVE      8		  
+#define HYHT_MIN_HT_SIZE      8
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -199,11 +205,13 @@ ssht_addr_t ht_remove(hashtable_t** hashtable, ssht_addr_t key);
 void ht_destroy(hashtable_t** hashtable);
 
 size_t ht_size(hashtable_t* hashtable);
+size_t ht_size_mem(hashtable_t* hashtable);
+size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
 
 bucket_t* create_bucket();
-int ht_resize_pes(hashtable_t** h);
+int ht_resize_pes(hashtable_t** h, int increase_size);
 
 
 #endif /* _DHT_RES_H_ */

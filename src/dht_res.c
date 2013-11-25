@@ -26,6 +26,27 @@ int is_odd (int x)
   return x & 1;
 }
 
+
+
+size_t ht_status(hashtable_t** h);
+#define HYHT_STATUS_INV 102400
+__thread size_t check_ht_status_steps = HYHT_STATUS_INV;
+
+#define HYHT_DO_CHECK_STATUS 1
+
+#if HYHT_DO_CHECK_STATUS == 1
+#  define HYHT_CHECK_STATUS()			\
+  if ((--check_ht_status_steps) == 0)		\
+    {						\
+      ht_status(h);				\
+      check_ht_status_steps = HYHT_STATUS_INV;	\
+    }
+
+#else 
+#  define HYHT_CHECK_STATUS()
+#endif
+
+
 /** Jenkins' hash function for 64-bit integers. */
 inline uint64_t
 __ac_Jenkins_hash_64(uint64_t key)
@@ -127,7 +148,7 @@ ht_create(uint32_t num_buckets)
     {
       hashtable->num_expands_threshold = 1;
     }
-  printf(" :: buckets: %u / threshold: %u\n", num_buckets, hashtable->num_expands_threshold);
+  /* printf(" :: buckets: %u / threshold: %u\n", num_buckets, hashtable->num_expands_threshold); */
 
   hashtable->is_helper = 1;
   hashtable->helper_done = 0;
@@ -203,6 +224,7 @@ bucket_exists(bucket_t* bucket, ssht_addr_t key)
 uint32_t
 ht_put(hashtable_t** h, ssht_addr_t key) 
 {
+  HYHT_CHECK_STATUS();
   hashtable_t* hashtable;
 
   ssht_addr_t* empty = NULL;
@@ -262,7 +284,7 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	  LOCK_RLS(lock);
 	  if (resize)
 	    {
-	      ht_resize_pes(h);
+	      ht_resize_pes(h, 1);
 	    }
 	  return true;
 	}
@@ -276,6 +298,8 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 ssht_addr_t
 ht_remove(hashtable_t** h, ssht_addr_t key)
 {
+  HYHT_CHECK_STATUS();
+
   hashtable_t* hashtable;
   lock_t* lock;
   bucket_t* bucket;
@@ -397,9 +421,11 @@ ht_resize_help(hashtable_t* h)
 }
 
 int 
-ht_resize_pes(hashtable_t** h)
+ht_resize_pes(hashtable_t** h, int increase_size)
 {
   ticks s = getticks();
+
+  check_ht_status_steps = HYHT_STATUS_INV;
 
   hashtable_t* ht_old = *h;
 
@@ -407,9 +433,24 @@ ht_resize_pes(hashtable_t** h)
     {
       return 0;
     }
-  printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, 2 * ht_old->num_buckets);
 
-  hashtable_t* ht_new = ht_create(2 * ht_old->num_buckets);
+  size_t num_buckets_new;
+  if (increase_size == true)
+    {
+      num_buckets_new = HYHT_RATIO_DOUBLE * ht_old->num_buckets;
+    }
+  else
+    {
+      num_buckets_new = ht_old->num_buckets / HYHT_RATIO_HALVE;
+      /* if (num_buckets_new < HYHT_MIN_HT_SIZE) */
+      /* 	{ */
+      /* 	  return 0; */
+      /* 	} */
+    }
+
+  printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, num_buckets_new);
+
+  hashtable_t* ht_new = ht_create(num_buckets_new);
 
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
@@ -504,6 +545,89 @@ ht_size(hashtable_t* hashtable)
     }
   return size;
 }
+
+size_t
+ht_status(hashtable_t** h)
+{
+  hashtable_t* hashtable = *h;
+  uint32_t num_buckets = hashtable->num_buckets;
+  bucket_t* bucket = NULL;
+  size_t size = 0;
+  int expands = 0;
+  int expands_max = 0;
+
+  uint32_t bin;
+  for (bin = 0; bin < num_buckets; bin++)
+    {
+      bucket = hashtable->table + bin;
+
+      int expands_cont = -1;
+      expands--;
+      uint32_t j;
+      do
+	{
+	  expands_cont++;
+	  expands++;
+	  for (j = 0; j < ENTRIES_PER_BUCKET; j++)
+	    {
+	      if (bucket->key[j] > 0)
+		{
+		  size++;
+		}
+	    }
+
+	  bucket = bucket->next;
+	}
+      while (bucket != NULL);
+
+      if (expands_cont > expands_max)
+	{
+	  expands_max = expands_cont;
+	}
+    }
+
+  double full_ratio = 100.0 * size / (hashtable->num_buckets * ENTRIES_PER_BUCKET);
+
+  if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE)
+    {
+      printf("* #bu: %7lu / #elems: %7lu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
+	 hashtable->num_buckets, size, full_ratio, expands, expands_max);
+      ht_resize_pes(h, 0);
+    }
+  else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS)
+    {
+      printf("* #bu: %7lu / #elems: %7lu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
+	     hashtable->num_buckets, size, full_ratio, expands, expands_max);
+      ht_resize_pes(h, 1);
+    }
+
+  return size;
+}
+
+
+size_t
+ht_size_mem(hashtable_t* h) /* in bytes */
+{
+  size_t size_tot = sizeof(hashtable_t**);
+  size_tot += (h->num_buckets + h->num_expands) * sizeof(bucket_t);
+  return size_tot;
+}
+
+size_t
+ht_size_mem_garbage(hashtable_t* h) /* in bytes */
+{
+  size_t size_tot = 0;
+  hashtable_t* cur = h;
+  do
+    {
+      size_tot += ht_size_mem(cur);
+      cur = cur->table_new;
+    }
+  while (cur != NULL);
+
+  return size_tot;
+}
+
 
 void
 ht_print(hashtable_t* hashtable)
