@@ -17,28 +17,28 @@ __thread uint32_t put_num_failed_on_new = 0;
 inline int
 is_power_of_two (unsigned int x) 
 {
-return ((x != 0) && !(x & (x - 1)));
+  return ((x != 0) && !(x & (x - 1)));
 }
 
 static inline
 int is_odd (int x)
 {
-    return x & 1;
+  return x & 1;
 }
 
 /** Jenkins' hash function for 64-bit integers. */
 inline uint64_t
 __ac_Jenkins_hash_64(uint64_t key)
 {
-    key += ~(key << 32);
-    key ^= (key >> 22);
-    key += ~(key << 13);
-    key ^= (key >> 8);
-    key += (key << 3);
-    key ^= (key >> 15);
-    key += ~(key << 27);
-    key ^= (key >> 31);
-    return key;
+  key += ~(key << 32);
+  key ^= (key >> 22);
+  key += ~(key << 13);
+  key ^= (key >> 8);
+  key += (key << 3);
+  key ^= (key >> 15);
+  key += ~(key << 27);
+  key ^= (key >> 31);
+  return key;
 }
 
 /* Create a new bucket. */
@@ -139,15 +139,15 @@ ht_create(uint32_t num_buckets)
 uint32_t
 ht_hash(hashtable_t* hashtable, ssht_addr_t key) 
 {
-	/* uint64_t hashval; */
-	/* hashval = __ac_Jenkins_hash_64(key); */
-	/* return hashval % hashtable->num_buckets; */
+  /* uint64_t hashval; */
+  /* hashval = __ac_Jenkins_hash_64(key); */
+  /* return hashval % hashtable->num_buckets; */
   /* return key % hashtable->num_buckets; */
   return key & (hashtable->num_buckets - 1);
 }
 
 
-  /* Retrieve a key-value entry from a hash table. */
+/* Retrieve a key-value entry from a hash table. */
 void*
 ht_get(hashtable_t** h, ssht_addr_t key)
 {
@@ -227,50 +227,50 @@ ht_put(hashtable_t** h, ssht_addr_t key)
     }
   while (!LOCK_ACQ(lock, hashtable));
 
-    uint32_t j;
-    do 
-      {
-	for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
-	  {
-	    if (bucket->key[j] == key) 
-	      {
-		LOCK_RLS(lock);
-		return false;
-	      }
-	    else if (empty == NULL && bucket->key[j] == 0)
-	      {
-		empty = &bucket->key[j];
-		empty_v = &bucket->val[j];
-	      }
-	  }
+  uint32_t j;
+  do 
+    {
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	{
+	  if (bucket->key[j] == key) 
+	    {
+	      LOCK_RLS(lock);
+	      return false;
+	    }
+	  else if (empty == NULL && bucket->key[j] == 0)
+	    {
+	      empty = &bucket->key[j];
+	      empty_v = &bucket->val[j];
+	    }
+	}
         
-	int resize = 0;
-	if (bucket->next == NULL)
-	  {
-	    if (empty == NULL)
-	      {
-		DPP(put_num_failed_expand);
-		bucket->next = create_bucket_stats(hashtable, &resize);
-		bucket->next->key[0] = key;
-		bucket->next->val[0] = (void*) bucket;
-	      }
-	    else 
-	      {
-		*empty_v = (void*) bucket;
-		*empty = key;
-	      }
+      int resize = 0;
+      if (bucket->next == NULL)
+	{
+	  if (empty == NULL)
+	    {
+	      DPP(put_num_failed_expand);
+	      bucket->next = create_bucket_stats(hashtable, &resize);
+	      bucket->next->key[0] = key;
+	      bucket->next->val[0] = (void*) bucket;
+	    }
+	  else 
+	    {
+	      *empty_v = (void*) bucket;
+	      *empty = key;
+	    }
 
-	    LOCK_RLS(lock);
+	  LOCK_RLS(lock);
 
-	    if (resize)
-	      {
-		ht_resize_pes(h);
-	      }
-	    return true;
-	  }
+	  if (resize)
+	    {
+	      ht_resize_pes(h);
+	    }
+	  return true;
+	}
 
-	bucket = bucket->next;
-      } while (true);
+      bucket = bucket->next;
+    } while (true);
 }
 
 
@@ -395,10 +395,6 @@ int
 ht_resize_pes(hashtable_t** h)
 {
   hashtable_t* ht_old = *h;
-  if (ht_old->num_buckets > 1000000)
-    {
-      return 0;
-    }
 
   if (TAS_U8(&ht_old->resize_lock))
     {
