@@ -12,7 +12,7 @@
 
 #define READ_ONLY_FAIL
 /* #define DEBUG */
-#define HYHT_HELP_RESIZE      0
+#define HYHT_HELP_RESIZE      1
 #define HYHT_PERC_EXPANSIONS  0.05
 
 #if defined(DEBUG)

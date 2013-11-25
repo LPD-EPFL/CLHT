@@ -19,6 +19,8 @@
 /hclh.o
 /htlock.o
 /hyht
+/hyht_help
+/hyht_help_no
 /hyht_lat
 /hyht_no_val
 /hyht_res
