@@ -443,6 +443,9 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
     }
   else
     {
+#if HYHT_HELP_RESIZE == 1
+      ht_old->is_helper = 0;
+#endif
       num_buckets_new = ht_old->num_buckets / HYHT_RATIO_HALVE;
     }
 
@@ -463,7 +466,7 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
 	}
     }
 
-  if (ht_old->is_helper != 1)	/* there exist a helper */
+  if (is_increase && ht_old->is_helper != 1)	/* there exist a helper */
     {
       while (ht_old->helper_done != 1)
 	{
