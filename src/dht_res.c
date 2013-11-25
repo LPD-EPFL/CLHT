@@ -387,7 +387,7 @@ ht_resize_help(hashtable_t* h)
     {
       bucket_t* bu_cur = h->table + b;
       if (!bucket_cpy(bu_cur, h->table_tmp))
-	{
+	{	    /* reached a point where the resizer is handling */
 	  printf("** helped with #buckets: %lu\n", h->num_buckets - b);
 	  break;
 	}
@@ -418,7 +418,7 @@ ht_resize_pes(hashtable_t** h)
   for (b = 0; b < ht_old->num_buckets; b++)
     {
       bucket_t* bu_cur = ht_old->table + b;
-      if (!bucket_cpy(bu_cur, ht_new))
+      if (!bucket_cpy(bu_cur, ht_new)) /* reached a point where the helper is handling */
 	{
 	  break;
 	}
@@ -426,7 +426,6 @@ ht_resize_pes(hashtable_t** h)
 
   if (ht_old->is_helper != 1)	/* there exist a helper */
     {
-      printf(" // waiting for helper to be done!\n");
       while (ht_old->helper_done != 1)
 	{
 	  _mm_pause();
