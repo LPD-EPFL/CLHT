@@ -382,6 +382,8 @@ main(int argc, char **argv)
 {
   set_cpu(the_cores[0]);
     
+  assert(sizeof(hashtable_t) == 2*CACHE_LINE_SIZE);
+
   struct option long_options[] = {
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},

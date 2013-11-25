@@ -12,7 +12,7 @@
 
 #define READ_ONLY_FAIL
 /* #define DEBUG */
-#define HYHT_HELP_RESIZE      0
+#define HYHT_HELP_RESIZE      1
 #define HYHT_PERC_EXPANSIONS  0.01
 
 #if defined(DEBUG)
@@ -78,14 +78,15 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
     {
       size_t num_buckets;
       bucket_t* table;
-      uint8_t next_cache_line[64 - sizeof(size_t) - sizeof(void*)];
+      size_t hash;
+      uint8_t next_cache_line[64 - (2 * sizeof(size_t)) - sizeof(void*)];
       volatile uint8_t resize_lock;
-      volatile uint32_t resize_bucket_cur;
-      volatile uint32_t resize_bucket_done;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
       volatile uint32_t num_expands;
       volatile uint32_t num_expands_threshold;
+      volatile int32_t is_helper;
+      volatile int32_t helper_done;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };
@@ -160,13 +161,21 @@ lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
   return 1;
 }
 
-static inline void
+static inline int
 lock_acq_resize(lock_t* lock)
 {
-  while (CAS_U8(lock, LOCK_FREE, LOCK_RESIZE) != LOCK_FREE)
+  lock_t l;
+  while ((l = CAS_U8(lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
     {
       _mm_pause();
     }
+
+  if (l == LOCK_RESIZE)
+    {
+      return 0;
+    }
+
+  return 1;
 }
 
 

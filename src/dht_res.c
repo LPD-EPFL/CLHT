@@ -117,9 +117,8 @@ ht_create(uint32_t num_buckets)
     }
 
   hashtable->num_buckets = num_buckets;
+  hashtable->hash = num_buckets - 1;
   hashtable->resize_lock = 0;
-  hashtable->resize_bucket_cur = 0;
-  hashtable->resize_bucket_done = 0;
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
   hashtable->num_expands = 0;
@@ -129,6 +128,9 @@ ht_create(uint32_t num_buckets)
       hashtable->num_expands_threshold = 1;
     }
   printf(" :: buckets: %u / threshold: %u\n", num_buckets, hashtable->num_expands_threshold);
+
+  hashtable->is_helper = 1;
+  hashtable->helper_done = 0;
     
   return hashtable;
 }
@@ -142,7 +144,8 @@ ht_hash(hashtable_t* hashtable, ssht_addr_t key)
   /* hashval = __ac_Jenkins_hash_64(key); */
   /* return hashval % hashtable->num_buckets; */
   /* return key % hashtable->num_buckets; */
-  return key & (hashtable->num_buckets - 1);
+  /* return key & (hashtable->num_buckets - 1); */
+  return key & (hashtable->hash);
 }
 
 
@@ -344,10 +347,13 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 }
 
 
-static void
+static int
 bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
 {
-  LOCK_ACQ_RES(&bucket->lock);
+  if (!LOCK_ACQ_RES(&bucket->lock))
+    {
+      return 0;
+    }
   uint32_t j;
   do 
     {
@@ -363,25 +369,32 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
       bucket = bucket->next;
     } 
   while (bucket != NULL);
+
+  return 1;
 }
 
 
 void
 ht_resize_help(hashtable_t* h)
 {
-  do
+  if (FAD_U32(&h->is_helper) <= 0)
     {
-      int32_t b = FAI_U32(&h->resize_bucket_cur);
-      if (b >= h->num_buckets)
+      return;
+    }
+
+  int32_t b;
+  /* hash = num_buckets - 1 */
+  for (b = h->hash; b >= 0; b--)
+    {
+      bucket_t* bu_cur = h->table + b;
+      if (!bucket_cpy(bu_cur, h->table_tmp))
 	{
+	  printf("** helped with #buckets: %lu\n", h->num_buckets - b);
 	  break;
 	}
-
-      bucket_t* bu_cur = h->table + b;
-      bucket_cpy(bu_cur, h->table_tmp);
-      IAF_U32(&h->resize_bucket_done);
     }
-  while (1);
+
+  h->helper_done = 1;
 }
 
 int 
@@ -401,12 +414,26 @@ ht_resize_pes(hashtable_t** h)
 
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
-  ht_resize_help(ht_old);
 
-  while (ht_old->resize_bucket_done != ht_old->num_buckets)
+  int32_t b;
+  for (b = 0; b < ht_old->num_buckets; b++)
     {
-      _mm_mfence();
+      bucket_t* bu_cur = ht_old->table + b;
+      if (!bucket_cpy(bu_cur, ht_new))
+	{
+	  break;
+	}
     }
+
+  if (ht_old->is_helper != 1)	/* there exist a helper */
+    {
+      printf(" // waiting for helper to be done!\n");
+      while (ht_old->helper_done != 1)
+	{
+	  _mm_pause();
+	}
+    }
+
 #else
 
   int32_t b;
