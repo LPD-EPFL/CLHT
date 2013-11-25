@@ -12,6 +12,8 @@
 
 #define READ_ONLY_FAIL
 /* #define DEBUG */
+#define HYHT_HELP_RESIZE      0
+#define HYHT_PERC_EXPANSIONS  0.05
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -54,6 +56,7 @@
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
+inline int is_power_of_two (unsigned int x);
 
 typedef uintptr_t ssht_addr_t;
 
@@ -118,8 +121,6 @@ _mm_pause_rep(uint64_t w)
   lock_acq_resize(lock)
 
 
-
-#define HYHT_HELP_RESIZE 0
 void ht_resize_help(hashtable_t* h);
 
 static inline int
