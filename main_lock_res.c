@@ -387,6 +387,7 @@ main(int argc, char **argv)
   };
 
   size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0, put = 10;
+  int put_explicit = 0;
 
   int i, c;
   while(1) 
@@ -447,6 +448,7 @@ main(int argc, char **argv)
 	  update = atoi(optarg);
 	  break;
 	case 'p':
+	  put_explicit = 1;
 	  put = atoi(optarg);
 	  break;
 	case 'l':
@@ -505,7 +507,14 @@ main(int argc, char **argv)
   num_elements = range;
   filling_rate = (double) initial / range;
   update_rate = update / 100.0;
-  put_rate = put / 100.0;
+  if (put_explicit)
+    {
+      put_rate = put / 100.0;
+    }
+  else
+    {
+      put_rate = update_rate / 2;
+    }
   get_rate = 1 - update_rate;
 
   printf("num_threads = %u\n", num_threads);
