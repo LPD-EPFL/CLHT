@@ -102,51 +102,27 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-/* #define TAS_WITH_FAI */
-/* #define TAS_WITH_TAS */
-#define TAS_WITH_CAS
-/* #define TAS_WITH_SWAP */
-
 #if defined(XEON) | defined(COREi7)
 #  define TAS_RLS_MFENCE() _mm_mfence();
 #else
 #  define TAS_RLS_MFENCE()
 #endif
 
-#if defined(TAS_WITH_FAI)
-#  define LOCK_ACQ(lock)			\
-  while (FAI_U64(lock))				\
-    {						\
-      _mm_pause();				\
-      DPP(put_num_restarts);			\
-    }						
-#elif defined(TAS_WITH_TAS)			
-#  define LOCK_ACQ(lock)			\
-  while (TAS_U8((uint8_t*) (lock)))		\
-    {						\
-      _mm_pause();				\
-      DPP(put_num_restarts);			\
-    }						
-#elif defined(TAS_WITH_SWAP)			
-#  define LOCK_ACQ(lock)			\
-  while (SWAP_U64(lock, 1))			\
-    {						\
-      _mm_pause();				\
-      DPP(put_num_restarts);			\
-    }						
-#elif defined(TAS_WITH_CAS)
 
 #define LOCK_FREE   0
 #define LOCK_UPDATE 1
 #define LOCK_RESIZE 2
 
-#  define LOCK_ACQ(lock, bu, ht, key)		\
-  lock_acq_chk_resize(lock, bu, ht, key)
+#  define LOCK_ACQ(lock, ht)			\
+  lock_acq_chk_resize(lock, ht)
 #  define LOCK_ACQ_RES(lock)			\
   lock_acq_resize(lock)
 
-static inline bucket_t*
-lock_acq_chk_resize(lock_t* lock, bucket_t* b, hashtable_t* h, ssht_addr_t k)
+
+void ht_resize_help(hashtable_t* h);
+
+static inline int
+lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
 {
   lock_t l;
   while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
@@ -156,17 +132,20 @@ lock_acq_chk_resize(lock_t* lock, bucket_t* b, hashtable_t* h, ssht_addr_t k)
 
   if (l == LOCK_RESIZE)
     {
+      /* helping with the resize */
+#if HYHT_HELP_RESIZE == 1
+      ht_resize_help(h);
+#endif
+
       while (h->table_new == NULL)
 	{
 	  _mm_mfence();
 	}
 
-      size_t bin = ht_hash(h->table_new, k);
-      bucket_t* bnew = h->table_new->table + bin;
-      return lock_acq_chk_resize(&bnew->lock, bnew, h->table_new, k);
+      return 0;
     }
 
-  return b;
+  return 1;
 }
 
 static inline void
@@ -179,14 +158,12 @@ lock_acq_resize(lock_t* lock)
 }
 
 
-#endif
-
 #define LOCK_RLS(lock)				\
   TAS_RLS_MFENCE();				\
  *lock = 0;	  
 
 /* Create a new hashtable. */
-hashtable_t* ht_create(uint32_t num_buckets );
+hashtable_t* ht_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
 uint32_t ht_put(hashtable_t** hashtable, ssht_addr_t key);

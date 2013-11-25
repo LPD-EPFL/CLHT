@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <malloc.h>
 #include "utils.h"
 #include "atomic_ops.h"
 #ifdef __sparc__
@@ -209,9 +210,9 @@ test(void* thread)
 #else
   if (!ID)
     {
-      if(ht_size(hashtable, num_buckets) == 3321445)
+      if(ht_size(*hashtable) == 3321445)
 	{
-	  printf("size of ht is: %u\n", ht_size(hashtable, num_buckets));
+	  printf("size of ht is: %lu\n", ht_size(*hashtable));
 	}
     }  
 #endif
@@ -222,7 +223,7 @@ test(void* thread)
   int succ = 1;
   while (stop == 0) 
     {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
         
       if(succ)
       	{
@@ -230,19 +231,6 @@ test(void* thread)
       	  update = (c < scale_update);
 
       	  succ = 0;
-      	}
-
-      uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000)) < 1;
-      if (resize)
-      	{
-	  START_TS();
-      	  if (ht_resize_pes(hashtable))
-	    {
-	      END_TS();
-#if !defined(COMPUTE_THROUGHPUT)
-	      printf("** resize cost: %lu\n", end_acq - start_acq - correction);
-#endif
-	    }
       	}
 
       if(update) 
@@ -362,9 +350,9 @@ test(void* thread)
 #else
   if (!ID)
     {
-      if(ht_size(hashtable, num_buckets) == 3321445)
+      if(ht_size(*hashtable) == 3321445)
 	{
-	  printf("size of ht is: %u\n", ht_size(hashtable, num_buckets));
+	  printf("size of ht is: %lu\n", ht_size(*hashtable));
 	}
     }  
 #endif
@@ -410,7 +398,7 @@ main(int argc, char **argv)
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:x:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -435,13 +423,13 @@ main(int argc, char **argv)
 	       "  -d, --duration <int>\n"
 	       "        Test duration in milliseconds\n"
 	       "  -i, --initial-size <int>\n"
-	       "        Number of elements to insert before test)\n"
+	       "        Number of elements to insert before test\n"
 	       "  -n, --num-threads <int>\n"
-	       "        Number of threads)\n"
+	       "        Number of threads\n"
 	       "  -r, --range <int>\n"
-	       "        Range of integer values inserted in set)\n"
+	       "        Range of integer values inserted in set\n"
 	       "  -u, --update-rate <int>\n"
-	       "        Percentage of update transactions)\n"
+	       "        Percentage of update transactions\n"
 	      );
 	exit(0);
       case 'd':
@@ -482,7 +470,7 @@ main(int argc, char **argv)
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
-      printf("** rounding up num_buckets (to make it power of 2): old: %lu / new: %lu\n", num_buckets, num_buckets_pow2);
+      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %lu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
     }
 

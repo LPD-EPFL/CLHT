@@ -1,6 +1,8 @@
 *~
 /#main_lock.c#
+/#main_lock_res.c#
 /.#main_lock.c
+/.#main_lock_res.c
 /.gitignore~
 /.nfs00000000083a09c60000001a
 /.nfs00000000084a0ac40000008e
@@ -17,6 +19,8 @@
 /hclh.o
 /htlock.o
 /hyht
+/hyht_help
+/hyht_help_no
 /hyht_lat
 /hyht_no_val
 /hyht_res
@@ -24,6 +28,7 @@
 /hyht_res1opt
 /hyht_res_lat
 /hyht_res_lat1
+/hyht_res_lat_1
 /hyht_res_lat_help
 /hyht_res_lat_no_help
 /hyhtl

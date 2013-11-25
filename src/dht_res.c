@@ -202,43 +202,47 @@ bucket_exists(bucket_t* bucket, ssht_addr_t key)
 uint32_t
 ht_put(hashtable_t** h, ssht_addr_t key) 
 {
-
-  hashtable_t* hashtable = *h;
-  size_t bin = ht_hash(hashtable, key);
-
-  bucket_t* bucket = hashtable->table + bin;
-#if defined(READ_ONLY_FAIL)
-  if (bucket_exists(bucket, key))
-    {
-      return false;
-    }
-#endif
-  lock_t* lock = &bucket->lock;
+  hashtable_t* hashtable;
 
   ssht_addr_t* empty = NULL;
   void** empty_v = NULL;
+  lock_t* lock;
+  bucket_t* bucket;
 
-  uint32_t j;
-
-  bucket = LOCK_ACQ(lock, bucket, hashtable, key);
-  lock = &bucket->lock;
-
-  do 
+  do
     {
-      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+      hashtable = *h;
+      size_t bin = ht_hash(hashtable, key);
+
+      bucket = hashtable->table + bin;
+#if defined(READ_ONLY_FAIL)
+      if (bucket_exists(bucket, key))
 	{
-	  if (bucket->key[j] == key) 
-	    {
-	      LOCK_RLS(lock);
-	      return false;
-	    }
-	  else if (empty == NULL && bucket->key[j] == 0)
-	    {
-	      empty = &bucket->key[j];
-	      empty_v = &bucket->val[j];
-	    }
+	  return false;
 	}
+#endif
+      lock = &bucket->lock;
+    }
+  while (!LOCK_ACQ(lock, hashtable));
+
+    uint32_t j;
+    do 
+      {
+	for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	  {
+	    if (bucket->key[j] == key) 
+	      {
+		LOCK_RLS(lock);
+		return false;
+	      }
+	    else if (empty == NULL && bucket->key[j] == 0)
+	      {
+		empty = &bucket->key[j];
+		empty_v = &bucket->val[j];
+	      }
+	  }
         
+<<<<<<< variant A
       int resize = 0;
       if (bucket->next == NULL)
 	{
@@ -254,7 +258,25 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	      *empty_v = (void*) bucket;
 	      *empty = key;
 	    }
+>>>>>>> variant B
+	int resize = 0;
+	if (bucket->next == NULL)
+	  {
+	    if (empty == NULL)
+	      {
+		DPP(put_num_failed_expand);
+		bucket->next = create_bucket_stats(hashtable, &resize);
+		bucket->next->key[0] = key;
+		bucket->next->val[0] = (void*) bucket;
+	      }
+	    else 
+	      {
+		*empty_v = (void*) bucket;
+		*empty = key;
+	      }
+======= end
 
+<<<<<<< variant A
 	  LOCK_RLS(lock);
 	  if (resize)
 	    {
@@ -262,9 +284,24 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	    }
 	  return true;
 	}
+>>>>>>> variant B
+	    LOCK_RLS(lock);
+======= end
 
+<<<<<<< variant A
       bucket = bucket->next;
     } while (true);
+>>>>>>> variant B
+	    if (resize)
+	      {
+		ht_resize_pes(h);
+	      }
+	    return true;
+	  }
+
+	bucket = bucket->next;
+      } while (true);
+======= end
 }
 
 
@@ -272,23 +309,26 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 ssht_addr_t
 ht_remove(hashtable_t** h, ssht_addr_t key)
 {
-
-  hashtable_t* hashtable = *h;
-  size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-#if defined(READ_ONLY_FAIL)
-  if (!bucket_exists(bucket, key))
+  hashtable_t* hashtable;
+  lock_t* lock;
+  bucket_t* bucket;
+  do
     {
-      return false;
+      hashtable = *h;
+      size_t bin = ht_hash(hashtable, key);
+
+      bucket = hashtable->table + bin;
+#if defined(READ_ONLY_FAIL)
+      if (!bucket_exists(bucket, key))
+	{
+	  return false;
+	}
+#endif
+      lock = &bucket->lock;
     }
-#endif  /* READ_ONLY_FAIL */
+  while (!LOCK_ACQ(lock, hashtable));
 
-  lock_t* lock = &bucket->lock;
   uint32_t j;
-
-  bucket = LOCK_ACQ(lock, bucket, hashtable, key);
-  lock = &bucket->lock;
-
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
@@ -318,11 +358,7 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  if (bucket->key[j] == key) 
-	    {
-	      return false;
-	    }
-	  else if (empty == NULL && bucket->key[j] == 0)
+	  if (empty == NULL && bucket->key[j] == 0)
 	    {
 	      empty = &bucket->key[j];
 	      empty_v = &bucket->val[j];
@@ -363,38 +399,71 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
 	    }
 	}
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (bucket != NULL);
+}
 
+
+void
+ht_resize_help(hashtable_t* h)
+{
+  do
+    {
+      int32_t b = FAI_U32(&h->resize_bucket_cur);
+      if (b >= h->num_buckets)
+	{
+	  break;
+	}
+
+      bucket_t* bu_cur = h->table + b;
+      bucket_cpy(bu_cur, h->table_tmp);
+      IAF_U32(&h->resize_bucket_done);
+    }
+  while (1);
 }
 
 int 
 ht_resize_pes(hashtable_t** h)
 {
   hashtable_t* ht_old = *h;
-  if (ht_old->num_buckets > 16384)
+  if (ht_old->num_buckets > 1000000)
     {
       return 0;
     }
 
   if (TAS_U8(&ht_old->resize_lock))
     {
-      /* printf("  // abort: already being resized\n"); */
       return 0;
     }
   printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, 2 * ht_old->num_buckets);
 
   hashtable_t* ht_new = ht_create(2 * ht_old->num_buckets);
+#if HYHT_HELP_RESIZE == 1
+  ht_old->table_tmp = ht_new; 
+  ht_resize_help(ht_old);
+
+  while (ht_old->resize_bucket_done != ht_old->num_buckets)
+    {
+      _mm_mfence();
+    }
+#else
+
   int32_t b;
   for (b = 0; b < ht_old->num_buckets; b++)
     {
       bucket_t* bu_cur = ht_old->table + b;
       bucket_cpy(bu_cur, ht_new);
     }
+#endif
 
-  /* if (ht_size(ht_old) != ht_size(ht_new)) */
-  /*   { */
-  /*     printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new)); */
-  /*   } */
+#if defined(DEBUG)
+  if (ht_size(ht_old) != ht_size(ht_new))
+    {
+      printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new));
+    }
+#endif
+
+  
 
   SWAP_PTR((volatile void*) h, (void*) ht_new);
   ht_old->table_new = ht_new;
