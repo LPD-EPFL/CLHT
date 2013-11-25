@@ -133,7 +133,7 @@ hyhtp_lat: main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
 
 
 hyht_lat: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
-	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o hyhtl $(LIBS)
+	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht.c -o hyht_lat $(LIBS)
 
 
 hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h

@@ -61,8 +61,20 @@ create_bucket()
       bucket->key[j] = 0;
     }
   bucket->next = NULL;
-    
+
   return bucket;
+}
+
+bucket_t*
+create_bucket_stats(hashtable_t* h, int* resize) 
+{
+  bucket_t* b = create_bucket();
+  if (IAF_U32(&h->num_expands) == h->num_expands_threshold)
+    {
+      printf("      -- hit threshold (%u ~ %u)\n", h->num_expands, h->num_expands_threshold);
+      *resize = 1;
+    }
+  return b;
 }
 
 hashtable_t* 
@@ -97,7 +109,7 @@ ht_create(uint32_t num_buckets)
   uint32_t i;
   for (i = 0; i < num_buckets; i++)
     {
-      hashtable->table[i].lock = 0;
+      hashtable->table[i].lock = LOCK_FREE;
       uint32_t j;
       for (j = 0; j < ENTRIES_PER_BUCKET; j++)
 	{
@@ -107,10 +119,19 @@ ht_create(uint32_t num_buckets)
 
   hashtable->num_buckets = num_buckets;
   hashtable->resize_lock = 0;
+  hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
+  hashtable->num_expands = 0;
+  hashtable->num_expands_threshold = (HYHT_PERC_EXPANSIONS * num_buckets);
+  if (hashtable->num_expands_threshold == 0)
+    {
+      hashtable->num_expands_threshold = 1;
+    }
+  printf(" :: buckets: %u / threshold: %u\n", num_buckets, hashtable->num_expands_threshold);
     
   return hashtable;
 }
+
 
 /* Hash a key for a particular hash table. */
 uint32_t
@@ -218,12 +239,13 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	    }
 	}
         
+      int resize = 0;
       if (bucket->next == NULL)
 	{
 	  if (empty == NULL)
 	    {
 	      DPP(put_num_failed_expand);
-	      bucket->next = create_bucket();
+	      bucket->next = create_bucket_stats(hashtable, &resize);
 	      bucket->next->key[0] = key;
 	      bucket->next->val[0] = (void*) bucket;
 	    }
@@ -234,6 +256,10 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	    }
 
 	  LOCK_RLS(lock);
+	  if (resize)
+	    {
+	      ht_resize_pes(h);
+	    }
 	  return true;
 	}
 
