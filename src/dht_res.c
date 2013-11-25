@@ -150,7 +150,6 @@ ht_hash(hashtable_t* hashtable, ssht_addr_t key)
 void*
 ht_get(hashtable_t** h, ssht_addr_t key)
 {
-
   hashtable_t* hashtable = *h;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
@@ -179,25 +178,23 @@ ht_get(hashtable_t** h, ssht_addr_t key)
   return NULL;
 }
 
-inline ssht_addr_t
+inline int
 bucket_exists(bucket_t* bucket, ssht_addr_t key)
 {
   uint32_t j;
   do 
     {
-      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
-	{
-	  if (bucket->key[j] == key) 
-	    {
-	      return true;
-	    }
-	}
-
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++)
+      	{
+      	  if (bucket->key[j] == key)
+      	    {
+      	      return true;
+      	    }
+      	}
       bucket = bucket->next;
     } while (bucket != NULL);
   return false;
 }
-
 
 /* Insert a key-value entry into a hash table. */
 uint32_t
@@ -318,20 +315,16 @@ static uint32_t
 ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
 {
   bucket_t* bucket = hashtable->table + bin;
-  ssht_addr_t* empty = NULL;
-  void** empty_v = NULL;
   uint32_t j;
 
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  if (empty == NULL && bucket->key[j] == 0)
+	  if (bucket->key[j] == 0)
 	    {
-	      empty = &bucket->key[j];
-	      empty_v = &bucket->val[j];
-	      *empty_v = (void*) bucket;
-	      *empty = key;
+	      bucket->key[j] = key;
+	      bucket->val[j] = (void*) bucket;
 	      return true;
 	    }
 	}
@@ -339,7 +332,8 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
       if (bucket->next == NULL)
 	{
 	  DPP(put_num_failed_expand);
-	  bucket->next = create_bucket();
+	  int null;
+	  bucket->next = create_bucket_stats(hashtable, &null);
 	  bucket->next->key[0] = key;
 	  bucket->next->val[0] = (void*) bucket;
 	  return true;
@@ -393,6 +387,8 @@ ht_resize_help(hashtable_t* h)
 int 
 ht_resize_pes(hashtable_t** h)
 {
+  ticks s = getticks();
+
   hashtable_t* ht_old = *h;
 
   if (TAS_U8(&ht_old->resize_lock))
@@ -428,10 +424,19 @@ ht_resize_pes(hashtable_t** h)
     }
 #endif
 
+  if (ht_new->num_expands >= ht_new->num_expands_threshold)
+    {
+      printf("problem: have already %u expands\n", ht_new->num_expands);
+      ht_new->num_expands_threshold = ht_new->num_expands + 2;
+    }
+
   SWAP_PTR((volatile void*) h, (void*) ht_new);
   ht_old->table_new = ht_new;
 
-  return 1;
+  ticks e = getticks() - s;
+  printf("   took: %20llu = %.6f\n", (unsigned long long) e, e / 2.1e9);
+
+ return 1;
 }
 
 
