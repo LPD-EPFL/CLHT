@@ -325,8 +325,8 @@ test(void* thread)
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
-      printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", 
-	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new);
+      /* printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n",  */
+      /* 	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new); */
     }
 #endif
     
@@ -485,6 +485,7 @@ main(int argc, char **argv)
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
       printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %lu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
+      initial = pow2roundup(initial);
     }
 
 
@@ -517,11 +518,11 @@ main(int argc, char **argv)
     }
   get_rate = 1 - update_rate;
 
-  printf("num_threads = %u\n", num_threads);
-  printf("cap: = %u\n", num_buckets);
-  printf("num elem = %u\n", num_elements);
-  printf("filing rate= %f\n", filling_rate);
-  printf("update = %f (putting = %f)\n", update_rate, put_rate);
+  /* printf("num_threads = %u\n", num_threads); */
+  /* printf("cap: = %u\n", num_buckets); */
+  /* printf("num elem = %u\n", num_elements); */
+  /* printf("filing rate= %f\n", filling_rate); */
+  /* printf("update = %f (putting = %f)\n", update_rate, put_rate); */
 
 
   rand_max = num_elements - 1;
@@ -709,6 +710,7 @@ main(int argc, char **argv)
   kb = ht_size_mem_garbage(ht_initial) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
+  ht_status(hashtable, 0, 1);
 
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t(%f\n", num_threads, throughput);

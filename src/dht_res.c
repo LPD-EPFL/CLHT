@@ -28,17 +28,17 @@ int is_odd (int x)
 
 
 
-size_t ht_status(hashtable_t** h);
+size_t ht_status(hashtable_t** h, int resize_increase, int just_print);
 #define HYHT_STATUS_INV 102400
-__thread size_t check_ht_status_steps = HYHT_STATUS_INV;
+__thread size_t check_ht_status_steps = 0;
 
 #define HYHT_DO_CHECK_STATUS 1
 
 #if HYHT_DO_CHECK_STATUS == 1
-#  define HYHT_CHECK_STATUS()			\
+#  define HYHT_CHECK_STATUS(h)			\
   if ((--check_ht_status_steps) == 0)		\
     {						\
-      ht_status(h);				\
+      ht_status(h, 0, 0);			\
       check_ht_status_steps = HYHT_STATUS_INV;	\
     }
 
@@ -224,7 +224,7 @@ bucket_exists(bucket_t* bucket, ssht_addr_t key)
 uint32_t
 ht_put(hashtable_t** h, ssht_addr_t key) 
 {
-  HYHT_CHECK_STATUS();
+  HYHT_CHECK_STATUS(h);
   hashtable_t* hashtable;
 
   ssht_addr_t* empty = NULL;
@@ -284,7 +284,8 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	  LOCK_RLS(lock);
 	  if (resize)
 	    {
-	      ht_resize_pes(h, 1);
+	      /* ht_resize_pes(h, 1); */
+	      ht_status(h, 1, 0);
 	    }
 	  return true;
 	}
@@ -298,7 +299,7 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 ssht_addr_t
 ht_remove(hashtable_t** h, ssht_addr_t key)
 {
-  HYHT_CHECK_STATUS();
+  HYHT_CHECK_STATUS(h);
 
   hashtable_t* hashtable;
   lock_t* lock;
@@ -421,7 +422,7 @@ ht_resize_help(hashtable_t* h)
 }
 
 int 
-ht_resize_pes(hashtable_t** h, int increase_size)
+ht_resize_pes(hashtable_t** h, int is_increase, int by)
 {
   ticks s = getticks();
 
@@ -435,17 +436,14 @@ ht_resize_pes(hashtable_t** h, int increase_size)
     }
 
   size_t num_buckets_new;
-  if (increase_size == true)
+  if (is_increase == true)
     {
-      num_buckets_new = HYHT_RATIO_DOUBLE * ht_old->num_buckets;
+      /* num_buckets_new = HYHT_RATIO_DOUBLE * ht_old->num_buckets; */
+      num_buckets_new = by * ht_old->num_buckets;
     }
   else
     {
       num_buckets_new = ht_old->num_buckets / HYHT_RATIO_HALVE;
-      /* if (num_buckets_new < HYHT_MIN_HT_SIZE) */
-      /* 	{ */
-      /* 	  return 0; */
-      /* 	} */
     }
 
   printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, num_buckets_new);
@@ -547,7 +545,7 @@ ht_size(hashtable_t* hashtable)
 }
 
 size_t
-ht_status(hashtable_t** h)
+ht_status(hashtable_t** h, int resize_increase, int just_print)
 {
   hashtable_t* hashtable = *h;
   uint32_t num_buckets = hashtable->num_buckets;
@@ -588,17 +586,34 @@ ht_status(hashtable_t** h)
 
   double full_ratio = 100.0 * size / (hashtable->num_buckets * ENTRIES_PER_BUCKET);
 
-  if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE)
-    {
-      printf("* #bu: %7lu / #elems: %7lu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
-	 hashtable->num_buckets, size, full_ratio, expands, expands_max);
-      ht_resize_pes(h, 0);
-    }
-  else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS)
+  if (just_print)
     {
       printf("* #bu: %7lu / #elems: %7lu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
 	     hashtable->num_buckets, size, full_ratio, expands, expands_max);
-      ht_resize_pes(h, 1);
+    }
+  else
+    {
+      if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE)
+	{
+	  printf("* #bu: %7lu / #elems: %7lu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
+		 hashtable->num_buckets, size, full_ratio, expands, expands_max);
+	  ht_resize_pes(h, 0, 33);
+	}
+      else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS ||
+	       resize_increase)
+	{
+	  int inc_by = full_ratio / 50;
+	  int inc_by_pow2 = pow2roundup(inc_by);
+
+	  printf("* #bu: %7lu / #elems: %7lu / full%%: %8.4f%% / expands: %4d / max expands: %2d / inc by: %3d (pow2) %d\n",
+		 hashtable->num_buckets, size, full_ratio, expands, expands_max, inc_by, inc_by_pow2);
+	  if (inc_by_pow2 == 1)
+	    {
+	      inc_by_pow2 = 2;
+	    }
+	  ht_resize_pes(h, 1, inc_by_pow2);
+	}
+
     }
 
   return size;

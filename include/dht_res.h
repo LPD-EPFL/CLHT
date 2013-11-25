@@ -13,8 +13,8 @@
 #define READ_ONLY_FAIL
 /* #define DEBUG */
 #define HYHT_HELP_RESIZE      0
-#define HYHT_PERC_EXPANSIONS  0.01
-#define HYHT_MAX_EXPANSIONS   1
+#define HYHT_PERC_EXPANSIONS  0.1
+#define HYHT_MAX_EXPANSIONS   2
 #define HYHT_PERC_FULL_DOUBLE 80	   /* % */
 #define HYHT_RATIO_DOUBLE     2		  
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
@@ -209,9 +209,11 @@ size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
+size_t ht_status(hashtable_t** hashtable, int resize_increase, int just_print);
 
 bucket_t* create_bucket();
-int ht_resize_pes(hashtable_t** h, int increase_size);
+int ht_resize_pes(hashtable_t** h, int is_increase, int by);
 
 
 #endif /* _DHT_RES_H_ */
+
