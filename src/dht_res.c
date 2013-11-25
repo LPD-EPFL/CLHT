@@ -17,28 +17,28 @@ __thread uint32_t put_num_failed_on_new = 0;
 inline int
 is_power_of_two (unsigned int x) 
 {
-return ((x != 0) && !(x & (x - 1)));
+  return ((x != 0) && !(x & (x - 1)));
 }
 
 static inline
 int is_odd (int x)
 {
-    return x & 1;
+  return x & 1;
 }
 
 /** Jenkins' hash function for 64-bit integers. */
 inline uint64_t
 __ac_Jenkins_hash_64(uint64_t key)
 {
-    key += ~(key << 32);
-    key ^= (key >> 22);
-    key += ~(key << 13);
-    key ^= (key >> 8);
-    key += (key << 3);
-    key ^= (key >> 15);
-    key += ~(key << 27);
-    key ^= (key >> 31);
-    return key;
+  key += ~(key << 32);
+  key ^= (key >> 22);
+  key += ~(key << 13);
+  key ^= (key >> 8);
+  key += (key << 3);
+  key ^= (key >> 15);
+  key += ~(key << 27);
+  key ^= (key >> 31);
+  return key;
 }
 
 /* Create a new bucket. */
@@ -47,7 +47,6 @@ create_bucket()
 {
   bucket_t* bucket = NULL;
   bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t));
-  /* bucket = malloc(sizeof(bucket_t)); */
   if (bucket == NULL)
     {
       return NULL;
@@ -118,6 +117,7 @@ ht_create(uint32_t num_buckets)
     }
 
   hashtable->num_buckets = num_buckets;
+  hashtable->hash = num_buckets - 1;
   hashtable->resize_lock = 0;
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
@@ -128,6 +128,9 @@ ht_create(uint32_t num_buckets)
       hashtable->num_expands_threshold = 1;
     }
   printf(" :: buckets: %u / threshold: %u\n", num_buckets, hashtable->num_expands_threshold);
+
+  hashtable->is_helper = 1;
+  hashtable->helper_done = 0;
     
   return hashtable;
 }
@@ -137,19 +140,19 @@ ht_create(uint32_t num_buckets)
 uint32_t
 ht_hash(hashtable_t* hashtable, ssht_addr_t key) 
 {
-	/* uint64_t hashval; */
-	/* hashval = __ac_Jenkins_hash_64(key); */
-	/* return hashval % hashtable->num_buckets; */
+  /* uint64_t hashval; */
+  /* hashval = __ac_Jenkins_hash_64(key); */
+  /* return hashval % hashtable->num_buckets; */
   /* return key % hashtable->num_buckets; */
-  return key & (hashtable->num_buckets - 1);
+  /* return key & (hashtable->num_buckets - 1); */
+  return key & (hashtable->hash);
 }
 
 
-  /* Retrieve a key-value entry from a hash table. */
+/* Retrieve a key-value entry from a hash table. */
 void*
 ht_get(hashtable_t** h, ssht_addr_t key)
 {
-
   hashtable_t* hashtable = *h;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
@@ -178,25 +181,23 @@ ht_get(hashtable_t** h, ssht_addr_t key)
   return NULL;
 }
 
-inline ssht_addr_t
+inline int
 bucket_exists(bucket_t* bucket, ssht_addr_t key)
 {
   uint32_t j;
   do 
     {
-      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
-	{
-	  if (bucket->key[j] == key) 
-	    {
-	      return true;
-	    }
-	}
-
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++)
+      	{
+      	  if (bucket->key[j] == key)
+      	    {
+      	      return true;
+      	    }
+      	}
       bucket = bucket->next;
     } while (bucket != NULL);
   return false;
 }
-
 
 /* Insert a key-value entry into a hash table. */
 uint32_t
@@ -225,24 +226,23 @@ ht_put(hashtable_t** h, ssht_addr_t key)
     }
   while (!LOCK_ACQ(lock, hashtable));
 
-    uint32_t j;
-    do 
-      {
-	for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
-	  {
-	    if (bucket->key[j] == key) 
-	      {
-		LOCK_RLS(lock);
-		return false;
-	      }
-	    else if (empty == NULL && bucket->key[j] == 0)
-	      {
-		empty = &bucket->key[j];
-		empty_v = &bucket->val[j];
-	      }
-	  }
+  uint32_t j;
+  do 
+    {
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
+	{
+	  if (bucket->key[j] == key) 
+	    {
+	      LOCK_RLS(lock);
+	      return false;
+	    }
+	  else if (empty == NULL && bucket->key[j] == 0)
+	    {
+	      empty = &bucket->key[j];
+	      empty_v = &bucket->val[j];
+	    }
+	}
         
-<<<<<<< variant A
       int resize = 0;
       if (bucket->next == NULL)
 	{
@@ -258,25 +258,7 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	      *empty_v = (void*) bucket;
 	      *empty = key;
 	    }
->>>>>>> variant B
-	int resize = 0;
-	if (bucket->next == NULL)
-	  {
-	    if (empty == NULL)
-	      {
-		DPP(put_num_failed_expand);
-		bucket->next = create_bucket_stats(hashtable, &resize);
-		bucket->next->key[0] = key;
-		bucket->next->val[0] = (void*) bucket;
-	      }
-	    else 
-	      {
-		*empty_v = (void*) bucket;
-		*empty = key;
-	      }
-======= end
 
-<<<<<<< variant A
 	  LOCK_RLS(lock);
 	  if (resize)
 	    {
@@ -284,24 +266,9 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	    }
 	  return true;
 	}
->>>>>>> variant B
-	    LOCK_RLS(lock);
-======= end
-
-<<<<<<< variant A
       bucket = bucket->next;
-    } while (true);
->>>>>>> variant B
-	    if (resize)
-	      {
-		ht_resize_pes(h);
-	      }
-	    return true;
-	  }
-
-	bucket = bucket->next;
-      } while (true);
-======= end
+    }
+  while (true);
 }
 
 
@@ -350,20 +317,16 @@ static uint32_t
 ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
 {
   bucket_t* bucket = hashtable->table + bin;
-  ssht_addr_t* empty = NULL;
-  void** empty_v = NULL;
   uint32_t j;
 
   do 
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  if (empty == NULL && bucket->key[j] == 0)
+	  if (bucket->key[j] == 0)
 	    {
-	      empty = &bucket->key[j];
-	      empty_v = &bucket->val[j];
-	      *empty_v = (void*) bucket;
-	      *empty = key;
+	      bucket->key[j] = key;
+	      bucket->val[j] = (void*) bucket;
 	      return true;
 	    }
 	}
@@ -371,7 +334,8 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
       if (bucket->next == NULL)
 	{
 	  DPP(put_num_failed_expand);
-	  bucket->next = create_bucket();
+	  int null;
+	  bucket->next = create_bucket_stats(hashtable, &null);
 	  bucket->next->key[0] = key;
 	  bucket->next->val[0] = (void*) bucket;
 	  return true;
@@ -382,10 +346,13 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 }
 
 
-static void
+static int
 bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
 {
-  LOCK_ACQ_RES(&bucket->lock);
+  if (!LOCK_ACQ_RES(&bucket->lock))
+    {
+      return 0;
+    }
   uint32_t j;
   do 
     {
@@ -401,35 +368,40 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
       bucket = bucket->next;
     } 
   while (bucket != NULL);
+
+  return 1;
 }
 
 
 void
 ht_resize_help(hashtable_t* h)
 {
-  do
+  if (FAD_U32(&h->is_helper) <= 0)
     {
-      int32_t b = FAI_U32(&h->resize_bucket_cur);
-      if (b >= h->num_buckets)
+      return;
+    }
+
+  int32_t b;
+  /* hash = num_buckets - 1 */
+  for (b = h->hash; b >= 0; b--)
+    {
+      bucket_t* bu_cur = h->table + b;
+      if (!bucket_cpy(bu_cur, h->table_tmp))
 	{
+	  printf("** helped with #buckets: %lu\n", h->num_buckets - b);
 	  break;
 	}
-
-      bucket_t* bu_cur = h->table + b;
-      bucket_cpy(bu_cur, h->table_tmp);
-      IAF_U32(&h->resize_bucket_done);
     }
-  while (1);
+
+  h->helper_done = 1;
 }
 
 int 
 ht_resize_pes(hashtable_t** h)
 {
+  ticks s = getticks();
+
   hashtable_t* ht_old = *h;
-  if (ht_old->num_buckets > 1000000)
-    {
-      return 0;
-    }
 
   if (TAS_U8(&ht_old->resize_lock))
     {
@@ -438,14 +410,29 @@ ht_resize_pes(hashtable_t** h)
   printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, 2 * ht_old->num_buckets);
 
   hashtable_t* ht_new = ht_create(2 * ht_old->num_buckets);
+
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
-  ht_resize_help(ht_old);
 
-  while (ht_old->resize_bucket_done != ht_old->num_buckets)
+  int32_t b;
+  for (b = 0; b < ht_old->num_buckets; b++)
     {
-      _mm_mfence();
+      bucket_t* bu_cur = ht_old->table + b;
+      if (!bucket_cpy(bu_cur, ht_new))
+	{
+	  break;
+	}
     }
+
+  if (ht_old->is_helper != 1)	/* there exist a helper */
+    {
+      printf(" // waiting for helper to be done!\n");
+      while (ht_old->helper_done != 1)
+	{
+	  _mm_pause();
+	}
+    }
+
 #else
 
   int32_t b;
@@ -463,12 +450,19 @@ ht_resize_pes(hashtable_t** h)
     }
 #endif
 
-  
+  if (ht_new->num_expands >= ht_new->num_expands_threshold)
+    {
+      printf("problem: have already %u expands\n", ht_new->num_expands);
+      ht_new->num_expands_threshold = ht_new->num_expands + 2;
+    }
 
   SWAP_PTR((volatile void*) h, (void*) ht_new);
   ht_old->table_new = ht_new;
 
-  return 1;
+  ticks e = getticks() - s;
+  printf("   took: %20llu = %.6f\n", (unsigned long long) e, e / 2.1e9);
+
+ return 1;
 }
 
 

@@ -12,8 +12,8 @@
 
 #define READ_ONLY_FAIL
 /* #define DEBUG */
-#define HYHT_HELP_RESIZE      0
-#define HYHT_PERC_EXPANSIONS  0.05
+#define HYHT_HELP_RESIZE      1
+#define HYHT_PERC_EXPANSIONS  0.01
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -21,7 +21,7 @@
 #  define DPP(x)
 #endif
 
-#define CACHE_LINE_SIZE 64
+#define CACHE_LINE_SIZE    64
 #define ENTRIES_PER_BUCKET 3
 
 #ifndef ALIGNED
@@ -78,12 +78,15 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
     {
       size_t num_buckets;
       bucket_t* table;
+      size_t hash;
+      uint8_t next_cache_line[64 - (2 * sizeof(size_t)) - sizeof(void*)];
       volatile uint8_t resize_lock;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
-      uint8_t next_cl[64];
       volatile uint32_t num_expands;
       volatile uint32_t num_expands_threshold;
+      volatile int32_t is_helper;
+      volatile int32_t helper_done;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };
@@ -121,13 +124,23 @@ _mm_pause_rep(uint64_t w)
 
 void ht_resize_help(hashtable_t* h);
 
+#if defined(DEBUG)
+extern __thread uint32_t put_num_restarts;
+#endif
+
 static inline int
 lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
 {
+  char once = 1;
   lock_t l;
   while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
     {
-      _mm_pause_rep(16);
+      if (once)
+	{
+	  DPP(put_num_restarts);
+	  once = 0;
+	}
+      _mm_pause();
     }
 
   if (l == LOCK_RESIZE)
@@ -148,13 +161,21 @@ lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
   return 1;
 }
 
-static inline void
+static inline int
 lock_acq_resize(lock_t* lock)
 {
-  while (CAS_U8(lock, LOCK_FREE, LOCK_RESIZE) != LOCK_FREE)
+  lock_t l;
+  while ((l = CAS_U8(lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
     {
-      _mm_pause_rep(16);
+      _mm_pause();
     }
+
+  if (l == LOCK_RESIZE)
+    {
+      return 0;
+    }
+
+  return 1;
 }
 
 
