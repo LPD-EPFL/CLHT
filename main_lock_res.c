@@ -548,7 +548,6 @@ main(int argc, char **argv)
     {
       tds[t].id = t;
       tds[t].ht = hashtable;
-      //printf("In main: creating thread %ld\n", t);
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
 	{
@@ -678,9 +677,15 @@ main(int argc, char **argv)
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
 #endif
+  kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
+  mb = kb / 1024.0;
+  printf("Sizeof   final: %.2f KB = %.2f MB\n", kb, mb);
+
+
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t(%f\n", num_threads, throughput);
     
+
   ht_destroy(hashtable);
     
   /* Last thing that main() should do */

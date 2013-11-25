@@ -13,7 +13,7 @@
 #define READ_ONLY_FAIL
 /* #define DEBUG */
 #define HYHT_HELP_RESIZE      0
-#define HYHT_PERC_EXPANSIONS  0.05
+#define HYHT_PERC_EXPANSIONS  0.01
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -123,13 +123,23 @@ _mm_pause_rep(uint64_t w)
 
 void ht_resize_help(hashtable_t* h);
 
+#if defined(DEBUG)
+extern __thread uint32_t put_num_restarts;
+#endif
+
 static inline int
 lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
 {
+  char once = 1;
   lock_t l;
   while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
     {
-      _mm_pause_rep(16);
+      if (once)
+	{
+	  DPP(put_num_restarts);
+	  once = 0;
+	}
+      _mm_pause();
     }
 
   if (l == LOCK_RESIZE)
@@ -155,7 +165,7 @@ lock_acq_resize(lock_t* lock)
 {
   while (CAS_U8(lock, LOCK_FREE, LOCK_RESIZE) != LOCK_FREE)
     {
-      _mm_pause_rep(16);
+      _mm_pause();
     }
 }
 
