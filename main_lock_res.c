@@ -178,7 +178,6 @@ test(void* thread)
   uint64_t key;
   int c = 0;
   int scale_update = (int)(update_rate * 256);
-  int scale_put = (int)(put_rate * 256);
   uint8_t putting = 1;
     
   int i;
@@ -391,11 +390,10 @@ main(int argc, char **argv)
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
     {"update-rate",               required_argument, NULL, 'u'},
-    {"put-rate",                  required_argument, NULL, 'p'},
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, put = 10, load_factor = 2;
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 2;
 
   int i, c;
   while(1) 
@@ -433,8 +431,6 @@ main(int argc, char **argv)
 	       "        Range of integer values inserted in set\n"
 	       "  -u, --update-rate <int>\n"
 	       "        Percentage of update transactions\n"
-	       "  -p, --put-rate <int>\n"
-	       "        Percentage of put transactions (smaller than update-rate)\n"
 	      );
 	exit(0);
       case 'd':
@@ -451,9 +447,6 @@ main(int argc, char **argv)
 	break;
       case 'u':
 	update = atoi(optarg);
-	break;
-      case 'p':
-	put = atoi(optarg);
 	break;
       case 'l':
 	load_factor = atoi(optarg);
@@ -478,7 +471,7 @@ main(int argc, char **argv)
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
-      printf("** rounding up num_buckets (to make it power of 2): old: %lu / new: %lu\n", num_buckets, num_buckets_pow2);
+      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %lu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
     }
 
@@ -497,7 +490,6 @@ main(int argc, char **argv)
   num_elements = range;
   filling_rate = (double) initial / range;
   update_rate = update / 100.0;
-  put_rate = put / 100.0;
   get_rate = 1 - update_rate;
 
 
