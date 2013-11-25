@@ -21,7 +21,7 @@
 #  define DPP(x)
 #endif
 
-#define CACHE_LINE_SIZE 64
+#define CACHE_LINE_SIZE    64
 #define ENTRIES_PER_BUCKET 3
 
 #ifndef ALIGNED
@@ -78,12 +78,12 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
     {
       size_t num_buckets;
       bucket_t* table;
+      uint8_t next_cache_line[64 - sizeof(size_t) - sizeof(void*)];
       volatile uint8_t resize_lock;
       volatile uint32_t resize_bucket_cur;
       volatile uint32_t resize_bucket_done;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
-      uint8_t next_cl[64];
       volatile uint32_t num_expands;
       volatile uint32_t num_expands_threshold;
     };

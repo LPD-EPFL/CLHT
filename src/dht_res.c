@@ -47,7 +47,6 @@ create_bucket()
 {
   bucket_t* bucket = NULL;
   bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t));
-  /* bucket = malloc(sizeof(bucket_t)); */
   if (bucket == NULL)
     {
       return NULL;
@@ -403,6 +402,7 @@ ht_resize_pes(hashtable_t** h)
   printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, 2 * ht_old->num_buckets);
 
   hashtable_t* ht_new = ht_create(2 * ht_old->num_buckets);
+
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
   ht_resize_help(ht_old);
@@ -427,8 +427,6 @@ ht_resize_pes(hashtable_t** h)
       printf("**ht_size(ht_old) = %lu != ht_size(ht_new) = %lu\n", ht_size(ht_old), ht_size(ht_new));
     }
 #endif
-
-  
 
   SWAP_PTR((volatile void*) h, (void*) ht_new);
   ht_old->table_new = ht_new;
