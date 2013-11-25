@@ -441,11 +441,10 @@ ht_resize_pes(hashtable_t** h, int increase_size)
     }
   else
     {
+#if HYHT_HELP_RESIZE == 1
+      ht_old->is_helper = 0;
+#endif
       num_buckets_new = ht_old->num_buckets / HYHT_RATIO_HALVE;
-      /* if (num_buckets_new < HYHT_MIN_HT_SIZE) */
-      /* 	{ */
-      /* 	  return 0; */
-      /* 	} */
     }
 
   printf("// resizing: from %8lu to %8lu buckets\n", ht_old->num_buckets, num_buckets_new);
@@ -465,7 +464,7 @@ ht_resize_pes(hashtable_t** h, int increase_size)
 	}
     }
 
-  if (ht_old->is_helper != 1)	/* there exist a helper */
+  if (increase_size && ht_old->is_helper != 1)	/* there exist a helper */
     {
       while (ht_old->helper_done != 1)
 	{
