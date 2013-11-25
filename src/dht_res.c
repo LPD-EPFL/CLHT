@@ -124,7 +124,7 @@ ht_create(uint32_t num_buckets)
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
   hashtable->num_expands = 0;
-  hashtable->num_expands_threshold = (0.1 * num_buckets);
+  hashtable->num_expands_threshold = (HYHT_PERC_EXPANSIONS * num_buckets);
   if (hashtable->num_expands_threshold == 0)
     {
       hashtable->num_expands_threshold = 1;

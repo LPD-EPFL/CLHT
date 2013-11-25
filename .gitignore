@@ -1,6 +1,8 @@
 *~
 /#main_lock.c#
+/#main_lock_res.c#
 /.#main_lock.c
+/.#main_lock_res.c
 /.gitignore~
 /.nfs00000000083a09c60000001a
 /.nfs00000000084a0ac40000008e

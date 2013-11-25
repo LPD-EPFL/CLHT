@@ -43,6 +43,7 @@ int num_elements = 2048;
 int duration = 1000;
 float filling_rate = 0.5;
 float update_rate = 0.1;
+float put_rate = 0.05;
 float get_rate = 0.9;
 
 int seed = 0;
@@ -177,6 +178,7 @@ test(void* thread)
   uint64_t key;
   int c = 0;
   int scale_update = (int)(update_rate * 256);
+  int scale_put = (int)(put_rate * 256);
   uint8_t putting = 1;
     
   int i;
@@ -223,7 +225,7 @@ test(void* thread)
   int succ = 1;
   while (stop == 0) 
     {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
         
       if(succ)
       	{
@@ -232,19 +234,6 @@ test(void* thread)
 
       	  succ = 0;
       	}
-
-/*       uint32_t resize = (my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])) % (50000)) < 1; */
-/*       if (resize) */
-/*       	{ */
-/* 	  START_TS(); */
-/*       	  if (ht_resize_pes(hashtable)) */
-/* 	    { */
-/* 	      END_TS(); */
-/* #if !defined(COMPUTE_THROUGHPUT) */
-/* 	      printf("** resize cost: %lu\n", end_acq - start_acq - correction); */
-/* #endif */
-/* 	    } */
-/*       	} */
 
       if(update) 
 	{
@@ -257,11 +246,11 @@ test(void* thread)
 		{
 		  ADD_DUR(my_putting_succ);
 		  succ = 1;
-		  putting = false;
 		  my_putting_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_putting_fail);
 	      my_putting_count++;
+	      putting = false;
 	    } 
 	  else 
 	    {
@@ -272,11 +261,11 @@ test(void* thread)
 		{
 		  ADD_DUR(my_removing_succ);
 		  succ = 1;
-		  putting = true;
 		  my_removing_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_removing_fail);
 	      my_removing_count++;
+	      putting = true;
 	    }
 	} 
       else
@@ -402,16 +391,17 @@ main(int argc, char **argv)
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
     {"update-rate",               required_argument, NULL, 'u'},
+    {"put-rate",                  required_argument, NULL, 'p'},
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2;
+  size_t initial = 1024, range = 2048, update = 20, put = 10, load_factor = 2;
 
   int i, c;
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:x:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -436,13 +426,15 @@ main(int argc, char **argv)
 	       "  -d, --duration <int>\n"
 	       "        Test duration in milliseconds\n"
 	       "  -i, --initial-size <int>\n"
-	       "        Number of elements to insert before test)\n"
+	       "        Number of elements to insert before test\n"
 	       "  -n, --num-threads <int>\n"
-	       "        Number of threads)\n"
+	       "        Number of threads\n"
 	       "  -r, --range <int>\n"
-	       "        Range of integer values inserted in set)\n"
+	       "        Range of integer values inserted in set\n"
 	       "  -u, --update-rate <int>\n"
-	       "        Percentage of update transactions)\n"
+	       "        Percentage of update transactions\n"
+	       "  -p, --put-rate <int>\n"
+	       "        Percentage of put transactions (smaller than update-rate)\n"
 	      );
 	exit(0);
       case 'd':
@@ -459,6 +451,9 @@ main(int argc, char **argv)
 	break;
       case 'u':
 	update = atoi(optarg);
+	break;
+      case 'p':
+	put = atoi(optarg);
 	break;
       case 'l':
 	load_factor = atoi(optarg);
@@ -480,13 +475,29 @@ main(int argc, char **argv)
 
   num_buckets = initial / load_factor;
 
+  if (!is_power_of_two(num_buckets))
+    {
+      size_t num_buckets_pow2 = pow2roundup(num_buckets);
+      printf("** rounding up num_buckets (to make it power of 2): old: %lu / new: %lu\n", num_buckets, num_buckets_pow2);
+      num_buckets = num_buckets_pow2;
+    }
+
+
   double kb = num_buckets * sizeof(bucket_t) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
+  if (!is_power_of_two(range))
+    {
+      size_t range_pow2 = pow2roundup(range);
+      printf("** rounding up range (to make it power of 2): old: %lu / new: %lu\n", range, range_pow2);
+      range = range_pow2;
+    }
+
   num_elements = range;
   filling_rate = (double) initial / range;
   update_rate = update / 100.0;
+  put_rate = put / 100.0;
   get_rate = 1 - update_rate;
 
 
@@ -497,7 +508,7 @@ main(int argc, char **argv)
   /* printf("update = %f\n", update_rate); */
 
 
-  rand_max = num_elements;
+  rand_max = num_elements - 1;
     
   struct timeval start, end;
   struct timespec timeout;
