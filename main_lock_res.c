@@ -256,11 +256,11 @@ test(void* thread)
 		{
 		  ADD_DUR(my_putting_succ);
 		  succ = 1;
-		  putting = false;
 		  my_putting_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_putting_fail);
 	      my_putting_count++;
+	      putting = false;
 	    } 
 	  else 
 	    {
@@ -271,11 +271,11 @@ test(void* thread)
 		{
 		  ADD_DUR(my_removing_succ);
 		  succ = 1;
-		  putting = true;
 		  my_removing_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_removing_fail);
 	      my_removing_count++;
+	      putting = true;
 	    }
 	} 
       else
@@ -479,9 +479,24 @@ main(int argc, char **argv)
 
   num_buckets = initial / load_factor;
 
+  if (!is_power_of_two(num_buckets))
+    {
+      size_t num_buckets_pow2 = pow2roundup(num_buckets);
+      printf("** rounding up num_buckets (to make it power of 2): old: %lu / new: %lu\n", num_buckets, num_buckets_pow2);
+      num_buckets = num_buckets_pow2;
+    }
+
+
   double kb = num_buckets * sizeof(bucket_t) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
+
+  if (!is_power_of_two(range))
+    {
+      size_t range_pow2 = pow2roundup(range);
+      printf("** rounding up range (to make it power of 2): old: %lu / new: %lu\n", range, range_pow2);
+      range = range_pow2;
+    }
 
   num_elements = range;
   filling_rate = (double) initial / range;
@@ -496,7 +511,7 @@ main(int argc, char **argv)
   /* printf("update = %f\n", update_rate); */
 
 
-  rand_max = num_elements;
+  rand_max = num_elements - 1;
     
   struct timeval start, end;
   struct timespec timeout;
@@ -508,6 +523,7 @@ main(int argc, char **argv)
   /* Initialize the hashtable */
 
   hashtable_t** hashtable = (hashtable_t**) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
+  assert(hashtable != NULL);
   *hashtable = ht_create(num_buckets);
 
   /* Initializes the local data */
@@ -647,13 +663,14 @@ main(int argc, char **argv)
     
 #define LLU long long unsigned int
 
-#if defined(DEBUG)
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  printf("puts - rems  : %d\n", pr);
   int size_after = ht_size(*hashtable);
-  
+#if defined(DEBUG)
+  printf("puts - rems  : %d\n", pr);
+#endif
   assert(size_after == (initial + pr));
 
+#if defined(DEBUG)
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
