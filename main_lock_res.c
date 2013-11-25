@@ -247,8 +247,8 @@ test(void* thread)
 		  my_putting_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_putting_fail);
-	      my_putting_count++;
 	      putting = false;
+	      my_putting_count++;
 	    } 
 	  else 
 	    {
@@ -262,8 +262,8 @@ test(void* thread)
 		  my_removing_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_removing_fail);
-	      my_removing_count++;
 	      putting = true;
+	      my_removing_count++;
 	    }
 	} 
       else
@@ -391,16 +391,17 @@ main(int argc, char **argv)
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
     {"update-rate",               required_argument, NULL, 'u'},
+    {"num-buckets",               required_argument, NULL, 'b'},
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2;
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0;
 
   int i, c;
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -408,56 +409,60 @@ main(int argc, char **argv)
       if(c == 0 && long_options[i].flag == 0)
 	c = long_options[i].val;
 		
-      switch(c) {
-      case 0:
-	/* Flag is automatically set */
-	break;
-      case 'h':
-	printf("intset -- STM stress test "
-	       "(linked list)\n"
-	       "\n"
-	       "Usage:\n"
-	       "  intset [options...]\n"
-	       "\n"
-	       "Options:\n"
-	       "  -h, --help\n"
-	       "        Print this message\n"
-	       "  -d, --duration <int>\n"
-	       "        Test duration in milliseconds\n"
-	       "  -i, --initial-size <int>\n"
-	       "        Number of elements to insert before test\n"
-	       "  -n, --num-threads <int>\n"
-	       "        Number of threads\n"
-	       "  -r, --range <int>\n"
-	       "        Range of integer values inserted in set\n"
-	       "  -u, --update-rate <int>\n"
-	       "        Percentage of update transactions\n"
-	      );
-	exit(0);
-      case 'd':
-	duration = atoi(optarg);
-	break;
-      case 'i':
-	initial = atoi(optarg);
-	break;
-      case 'n':
-	num_threads = atoi(optarg);
-	break;
-      case 'r':
-	range = atol(optarg);
-	break;
-      case 'u':
-	update = atoi(optarg);
-	break;
-      case 'l':
-	load_factor = atoi(optarg);
-	break;
-      case '?':
-	printf("Use -h or --help for help\n");
-	exit(0);
-      default:
-	exit(1);
-      }
+      switch(c) 
+	{
+	case 0:
+	  /* Flag is automatically set */
+	  break;
+	case 'h':
+	  printf("intset -- STM stress test "
+		 "(linked list)\n"
+		 "\n"
+		 "Usage:\n"
+		 "  intset [options...]\n"
+		 "\n"
+		 "Options:\n"
+		 "  -h, --help\n"
+		 "        Print this message\n"
+		 "  -d, --duration <int>\n"
+		 "        Test duration in milliseconds\n"
+		 "  -i, --initial-size <int>\n"
+		 "        Number of elements to insert before test\n"
+		 "  -n, --num-threads <int>\n"
+		 "        Number of threads\n"
+		 "  -r, --range <int>\n"
+		 "        Range of integer values inserted in set\n"
+		 "  -u, --update-rate <int>\n"
+		 "        Percentage of update transactions\n"
+		 );
+	  exit(0);
+	case 'd':
+	  duration = atoi(optarg);
+	  break;
+	case 'i':
+	  initial = atoi(optarg);
+	  break;
+	case 'n':
+	  num_threads = atoi(optarg);
+	  break;
+	case 'r':
+	  range = atol(optarg);
+	  break;
+	case 'u':
+	  update = atoi(optarg);
+	  break;
+	case 'l':
+	  load_factor = atoi(optarg);
+	  break;
+	case 'b':
+	  num_buckets_param = atoi(optarg);
+	  break;
+	case '?':
+	  printf("Use -h or --help for help\n");
+	  exit(0);
+	default:
+	  exit(1);
+	}
     }
 
 
@@ -467,7 +472,14 @@ main(int argc, char **argv)
     }
 
 
-  num_buckets = initial / load_factor;
+  if (num_buckets_param)
+    {
+      num_buckets = num_buckets_param;
+    }
+  else
+    {
+      num_buckets = initial / load_factor;
+    }
 
   if (!is_power_of_two(num_buckets))
     {
@@ -515,6 +527,8 @@ main(int argc, char **argv)
   hashtable_t** hashtable = (hashtable_t**) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
   assert(hashtable != NULL);
   *hashtable = ht_create(num_buckets);
+
+  hashtable_t* ht_initial = *hashtable;
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -646,7 +660,7 @@ main(int argc, char **argv)
 	 putting_fal_total / (putting_count_total - putting_count_total_succ),
 	 removing_suc_total / removing_count_total_succ,
 	 removing_fal_total / (removing_count_total - removing_count_total_succ)
-	);
+	 );
 #endif
 
     
@@ -680,8 +694,10 @@ main(int argc, char **argv)
 #endif
   kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
-  printf("Sizeof   final: %.2f KB = %.2f MB\n", kb, mb);
-
+  printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
+  kb = ht_size_mem_garbage(ht_initial) / 1024.0;
+  mb = kb / 1024;
+  printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t(%f\n", num_threads, throughput);
