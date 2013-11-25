@@ -12,6 +12,8 @@
 
 #define READ_ONLY_FAIL
 /* #define DEBUG */
+#define HYHT_HELP_RESIZE      0
+#define HYHT_PERC_EXPANSIONS  0.05
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -54,6 +56,7 @@
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
+inline int is_power_of_two (unsigned int x);
 
 typedef uintptr_t ssht_addr_t;
 
@@ -75,10 +78,14 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
     {
       size_t num_buckets;
       bucket_t* table;
-      uint8_t resize_lock;
+      volatile uint8_t resize_lock;
+      struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
+      uint8_t next_cl[64];
+      volatile uint32_t num_expands;
+      volatile uint32_t num_expands_threshold;
     };
-    uint8_t padding[CACHE_LINE_SIZE];
+    uint8_t padding[2*CACHE_LINE_SIZE];
   };
 } hashtable_t;
 
