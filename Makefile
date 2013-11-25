@@ -3,7 +3,7 @@ ifeq ($(DEBUG),1)
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
 else
   DEBUG_FLAGS=-Wall
-  COMPILE_FLAGS=-O3 -DADD_PADDING # -DDEBUG
+  COMPILE_FLAGS=-O3 -DADD_PADDING -DDEBUG
 endif
 
 ifeq ($(M),1)

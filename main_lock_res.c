@@ -43,6 +43,7 @@ int num_elements = 2048;
 int duration = 1000;
 float filling_rate = 0.5;
 float update_rate = 0.1;
+float put_rate = 0.1;
 float get_rate = 0.9;
 
 int seed = 0;
@@ -176,7 +177,8 @@ test(void* thread)
     
   uint64_t key;
   int c = 0;
-  int scale_update = (int)(update_rate * 256);
+  uint32_t scale_update = (uint32_t)(update_rate * UINT_MAX);
+  uint32_t scale_put = (uint32_t)(put_rate * UINT_MAX);
   uint8_t putting = 1;
     
   int i;
@@ -197,7 +199,6 @@ test(void* thread)
 	}
     }
   MEM_BARRIER;
-
 
   barrier_cross(&barrier);
 
@@ -220,18 +221,13 @@ test(void* thread)
   barrier_cross(&barrier_global);
 
   uint8_t update = false;
-  int succ = 1;
   while (stop == 0) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
         
-      if(succ)
-      	{
-      	  c = (uint8_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
-      	  update = (c < scale_update);
-
-      	  succ = 0;
-      	}
+      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
+      update = (c < scale_update);
+      putting = (c < scale_put);
 
       if(update) 
 	{
@@ -243,11 +239,9 @@ test(void* thread)
 	      if(res)
 		{
 		  ADD_DUR(my_putting_succ);
-		  succ = 1;
 		  my_putting_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_putting_fail);
-	      putting = false;
 	      my_putting_count++;
 	    } 
 	  else 
@@ -258,11 +252,9 @@ test(void* thread)
 	      if(removed != 0) 
 		{
 		  ADD_DUR(my_removing_succ);
-		  succ = 1;
 		  my_removing_count_succ++;
 		}
 	      ADD_DUR_FAIL(my_removing_fail);
-	      putting = true;
 	      my_removing_count++;
 	    }
 	} 
@@ -274,7 +266,6 @@ test(void* thread)
 	  if(res != NULL) 
 	    {
 	      ADD_DUR(my_getting_succ);
-	      succ = 1;
 	      my_getting_count_succ++;
 	    }
 	  ADD_DUR_FAIL(my_getting_fail);
@@ -395,7 +386,7 @@ main(int argc, char **argv)
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0;
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0, put = 10;
 
   int i, c;
   while(1) 
@@ -434,6 +425,10 @@ main(int argc, char **argv)
 		 "        Range of integer values inserted in set\n"
 		 "  -u, --update-rate <int>\n"
 		 "        Percentage of update transactions\n"
+		 "  -p, --put-rate <int>\n"
+		 "        Percentage of put update transactions (should be less than percentage of updates)\n"
+		 "  -b, --num-buckets <int>\n"
+		 "        Number of initial buckets (stronger than -l)\n"
 		 );
 	  exit(0);
 	case 'd':
@@ -451,6 +446,9 @@ main(int argc, char **argv)
 	case 'u':
 	  update = atoi(optarg);
 	  break;
+	case 'p':
+	  put = atoi(optarg);
+	  break;
 	case 'l':
 	  load_factor = atoi(optarg);
 	  break;
@@ -458,9 +456,8 @@ main(int argc, char **argv)
 	  num_buckets_param = atoi(optarg);
 	  break;
 	case '?':
-	  printf("Use -h or --help for help\n");
-	  exit(0);
 	default:
+	  printf("Use -h or --help for help\n");
 	  exit(1);
 	}
     }
@@ -500,17 +497,22 @@ main(int argc, char **argv)
       range = range_pow2;
     }
 
+  if (put > update)
+    {
+      put = update;
+    }
+
   num_elements = range;
   filling_rate = (double) initial / range;
   update_rate = update / 100.0;
+  put_rate = put / 100.0;
   get_rate = 1 - update_rate;
 
-
-  /* printf("num_threads = %u\n", num_threads); */
-  /* printf("cap: = %u\n", num_buckets); */
-  /* printf("num elem = %u\n", num_elements); */
-  /* printf("filing rate= %f\n", filling_rate); */
-  /* printf("update = %f\n", update_rate); */
+  printf("num_threads = %u\n", num_threads);
+  printf("cap: = %u\n", num_buckets);
+  printf("num elem = %u\n", num_elements);
+  printf("filing rate= %f\n", filling_rate);
+  printf("update = %f (putting = %f)\n", update_rate, put_rate);
 
 
   rand_max = num_elements - 1;
