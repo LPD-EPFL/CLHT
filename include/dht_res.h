@@ -13,7 +13,7 @@
 #define READ_ONLY_FAIL
 /* #define DEBUG */
 #define HYHT_HELP_RESIZE      1
-#define HYHT_PERC_EXPANSIONS  0.1
+#define HYHT_PERC_EXPANSIONS  0.05
 #define HYHT_MAX_EXPANSIONS   2
 #define HYHT_PERC_FULL_DOUBLE 80	   /* % */
 #define HYHT_RATIO_DOUBLE     2		  
@@ -87,7 +87,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       bucket_t* table;
       size_t hash;
       size_t version;
-      uint8_t next_cache_line[64 - (3 * sizeof(size_t)) - sizeof(void*)];
+      struct hashtable_s* table_first;
+      uint8_t next_cache_line[64 - (3 * sizeof(size_t)) - (2 *sizeof(void*))];
       volatile uint8_t resize_lock;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
@@ -95,7 +96,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       volatile uint32_t num_expands_threshold;
       volatile int32_t is_helper;
       volatile int32_t helper_done;
-      volatile struct ht_ts* version_list;
+      struct ht_ts* version_list;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };

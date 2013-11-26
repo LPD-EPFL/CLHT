@@ -26,6 +26,8 @@ int is_odd (int x)
   return x & 1;
 }
 
+static __thread ht_ts_t* hyht_ts_thread;
+
 size_t ht_status(hashtable_t** h, int resize_increase, int just_print);
 #define HYHT_STATUS_INV 102400
 __thread size_t check_ht_status_steps = 0;
@@ -139,6 +141,7 @@ ht_create(uint32_t num_buckets)
   hashtable->hash = num_buckets - 1;
   hashtable->version = 0;
   hashtable->resize_lock = 0;
+  hashtable->table_first = hashtable;
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
   hashtable->num_expands = 0;
@@ -171,6 +174,33 @@ do
   }
  while (CAS_U64((volatile size_t*) &h->version_list,
 		(size_t) ts->next, (size_t) ts) != (size_t) ts->next);
+
+
+ hyht_ts_thread = ts;
+}
+
+static inline void
+ht_thread_version(hashtable_t* h)
+{
+  hyht_ts_thread->version = h->version;
+}
+
+static inline size_t
+ht_gc_min_version_used(hashtable_t* h)
+{
+  volatile ht_ts_t* cur = h->version_list;
+
+  size_t min = h->version;
+  while (cur != NULL)
+    {
+      if (cur->version < min)
+	{
+	  min = cur->version;
+	}
+      cur = cur->next;
+    }
+
+  return min;
 }
 
 /* Hash a key for a particular hash table. */
@@ -193,7 +223,9 @@ ht_get(hashtable_t** h, ssht_addr_t key)
   hashtable_t* hashtable = *h;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
-    
+  PREFETCH(bucket);
+  ht_thread_version(hashtable);
+
   uint32_t j;
   do 
     {
@@ -263,6 +295,8 @@ ht_put(hashtable_t** h, ssht_addr_t key)
       lock = &bucket->lock;
     }
   while (!LOCK_ACQ(lock, hashtable));
+
+  ht_thread_version(hashtable);
 
   uint32_t j;
   do 
@@ -335,6 +369,8 @@ ht_remove(hashtable_t** h, ssht_addr_t key)
       lock = &bucket->lock;
     }
   while (!LOCK_ACQ(lock, hashtable));
+
+  ht_thread_version(hashtable);
 
   uint32_t j;
   do 
@@ -468,7 +504,9 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
   printf("// resizing: from %8zu to %8zu buckets\n", ht_old->num_buckets, num_buckets_new);
 
   hashtable_t* ht_new = ht_create(num_buckets_new);
+  ht_new->table_first = ht_old->table_first;
   ht_new->version = ht_old->version + 1;
+  ht_new->version_list = ht_old->version_list;
 
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
@@ -502,10 +540,10 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
 #endif
 
 #if defined(DEBUG)
-  if (ht_size(ht_old) != ht_size(ht_new))
-    {
-      printf("**ht_size(ht_old) = %zu != ht_size(ht_new) = %zu\n", ht_size(ht_old), ht_size(ht_new));
-    }
+  /* if (ht_size(ht_old) != ht_size(ht_new)) */
+  /*   { */
+  /*     printf("**ht_size(ht_old) = %zu != ht_size(ht_new) = %zu\n", ht_size(ht_old), ht_size(ht_new)); */
+  /*   } */
 #endif
 
   if (ht_new->num_expands >= ht_new->num_expands_threshold)
@@ -518,11 +556,10 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
   ht_old->table_new = ht_new;
 
   ticks e = getticks() - s;
-  printf("   took: %20llu = %.6f\n", (unsigned long long) e, e / 2.1e9);
+  printf("   took: %20llu = %9.6f ~~ min version used is now: %zu\n", (unsigned long long) e, e / 2.1e9, ht_gc_min_version_used(ht_new));
 
  return 1;
 }
-
 
 void
 ht_destroy(hashtable_t** hashtable)
@@ -531,7 +568,6 @@ ht_destroy(hashtable_t** hashtable)
   free(*hashtable);
   free(hashtable);
 }
-
 
 
 size_t
