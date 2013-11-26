@@ -226,8 +226,8 @@ test(void* thread)
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
         
       c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
-      update = (c < scale_update);
-      putting = (c < scale_put);
+      update = (c <= scale_update);
+      putting = (c <= scale_put);
 
       if(update) 
 	{
