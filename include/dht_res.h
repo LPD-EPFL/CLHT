@@ -86,7 +86,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       size_t num_buckets;
       bucket_t* table;
       size_t hash;
-      uint8_t next_cache_line[64 - (2 * sizeof(size_t)) - sizeof(void*)];
+      size_t version;
+      uint8_t next_cache_line[64 - (3 * sizeof(size_t)) - sizeof(void*)];
       volatile uint8_t resize_lock;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
@@ -106,7 +107,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ht_ts
   {
     struct
     {
-      hashtable_t* version;
+      size_t version;
+      hashtable_t* versionp;
       int id;
       volatile struct ht_ts* next;
     };

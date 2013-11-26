@@ -26,8 +26,6 @@ int is_odd (int x)
   return x & 1;
 }
 
-
-
 size_t ht_status(hashtable_t** h, int resize_increase, int just_print);
 #define HYHT_STATUS_INV 102400
 __thread size_t check_ht_status_steps = 0;
@@ -139,6 +137,7 @@ ht_create(uint32_t num_buckets)
 
   hashtable->num_buckets = num_buckets;
   hashtable->hash = num_buckets - 1;
+  hashtable->version = 0;
   hashtable->resize_lock = 0;
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
@@ -163,7 +162,7 @@ ht_thread_init(hashtable_t* h, int id)
   ht_ts_t* ts = (ht_ts_t*) memalign(CACHE_LINE_SIZE, sizeof(ht_ts_t));
   assert(ts != NULL);
 
-  ts->version = h;
+  ts->version = h->version;
   ts->id = id;
 
 do
@@ -172,17 +171,6 @@ do
   }
  while (CAS_U64((volatile size_t*) &h->version_list,
 		(size_t) ts->next, (size_t) ts) != (size_t) ts->next);
-
- printf(".");
-
- volatile ht_ts_t* c = h->version_list;
-  do
-    {
-      printf("(%2d: %p) => ", c->id, c->version);
-      c = c->next;
-    }
-  while (c != NULL);
-  printf("\n");
 }
 
 /* Hash a key for a particular hash table. */
@@ -480,6 +468,7 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
   printf("// resizing: from %8zu to %8zu buckets\n", ht_old->num_buckets, num_buckets_new);
 
   hashtable_t* ht_new = ht_create(num_buckets_new);
+  ht_new->version = ht_old->version + 1;
 
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
