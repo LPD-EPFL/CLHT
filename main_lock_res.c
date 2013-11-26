@@ -151,6 +151,7 @@ test(void* thread)
 
   hashtable_t** hashtable = td->ht;
     
+  ht_thread_init(*hashtable, ID);
     
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;
@@ -205,7 +206,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %lu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(*hashtable));
       /* ht_print(hashtable, num_buckets); */
     }
 #else
@@ -213,7 +214,7 @@ test(void* thread)
     {
       if(ht_size(*hashtable) == 3321445)
 	{
-	  printf("size of ht is: %lu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(*hashtable));
 	}
     }  
 #endif
@@ -336,14 +337,14 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %lu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(*hashtable));
     }
 #else
   if (!ID)
     {
       if(ht_size(*hashtable) == 3321445)
 	{
-	  printf("size of ht is: %lu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(*hashtable));
 	}
     }  
 #endif
@@ -483,7 +484,7 @@ main(int argc, char **argv)
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
-      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %lu\n", num_buckets, num_buckets_pow2);
+      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %zu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
       initial = pow2roundup(initial);
     }
@@ -496,7 +497,7 @@ main(int argc, char **argv)
   if (!is_power_of_two(range))
     {
       size_t range_pow2 = pow2roundup(range);
-      printf("** rounding up range (to make it power of 2): old: %lu / new: %lu\n", range, range_pow2);
+      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
       range = range_pow2;
     }
 
@@ -664,7 +665,7 @@ main(int argc, char **argv)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
-  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+  printf("%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\n",
 	 num_threads,
 	 getting_suc_total / getting_count_total_succ,
 	 getting_fal_total / (getting_count_total - getting_count_total_succ),
