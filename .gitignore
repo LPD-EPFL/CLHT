@@ -55,6 +55,7 @@
 /mcore_malloc.o
 /mcore_malloc_mp.o
 /mcs.o
+/o
 /perf.sh
 /perf.sh~
 /run

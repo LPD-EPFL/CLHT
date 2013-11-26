@@ -27,10 +27,16 @@ int is_odd (int x)
 }
 
 static __thread ht_ts_t* hyht_ts_thread;
+static inline int 
+hyht_get_id()
+{
+  return hyht_ts_thread->id;
+}
+
 
 int ht_gc_collect(hashtable_t* h);
 size_t ht_status(hashtable_t** h, int resize_increase, int just_print);
-#define HYHT_STATUS_INV 10240
+#define HYHT_STATUS_INV 50000
 __thread size_t check_ht_status_steps = 0;
 
 #define HYHT_DO_CHECK_STATUS 1
@@ -143,9 +149,9 @@ ht_create(uint32_t num_buckets)
   hashtable->version = 0;
   hashtable->resize_lock = LOCK_FREE;
   hashtable->gc_lock = LOCK_FREE;
-  hashtable->table_first = hashtable;
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
+  hashtable->table_prev = NULL;
   hashtable->num_expands = 0;
   hashtable->num_expands_threshold = (HYHT_PERC_EXPANSIONS * num_buckets);
   if (hashtable->num_expands_threshold == 0)
@@ -157,6 +163,7 @@ ht_create(uint32_t num_buckets)
   hashtable->is_helper = 1;
   hashtable->helper_done = 0;
   hashtable->version_list = NULL;
+  hashtable->version_min = hashtable->version;
  
   return hashtable;
 }
@@ -507,9 +514,9 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
   printf("// resizing: from %8zu to %8zu buckets\n", ht_old->num_buckets, num_buckets_new);
 
   hashtable_t* ht_new = ht_create(num_buckets_new);
-  ht_new->table_first = ht_old->table_first;
   ht_new->version = ht_old->version + 1;
   ht_new->version_list = ht_old->version_list;
+  ht_new->version_min = ht_old->version_min;
 
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
@@ -549,12 +556,15 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
   /*   } */
 #endif
 
+  ht_new->table_prev = ht_old;
+
   if (ht_new->num_expands >= ht_new->num_expands_threshold)
     {
       printf("problem: have already %u expands\n", ht_new->num_expands);
       ht_new->num_expands_threshold = ht_new->num_expands + 2;
     }
 
+  
   SWAP_PTR((volatile void*) h, (void*) ht_new);
   ht_old->table_new = ht_new;
 
@@ -578,8 +588,27 @@ ht_gc_destroy(hashtable_t** hashtable)
   free(hashtable);
 }
 
-int
+
+static int ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used);
+
+inline int
 ht_gc_collect(hashtable_t* hashtable)
+{
+  ht_thread_version(hashtable);
+  return ht_gc_collect_cond(hashtable, 1);
+}
+
+int
+ht_gc_collect_all(hashtable_t* hashtable)
+{
+  return ht_gc_collect_cond(hashtable, 0);
+}
+
+
+#define GET_ID(x) x ? hyht_get_id() : 99
+
+static int
+ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 {
   if (TAS_U8(&hashtable->gc_lock))
     {
@@ -587,61 +616,83 @@ ht_gc_collect(hashtable_t* hashtable)
       return 0;
     }
 
-  size_t version_min = ht_gc_min_version_used(hashtable);
-  hashtable_t* cur = hashtable->table_first;
-  /* printf("[GC] gc collect versions < %3zu - current: %zu\n", version_min, hashtable->version); */
+  printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_only_not_used), hashtable->version);
+
+  size_t version_min = hashtable->version; 
+  if (collect_only_not_used)
+    {
+      version_min = ht_gc_min_version_used(hashtable);
+    }
+  printf("[GC-%02d] gc collect versions < %3zu - current: %3zu - oldest: %zu\n", GET_ID(collect_only_not_used),
+	 version_min, hashtable->version, hashtable->version_min);
 
   int gced = 0;
-  while (cur->version < version_min)
+
+  if (hashtable->version_min >= version_min)
     {
-      hashtable_t* nxt = cur->table_new;
-      printf("[GC] gc collecting version < %zu / free: %zu\n", version_min, cur->version);
-      ht_gc_free(cur);
-      gced = 1;
-      cur = nxt;
+      printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_only_not_used), hashtable->version);
+      hashtable->gc_lock = LOCK_FREE;
+    }
+  else
+    {
+      printf("[GC-%02d] collect from %zu to %zu\n", GET_ID(collect_only_not_used), hashtable->version_min, version_min);
+
+      int gc_locks = 1;
+      int gc_locks_num = 1;
+      hashtable_t* cur = hashtable->table_prev;
+
+      while (cur != NULL && cur->table_prev != NULL)
+	{
+	  if (TAS_U8(&cur->gc_lock))
+	    {
+	      printf("[GC-%02d] someone else is performing gc: is locked: %zu\n", GET_ID(collect_only_not_used), cur->version);
+	      gc_locks = 0;
+	      break;
+	    }
+
+	  gc_locks_num++;
+	  printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_only_not_used), cur->version);
+	  cur = cur->table_prev;
+	}
+
+      if (gc_locks)
+	{
+	  while (cur != NULL && cur->version < version_min)
+	    {
+	      gced = 1;
+	      hashtable_t* nxt = cur->table_new;
+	      printf("[GC-%02d] gc_free: %6zu / max: %6zu\n", GET_ID(collect_only_not_used),
+		     cur->version, hashtable->version);
+	      nxt->table_prev = NULL;
+	      ht_gc_free(cur);
+	      gc_locks_num--;
+	      cur = nxt;
+	    }
+
+	  hashtable->version_min = cur->version;
+	}
+
+      if (gc_locks == 0 || gc_locks_num == 1)
+	{
+	  cur = cur->table_new;
+	}
+
+      do
+	{
+	  cur->gc_lock = LOCK_FREE;
+	  printf("[GC-%02d] UNLOCK: %zu\n", GET_ID(collect_only_not_used), cur->version);
+	  cur = cur->table_new;
+	}
+      while (cur != NULL && --gc_locks_num > 0);
     }
 
-  if (gced)
-    {
-      hashtable->table_first = cur;
-    }
-
-  hashtable->gc_lock = LOCK_FREE;
-  return 1;
-}
-
-int
-ht_gc_collect_all(hashtable_t* hashtable)
-{
-  
-  int gced = 0;
-  if (TAS_U8(&hashtable->gc_lock))
-    {
-      printf("** someone else is performing gc\n");
-      return 0;
-    }
-
-
-  size_t version_min = hashtable->version;
-  printf("[GC] explicit - gc collect versions < %zu\n", version_min);
-  gced = 1;
-  hashtable_t* cur = hashtable->table_first;
-
-  while (cur->version < version_min)
-    {
-      hashtable_t* nxt = cur->table_new;
-      printf("[GC] gc collecting: %zu\n", cur->version);
-      ht_gc_free(cur);
-      cur = nxt;
-    }
-  hashtable->table_first = cur;
-
-  hashtable->gc_lock = LOCK_FREE;
   return gced;
 }
 
 
-void
+
+
+int
 ht_gc_free(hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
@@ -690,6 +741,8 @@ ht_gc_free(hashtable_t* hashtable)
 
   free(hashtable->table);
   free(hashtable);
+
+  return 1;
 }
 
 size_t
@@ -793,8 +846,11 @@ ht_status(hashtable_t** h, int resize_increase, int just_print)
 	}
     }
 
-  ht_gc_collect(*h);
 
+  if (!just_print)
+    {
+      ht_gc_collect(*h);
+    }
   return size;
 }
 
@@ -821,19 +877,12 @@ ht_size_mem_garbage(hashtable_t* h) /* in bytes */
     }
 
   size_t size_tot = 0;
-  hashtable_t* cur = h->table_first;
-
-  if (cur == h)
-    {
-      return 0;
-    }
-
-  do
+  hashtable_t* cur = h->table_prev;
+  while (cur != NULL)
     {
       size_tot += ht_size_mem(cur);
-      cur = cur->table_new;
+      cur = cur->table_prev;
     }
-  while (cur != NULL && cur->table_new != NULL); /* the current table is not garbage */
 
   return size_tot;
 }

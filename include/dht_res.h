@@ -87,17 +87,18 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       bucket_t* table;
       size_t hash;
       size_t version;
-      struct hashtable_s* table_first;
-      uint8_t next_cache_line[64 - (3 * sizeof(size_t)) - (2 *sizeof(void*))];
+      uint8_t next_cache_line[CACHE_LINE_SIZE - (3 * sizeof(size_t)) - (sizeof(void*))];
       volatile uint8_t resize_lock;
       volatile uint8_t gc_lock;
       struct hashtable_s* table_tmp;
+      struct hashtable_s* table_prev;
       struct hashtable_s* table_new;
       volatile uint32_t num_expands;
       volatile uint32_t num_expands_threshold;
       volatile int32_t is_helper;
       volatile int32_t helper_done;
       struct ht_ts* version_list;
+      size_t version_min;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };
@@ -233,7 +234,7 @@ size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
 void ht_gc_destroy(hashtable_t** hashtable);
-void ht_gc_free(hashtable_t* hashtable);
+int ht_gc_free(hashtable_t* hashtable);
 int ht_gc_collect(hashtable_t* h);
 int ht_gc_collect_all(hashtable_t* h);
 
