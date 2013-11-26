@@ -150,8 +150,8 @@ test(void* thread)
   set_cpu(phys_id);
 
   hashtable_t** hashtable = td->ht;
-    
-  ht_thread_init(*hashtable, ID);
+
+  ht_thread_init(*hashtable, ID);    
     
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;

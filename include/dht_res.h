@@ -76,6 +76,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   struct bucket_s* next;
 } bucket_t;
 
+
 typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
 {
   union
@@ -93,10 +94,25 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       volatile uint32_t num_expands_threshold;
       volatile int32_t is_helper;
       volatile int32_t helper_done;
+      volatile struct ht_ts* version_list;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };
 } hashtable_t;
+
+typedef struct ALIGNED(CACHE_LINE_SIZE) ht_ts
+{
+  union
+  {
+    struct
+    {
+      hashtable_t* version;
+      int id;
+      volatile struct ht_ts* next;
+    };
+    uint8_t padding[CACHE_LINE_SIZE];
+  };
+} ht_ts_t;
 
 
 /* Hash a key for a particular hashtable. */
@@ -188,6 +204,13 @@ lock_acq_resize(lock_t* lock)
 #define LOCK_RLS(lock)				\
   TAS_RLS_MFENCE();				\
  *lock = 0;	  
+
+
+/* ******************************************************************************** */
+/* intefance */
+/* ******************************************************************************** */
+
+void ht_thread_init(hashtable_t* hashtable, int id);
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets);
