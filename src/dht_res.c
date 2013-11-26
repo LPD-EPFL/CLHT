@@ -581,7 +581,6 @@ ht_gc_destroy(hashtable_t** hashtable)
 int
 ht_gc_collect(hashtable_t* hashtable)
 {
-  int gced = 0;
   if (TAS_U8(&hashtable->gc_lock))
     {
       /* printf("** someone else is performing gc\n"); */
@@ -589,25 +588,26 @@ ht_gc_collect(hashtable_t* hashtable)
     }
 
   size_t version_min = ht_gc_min_version_used(hashtable);
-  printf("[GC] gc collect versions < %zu\n", version_min);
+  hashtable_t* cur = hashtable->table_first;
+  /* printf("[GC] gc collect versions < %3zu - current: %zu\n", version_min, hashtable->version); */
 
-  if (version_min < hashtable->version)
+  int gced = 0;
+  while (cur->version < version_min)
     {
+      hashtable_t* nxt = cur->table_new;
+      printf("[GC] gc collecting version < %zu / free: %zu\n", version_min, cur->version);
+      ht_gc_free(cur);
       gced = 1;
-      hashtable_t* cur = hashtable->table_first;
+      cur = nxt;
+    }
 
-      while (cur->version < version_min)
-	{
-	  hashtable_t* nxt = cur->table_new;
-	  /* printf("[GC] gc collecting: %zu\n", cur->version); */
-	  ht_gc_free(cur);
-	  cur = nxt;
-	}
+  if (gced)
+    {
       hashtable->table_first = cur;
     }
 
   hashtable->gc_lock = LOCK_FREE;
-  return gced;
+  return 1;
 }
 
 int
