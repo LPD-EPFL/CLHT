@@ -616,26 +616,27 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
       return 0;
     }
 
-  printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_only_not_used), hashtable->version);
+  /* printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_only_not_used), hashtable->version); */
 
   size_t version_min = hashtable->version; 
   if (collect_only_not_used)
     {
       version_min = ht_gc_min_version_used(hashtable);
     }
-  printf("[GC-%02d] gc collect versions < %3zu - current: %3zu - oldest: %zu\n", GET_ID(collect_only_not_used),
-	 version_min, hashtable->version, hashtable->version_min);
+
+  /* printf("[GC-%02d] gc collect versions < %3zu - current: %3zu - oldest: %zu\n",  */
+  /* 	 GET_ID(collect_only_not_used), version_min, hashtable->version, hashtable->version_min); */
 
   int gced = 0;
 
   if (hashtable->version_min >= version_min)
     {
-      printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_only_not_used), hashtable->version);
+      /* printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_only_not_used), hashtable->version); */
       hashtable->gc_lock = LOCK_FREE;
     }
   else
     {
-      printf("[GC-%02d] collect from %zu to %zu\n", GET_ID(collect_only_not_used), hashtable->version_min, version_min);
+      /* printf("[GC-%02d] collect from %zu to %zu\n", GET_ID(collect_only_not_used), hashtable->version_min, version_min); */
 
       int gc_locks = 1;
       int gc_locks_num = 1;
@@ -645,13 +646,13 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 	{
 	  if (TAS_U8(&cur->gc_lock))
 	    {
-	      printf("[GC-%02d] someone else is performing gc: is locked: %zu\n", GET_ID(collect_only_not_used), cur->version);
+	      /* printf("[GC-%02d] someone else is performing gc: is locked: %zu\n", GET_ID(collect_only_not_used), cur->version); */
 	      gc_locks = 0;
 	      break;
 	    }
 
 	  gc_locks_num++;
-	  printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_only_not_used), cur->version);
+	  /* printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_only_not_used), cur->version); */
 	  cur = cur->table_prev;
 	}
 
@@ -661,8 +662,8 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 	    {
 	      gced = 1;
 	      hashtable_t* nxt = cur->table_new;
-	      printf("[GC-%02d] gc_free: %6zu / max: %6zu\n", GET_ID(collect_only_not_used),
-		     cur->version, hashtable->version);
+	      /* printf("[GC-%02d] gc_free: %6zu / max: %6zu\n", GET_ID(collect_only_not_used), */
+	      /* 	     cur->version, hashtable->version); */
 	      nxt->table_prev = NULL;
 	      ht_gc_free(cur);
 	      gc_locks_num--;
@@ -680,7 +681,7 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
       do
 	{
 	  cur->gc_lock = LOCK_FREE;
-	  printf("[GC-%02d] UNLOCK: %zu\n", GET_ID(collect_only_not_used), cur->version);
+	  /* printf("[GC-%02d] UNLOCK: %zu\n", GET_ID(collect_only_not_used), cur->version); */
 	  cur = cur->table_new;
 	}
       while (cur != NULL && --gc_locks_num > 0);
@@ -688,8 +689,6 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 
   return gced;
 }
-
-
 
 
 int
