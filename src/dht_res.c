@@ -140,6 +140,7 @@ ht_create(uint32_t num_buckets)
   hashtable->num_buckets = num_buckets;
   hashtable->hash = num_buckets - 1;
   hashtable->version = 0;
+  hashtable->version_list = NULL;
   hashtable->resize_lock = 0;
   hashtable->table_first = hashtable;
   hashtable->table_tmp = NULL;
