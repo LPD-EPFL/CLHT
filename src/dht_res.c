@@ -170,7 +170,7 @@ do
   {
     ts->next = h->version_list;
   }
- while (CAS_U64((volatile size_t*) h->version_list,
+ while (CAS_U64((volatile size_t*) &h->version_list,
 		(size_t) ts->next, (size_t) ts) != (size_t) ts->next);
 
  printf(".");
