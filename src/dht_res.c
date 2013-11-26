@@ -793,7 +793,7 @@ ht_status(hashtable_t** h, int resize_increase, int just_print)
 	}
     }
 
-  ht_gc_collect(hashtable);
+  ht_gc_collect(*h);
 
   return size;
 }
