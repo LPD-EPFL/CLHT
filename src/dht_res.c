@@ -587,11 +587,11 @@ ht_gc_collect(hashtable_t* hashtable)
       return 0;
     }
 
-
   size_t version_min = ht_gc_min_version_used(hashtable);
+  printf("[GC] gc collect versions < %zu\n", version_min);
+
   if (version_min < hashtable->version)
     {
-      printf("[GC] gc collect versions < %zu\n", version_min);
       gced = 1;
       hashtable_t* cur = hashtable->table_first;
 
