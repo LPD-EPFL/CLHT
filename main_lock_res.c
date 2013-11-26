@@ -665,7 +665,7 @@ main(int argc, char **argv)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
-  printf("%d\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\n",
+  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
 	 num_threads,
 	 getting_suc_total / getting_count_total_succ,
 	 getting_fal_total / (getting_count_total - getting_count_total_succ),
