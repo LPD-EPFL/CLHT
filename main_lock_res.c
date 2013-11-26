@@ -541,8 +541,6 @@ main(int argc, char **argv)
   assert(hashtable != NULL);
   *hashtable = ht_create(num_buckets);
 
-  hashtable_t* ht_initial = *hashtable;
-
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
   putting_fail = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -708,7 +706,7 @@ main(int argc, char **argv)
   kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  kb = ht_size_mem_garbage(ht_initial) / 1024.0;
+  kb = ht_size_mem_garbage((*hashtable)->table_first) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
   ht_status(hashtable, 0, 1);
