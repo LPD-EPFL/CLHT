@@ -28,8 +28,9 @@ int is_odd (int x)
 
 static __thread ht_ts_t* hyht_ts_thread;
 
+int ht_gc_collect(hashtable_t* h);
 size_t ht_status(hashtable_t** h, int resize_increase, int just_print);
-#define HYHT_STATUS_INV 102400
+#define HYHT_STATUS_INV 10240
 __thread size_t check_ht_status_steps = 0;
 
 #define HYHT_DO_CHECK_STATUS 1
@@ -140,8 +141,8 @@ ht_create(uint32_t num_buckets)
   hashtable->num_buckets = num_buckets;
   hashtable->hash = num_buckets - 1;
   hashtable->version = 0;
-  hashtable->version_list = NULL;
-  hashtable->resize_lock = 0;
+  hashtable->resize_lock = LOCK_FREE;
+  hashtable->gc_lock = LOCK_FREE;
   hashtable->table_first = hashtable;
   hashtable->table_tmp = NULL;
   hashtable->table_new = NULL;
@@ -557,19 +558,138 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
   ht_old->table_new = ht_new;
 
   ticks e = getticks() - s;
-  printf("   took: %20llu = %9.6f ~~ min version used is now: %zu\n", (unsigned long long) e, e / 2.1e9, ht_gc_min_version_used(ht_new));
+  printf("   resize:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
+
+  s = getticks();
+  ht_gc_collect(ht_new);
+  e = getticks() - s;
+
+  printf("   gc col:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
 
  return 1;
 }
 
 void
-ht_destroy(hashtable_t** hashtable)
+ht_gc_destroy(hashtable_t** hashtable)
 {
-  free((*hashtable)->table);
-  free(*hashtable);
+  ht_gc_collect_all(*hashtable);
+  ht_gc_free(*hashtable);
   free(hashtable);
 }
 
+int
+ht_gc_collect(hashtable_t* hashtable)
+{
+  int gced = 0;
+  if (TAS_U8(&hashtable->gc_lock))
+    {
+      /* printf("** someone else is performing gc\n"); */
+      return 0;
+    }
+
+
+  size_t version_min = ht_gc_min_version_used(hashtable);
+  if (version_min < hashtable->version)
+    {
+      printf("[GC] gc collect versions < %zu\n", version_min);
+      gced = 1;
+      hashtable_t* cur = hashtable->table_first;
+
+      while (cur->version < version_min)
+	{
+	  hashtable_t* nxt = cur->table_new;
+	  /* printf("[GC] gc collecting: %zu\n", cur->version); */
+	  ht_gc_free(cur);
+	  cur = nxt;
+	}
+      hashtable->table_first = cur;
+    }
+
+  hashtable->gc_lock = LOCK_FREE;
+  return gced;
+}
+
+int
+ht_gc_collect_all(hashtable_t* hashtable)
+{
+  
+  int gced = 0;
+  if (TAS_U8(&hashtable->gc_lock))
+    {
+      printf("** someone else is performing gc\n");
+      return 0;
+    }
+
+
+  size_t version_min = hashtable->version;
+  printf("[GC] explicit - gc collect versions < %zu\n", version_min);
+  gced = 1;
+  hashtable_t* cur = hashtable->table_first;
+
+  while (cur->version < version_min)
+    {
+      hashtable_t* nxt = cur->table_new;
+      printf("[GC] gc collecting: %zu\n", cur->version);
+      ht_gc_free(cur);
+      cur = nxt;
+    }
+  hashtable->table_first = cur;
+
+  hashtable->gc_lock = LOCK_FREE;
+  return gced;
+}
+
+
+void
+ht_gc_free(hashtable_t* hashtable)
+{
+  uint32_t num_buckets = hashtable->num_buckets;
+  bucket_t* bucket = NULL;
+
+  uint32_t bin;
+  for (bin = 0; bin < num_buckets; bin++)
+    {
+      bucket = hashtable->table + bin;
+       
+      bucket_t* bstack[8] = {0};
+      int bidx = 0;
+
+      do
+	{
+	  bucket = bucket->next;
+	  bstack[bidx++] = bucket;
+	  if (bidx == 8)
+	    {
+	      /* printf("[GC] stack full\n"); */
+	      bidx--;
+		while (--bidx >= 0) /* free from 7..0 */
+		{
+		  if (bstack[bidx] != NULL)
+		    {
+		      /* printf("[GC] free(%d) = %p\n", bidx, bstack[bidx]); */
+		      free(bstack[bidx]);
+		    }
+		}
+	      bstack[0] = bstack[7]; /* do not free the current bucket* */
+	      bidx = 1;
+	    }
+	}
+      while (bucket != NULL);
+
+      while(--bidx >= 0)
+	{
+	  /* printf("[GC] done collecting\n"); */
+	  if (bstack[bidx] != NULL)
+	    {
+	      /* printf("[GC] free(%d) = %p\n", bidx, bstack[bidx]); */
+	      free(bstack[bidx]);
+	    }
+	}
+    }
+
+  free(hashtable->table);
+  free(hashtable);
+}
 
 size_t
 ht_size(hashtable_t* hashtable)
@@ -670,8 +790,9 @@ ht_status(hashtable_t** h, int resize_increase, int just_print)
 	    }
 	  ht_resize_pes(h, 1, inc_by_pow2);
 	}
-
     }
+
+  ht_gc_collect(hashtable);
 
   return size;
 }
@@ -680,6 +801,11 @@ ht_status(hashtable_t** h, int resize_increase, int just_print)
 size_t
 ht_size_mem(hashtable_t* h) /* in bytes */
 {
+  if (h == NULL)
+    {
+      return 0;
+    }
+
   size_t size_tot = sizeof(hashtable_t**);
   size_tot += (h->num_buckets + h->num_expands) * sizeof(bucket_t);
   return size_tot;
@@ -688,14 +814,25 @@ ht_size_mem(hashtable_t* h) /* in bytes */
 size_t
 ht_size_mem_garbage(hashtable_t* h) /* in bytes */
 {
+  if (h == NULL)
+    {
+      return 0;
+    }
+
   size_t size_tot = 0;
-  hashtable_t* cur = h;
+  hashtable_t* cur = h->table_first;
+
+  if (cur == h)
+    {
+      return 0;
+    }
+
   do
     {
       size_tot += ht_size_mem(cur);
       cur = cur->table_new;
     }
-  while (cur != NULL);
+  while (cur != NULL && cur->table_new != NULL); /* the current table is not garbage */
 
   return size_tot;
 }

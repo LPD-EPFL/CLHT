@@ -706,16 +706,17 @@ main(int argc, char **argv)
   kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  kb = ht_size_mem_garbage((*hashtable)->table_first) / 1024.0;
+  kb = ht_size_mem_garbage(*hashtable) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
+
   ht_status(hashtable, 0, 1);
+
+  ht_gc_destroy(hashtable);
 
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t(%f\n", num_threads, throughput);
     
-
-  ht_destroy(hashtable);
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");

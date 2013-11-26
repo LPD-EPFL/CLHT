@@ -90,6 +90,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       struct hashtable_s* table_first;
       uint8_t next_cache_line[64 - (3 * sizeof(size_t)) - (2 *sizeof(void*))];
       volatile uint8_t resize_lock;
+      volatile uint8_t gc_lock;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_new;
       volatile uint32_t num_expands;
@@ -227,12 +228,14 @@ void* ht_get(hashtable_t** hashtable, ssht_addr_t key);
 /* Remove a key-value pair from a hashtable. */
 ssht_addr_t ht_remove(hashtable_t** hashtable, ssht_addr_t key);
 
-/* Dealloc the hashtable */
-void ht_destroy(hashtable_t** hashtable);
-
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
+
+void ht_gc_destroy(hashtable_t** hashtable);
+void ht_gc_free(hashtable_t* hashtable);
+int ht_gc_collect(hashtable_t* h);
+int ht_gc_collect_all(hashtable_t* h);
 
 void ht_print(hashtable_t* hashtable);
 size_t ht_status(hashtable_t** hashtable, int resize_increase, int just_print);
