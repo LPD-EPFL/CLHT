@@ -156,7 +156,8 @@ ht_create(uint32_t num_buckets)
 
   hashtable->is_helper = 1;
   hashtable->helper_done = 0;
-    
+  hashtable->version_list = NULL;
+ 
   return hashtable;
 }
 
