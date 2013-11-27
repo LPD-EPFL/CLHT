@@ -466,11 +466,17 @@ main(int argc, char **argv)
     }
 
 
+  if (!is_power_of_two(initial))
+    {
+      size_t initial_pow2 = pow2roundup(initial);
+      printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
+      initial = initial_pow2;
+    }
+
   if (range <= initial)
     {
       range = 2 * initial;
     }
-
 
   if (num_buckets_param)
     {
@@ -489,8 +495,7 @@ main(int argc, char **argv)
       initial = pow2roundup(initial);
     }
 
-
-  double kb = num_buckets * sizeof(bucket_t) / 1024.0;
+  double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
