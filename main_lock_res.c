@@ -22,12 +22,11 @@
 #  include <sys/types.h>
 #  include <sys/processor.h>
 #  include <sys/procset.h>
-#  include "include/dht.h"
-#  include "include/mcore_malloc.h"
-#else
-#  include "dht_res.h"
-#  include "mcore_malloc.h"
 #endif
+
+#include "dht_res.h"
+#include "mcore_malloc.h"
+
 
 /* #define DETAILED_THROUGHPUT */
 

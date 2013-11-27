@@ -66,11 +66,11 @@ inline int is_power_of_two (unsigned int x);
 
 typedef uintptr_t ssht_addr_t;
 
-typedef uint64_t lock_t;
+typedef uint64_t hyht_lock_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  lock_t lock;
+  hyht_lock_t lock;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   void* val[ENTRIES_PER_BUCKET];
   struct bucket_s* next;
@@ -156,11 +156,11 @@ extern __thread uint32_t put_num_restarts;
 #endif
 
 static inline int
-lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
+lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 {
   char once = 1;
-  lock_t l;
-  while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
+  hyht_lock_t l;
+  while ((l = CAS_U8((volatile uint8_t*) lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
     {
       if (once)
 	{
@@ -189,10 +189,10 @@ lock_acq_chk_resize(lock_t* lock, hashtable_t* h)
 }
 
 static inline int
-lock_acq_resize(lock_t* lock)
+lock_acq_resize(hyht_lock_t* lock)
 {
-  lock_t l;
-  while ((l = CAS_U8(lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
+  hyht_lock_t l;
+  while ((l = CAS_U8((volatile uint8_t*) lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
     {
       _mm_pause();
     }

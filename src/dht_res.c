@@ -287,7 +287,7 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 
   ssht_addr_t* empty = NULL;
   void** empty_v = NULL;
-  lock_t* lock;
+  hyht_lock_t* lock;
   bucket_t* bucket;
 
   do
@@ -362,7 +362,7 @@ ht_remove(hashtable_t** h, ssht_addr_t key)
   HYHT_CHECK_STATUS(h);
 
   hashtable_t* hashtable;
-  lock_t* lock;
+  hyht_lock_t* lock;
   bucket_t* bucket;
   do
     {
@@ -463,7 +463,7 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
 void
 ht_resize_help(hashtable_t* h)
 {
-  if (FAD_U32(&h->is_helper) <= 0)
+  if ((int32_t) FAD_U32((volatile uint32_t*) &h->is_helper) <= 0)
     {
       return;
     }

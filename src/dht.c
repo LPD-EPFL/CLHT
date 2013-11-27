@@ -187,7 +187,7 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
       return false;
     }
 #endif
-  lock_t* lock = &bucket->lock;
+  hyht_lock_t* lock = &bucket->lock;
 
   ssht_addr_t* empty = NULL;
   void** empty_v = NULL;
@@ -247,7 +247,7 @@ ht_remove(hashtable_t* hashtable, ssht_addr_t key, int bin)
     }
 #endif  /* READ_ONLY_FAIL */
 
-  lock_t* lock = &bucket->lock;
+  hyht_lock_t* lock = &bucket->lock;
   uint32_t j;
 
   LOCK_ACQ(lock);
