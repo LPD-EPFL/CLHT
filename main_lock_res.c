@@ -22,12 +22,11 @@
 #  include <sys/types.h>
 #  include <sys/processor.h>
 #  include <sys/procset.h>
-#  include "include/dht.h"
-#  include "include/mcore_malloc.h"
-#else
-#  include "dht_res.h"
-#  include "mcore_malloc.h"
 #endif
+
+#include "dht_res.h"
+#include "mcore_malloc.h"
+
 
 /* #define DETAILED_THROUGHPUT */
 
@@ -150,7 +149,8 @@ test(void* thread)
   set_cpu(phys_id);
 
   hashtable_t** hashtable = td->ht;
-    
+
+  ht_gc_thread_init(*hashtable, ID);    
     
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;
@@ -205,7 +205,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %lu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(*hashtable));
       /* ht_print(hashtable, num_buckets); */
     }
 #else
@@ -213,7 +213,7 @@ test(void* thread)
     {
       if(ht_size(*hashtable) == 3321445)
 	{
-	  printf("size of ht is: %lu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(*hashtable));
 	}
     }  
 #endif
@@ -336,14 +336,14 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %lu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(*hashtable));
     }
 #else
   if (!ID)
     {
       if(ht_size(*hashtable) == 3321445)
 	{
-	  printf("size of ht is: %lu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(*hashtable));
 	}
     }  
 #endif
@@ -465,11 +465,17 @@ main(int argc, char **argv)
     }
 
 
+  if (!is_power_of_two(initial))
+    {
+      size_t initial_pow2 = pow2roundup(initial);
+      printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
+      initial = initial_pow2;
+    }
+
   if (range <= initial)
     {
       range = 2 * initial;
     }
-
 
   if (num_buckets_param)
     {
@@ -483,20 +489,19 @@ main(int argc, char **argv)
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
-      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %lu\n", num_buckets, num_buckets_pow2);
+      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %zu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
       initial = pow2roundup(initial);
     }
 
-
-  double kb = num_buckets * sizeof(bucket_t) / 1024.0;
+  double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
   if (!is_power_of_two(range))
     {
       size_t range_pow2 = pow2roundup(range);
-      printf("** rounding up range (to make it power of 2): old: %lu / new: %lu\n", range, range_pow2);
+      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
       range = range_pow2;
     }
 
@@ -539,8 +544,6 @@ main(int argc, char **argv)
   hashtable_t** hashtable = (hashtable_t**) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
   assert(hashtable != NULL);
   *hashtable = ht_create(num_buckets);
-
-  hashtable_t* ht_initial = *hashtable;
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -707,16 +710,17 @@ main(int argc, char **argv)
   kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  kb = ht_size_mem_garbage(ht_initial) / 1024.0;
+  kb = ht_size_mem_garbage(*hashtable) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
+
   ht_status(hashtable, 0, 1);
+
+  ht_gc_destroy(hashtable);
 
   float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t(%f\n", num_threads, throughput);
     
-
-  ht_destroy(hashtable);
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");

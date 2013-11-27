@@ -140,7 +140,7 @@ test(void *threadid)
   phys_id = the_cores[ID];
     
   set_cpu(phys_id);
-    
+
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;
   volatile ticks my_putting_fail = 0;

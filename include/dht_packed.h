@@ -57,11 +57,11 @@
 
 typedef uintptr_t ssht_addr_t;
 
-typedef uint8_t lock_t;
+typedef uint8_t hyht_lock_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  lock_t lock;
+  hyht_lock_t lock;
   uint32_t last;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
   void* val[ENTRIES_PER_BUCKET];
