@@ -558,10 +558,12 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
 
   ht_new->table_prev = ht_old;
 
+  int ht_resize_again = 0;
   if (ht_new->num_expands >= ht_new->num_expands_threshold)
     {
-      printf("problem: have already %u expands\n", ht_new->num_expands);
-      ht_new->num_expands_threshold = ht_new->num_expands + 2;
+      printf("--problem: have already %u expands\n", ht_new->num_expands);
+      ht_resize_again = 1;
+      /* ht_new->num_expands_threshold = ht_new->num_expands + 1; */
     }
 
   
@@ -577,7 +579,12 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
 
   printf("   gc col:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
 
- return 1;
+  if (ht_resize_again)
+    {
+      ht_status(h, 1, 0);
+    }
+
+  return 1;
 }
 
 void
