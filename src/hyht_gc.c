@@ -1,5 +1,6 @@
 #include "dht_res.h"
 #include <assert.h>
+#include <malloc.h>
 
 static __thread ht_ts_t* hyht_ts_thread = NULL;
 

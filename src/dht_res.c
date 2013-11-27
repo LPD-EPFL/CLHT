@@ -179,9 +179,8 @@ ht_get(hashtable_t** h, ssht_addr_t key)
 {
   hashtable_t* hashtable = *h;
   size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-  /* PREFETCH(bucket); */
   HYHT_GC_HT_VERSION_USED(hashtable);
+  bucket_t* bucket = hashtable->table + bin;
 
   uint32_t j;
   do 
