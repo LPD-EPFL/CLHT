@@ -84,7 +84,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   hyht_lock_t lock;
   hyht_addr_t key[ENTRIES_PER_BUCKET];
-  hyht_val_t val[ENTRIES_PER_BUCKET];
+  volatile hyht_val_t val[ENTRIES_PER_BUCKET];
   struct bucket_s* next;
 } bucket_t;
 

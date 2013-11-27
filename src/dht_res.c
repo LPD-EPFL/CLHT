@@ -267,7 +267,7 @@ ht_put(hashtable_t** h, hyht_addr_t key, hyht_val_t val)
 	  else if (empty == NULL && bucket->key[j] == 0)
 	    {
 	      empty = &bucket->key[j];
-	      empty_v = &bucket->val[j];
+	      empty_v = (hyht_val_t*) &bucket->val[j];
 	    }
 	}
         
