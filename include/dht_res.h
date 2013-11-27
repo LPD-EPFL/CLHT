@@ -71,7 +71,8 @@
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
 inline int is_power_of_two(unsigned int x);
 
-typedef uintptr_t ssht_addr_t;
+typedef uintptr_t hyht_addr_t;
+typedef uintptr_t hyht_val_t;
 
 #if defined(__tile__)
 typedef volatile uint32_t hyht_lock_t;
@@ -82,8 +83,8 @@ typedef volatile uint8_t hyht_lock_t;
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   hyht_lock_t lock;
-  ssht_addr_t key[ENTRIES_PER_BUCKET];
-  void* val[ENTRIES_PER_BUCKET];
+  hyht_addr_t key[ENTRIES_PER_BUCKET];
+  hyht_val_t val[ENTRIES_PER_BUCKET];
   struct bucket_s* next;
 } bucket_t;
 
@@ -132,7 +133,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ht_ts
 
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash(hashtable_t* hashtable, ssht_addr_t key );
+uint32_t ht_hash(hashtable_t* hashtable, hyht_addr_t key );
 
 static inline void
 _mm_pause_rep(uint64_t w)
@@ -234,13 +235,13 @@ lock_acq_resize(hyht_lock_t* lock)
 hashtable_t* ht_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put(hashtable_t** hashtable, ssht_addr_t key);
+uint32_t ht_put(hashtable_t** hashtable, hyht_addr_t key, hyht_val_t val);
 
 /* Retrieve a key-value pair from a hashtable. */
-void* ht_get(hashtable_t** hashtable, ssht_addr_t key);
+hyht_val_t ht_get(hashtable_t** hashtable, hyht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-ssht_addr_t ht_remove(hashtable_t** hashtable, ssht_addr_t key);
+hyht_addr_t ht_remove(hashtable_t** hashtable, hyht_addr_t key);
 
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);

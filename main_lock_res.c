@@ -193,7 +193,7 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
       
-      if(!ht_put(hashtable, key)) 
+      if(!ht_put(hashtable, key, key*key))
 	{
 	  i--;
 	}
@@ -234,7 +234,7 @@ test(void* thread)
 	  if(putting) 
 	    {
 	      START_TS();
-	      int res = ht_put(hashtable, key);
+	      int res = ht_put(hashtable, key, c);
 	      END_TS();
 	      if(res)
 		{
@@ -247,7 +247,7 @@ test(void* thread)
 	  else 
 	    {
 	      START_TS();
-	      ssht_addr_t removed = ht_remove(hashtable, key);
+	      hyht_addr_t removed = ht_remove(hashtable, key);
 	      END_TS();
 	      if(removed != 0) 
 		{
@@ -261,9 +261,9 @@ test(void* thread)
       else
 	{ 
 	  START_TS();
-	  void* res = ht_get(hashtable, key);
+	  volatile hyht_val_t res = ht_get(hashtable, key);
 	  END_TS();
-	  if(res != NULL) 
+	  if(res != 0) 
 	    {
 	      ADD_DUR(my_getting_succ);
 	      my_getting_count_succ++;

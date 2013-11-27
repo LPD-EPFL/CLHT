@@ -162,7 +162,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, ssht_addr_t key) 
+ht_hash(hashtable_t* hashtable, hyht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* hashval = __ac_Jenkins_hash_64(key); */
@@ -174,8 +174,8 @@ ht_hash(hashtable_t* hashtable, ssht_addr_t key)
 
 
 /* Retrieve a key-value entry from a hash table. */
-void*
-ht_get(hashtable_t** h, ssht_addr_t key)
+hyht_val_t
+ht_get(hashtable_t** h, hyht_addr_t key)
 {
   hashtable_t* hashtable = *h;
   size_t bin = ht_hash(hashtable, key);
@@ -187,7 +187,7 @@ ht_get(hashtable_t** h, ssht_addr_t key)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  void* val = bucket->val[j];
+	  hyht_val_t val = bucket->val[j];
 	  if (bucket->key[j] == key) 
 	    {
 	      if (bucket->val[j] == val)
@@ -196,18 +196,18 @@ ht_get(hashtable_t** h, ssht_addr_t key)
 		}
 	      else
 		{
-		  return NULL;
+		  return 0;
 		}
 	    }
 	}
 
       bucket = bucket->next;
     } while (bucket != NULL);
-  return NULL;
+  return 0;
 }
 
 inline int
-bucket_exists(bucket_t* bucket, ssht_addr_t key)
+bucket_exists(bucket_t* bucket, hyht_addr_t key)
 {
   uint32_t j;
   do 
@@ -226,13 +226,13 @@ bucket_exists(bucket_t* bucket, ssht_addr_t key)
 
 /* Insert a key-value entry into a hash table. */
 uint32_t
-ht_put(hashtable_t** h, ssht_addr_t key) 
+ht_put(hashtable_t** h, hyht_addr_t key, hyht_val_t val) 
 {
   HYHT_CHECK_STATUS(h);
   hashtable_t* hashtable;
 
-  ssht_addr_t* empty = NULL;
-  void** empty_v = NULL;
+  hyht_addr_t* empty = NULL;
+  hyht_val_t* empty_v = NULL;
   hyht_lock_t* lock;
   bucket_t* bucket;
 
@@ -279,11 +279,11 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 	      DPP(put_num_failed_expand);
 	      bucket->next = create_bucket_stats(hashtable, &resize);
 	      bucket->next->key[0] = key;
-	      bucket->next->val[0] = (void*) bucket;
+	      bucket->next->val[0] = val;
 	    }
 	  else 
 	    {
-	      *empty_v = (void*) bucket;
+	      *empty_v = val;
 	      *empty = key;
 	    }
 
@@ -302,8 +302,8 @@ ht_put(hashtable_t** h, ssht_addr_t key)
 
 
 /* Remove a key-value entry from a hash table. */
-ssht_addr_t
-ht_remove(hashtable_t** h, ssht_addr_t key)
+hyht_addr_t
+ht_remove(hashtable_t** h, hyht_addr_t key)
 {
   HYHT_CHECK_STATUS(h);
 
@@ -347,7 +347,7 @@ ht_remove(hashtable_t** h, ssht_addr_t key)
 }
 
 static uint32_t
-ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
+ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin) 
 {
   bucket_t* bucket = hashtable->table + bin;
   uint32_t j;
@@ -359,7 +359,7 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	  if (bucket->key[j] == 0)
 	    {
 	      bucket->key[j] = key;
-	      bucket->val[j] = (void*) bucket;
+	      bucket->val[j] = val;
 	      return true;
 	    }
 	}
@@ -370,7 +370,7 @@ ht_put_seq(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	  int null;
 	  bucket->next = create_bucket_stats(hashtable, &null);
 	  bucket->next->key[0] = key;
-	  bucket->next->val[0] = (void*) bucket;
+	  bucket->next->val[0] = val;
 	  return true;
 	}
 
@@ -391,11 +391,11 @@ bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  ssht_addr_t key = bucket->key[j];
+	  hyht_addr_t key = bucket->key[j];
 	  if (key != 0) 
 	    {
 	      uint32_t bin = ht_hash(ht_new, key);
-	      ht_put_seq(ht_new, key, bin);
+	      ht_put_seq(ht_new, key, bucket->val[j], bin);
 	    }
 	}
       bucket = bucket->next;
