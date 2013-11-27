@@ -150,7 +150,7 @@ test(void* thread)
 
   hashtable_t** hashtable = td->ht;
 
-  ht_thread_init(*hashtable, ID);    
+  ht_gc_thread_init(*hashtable, ID);    
     
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;

@@ -20,6 +20,13 @@
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8
+#define HYHT_DO_GC            1
+
+#if HYHT_DO_GC == 1
+#  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
+#else
+#  define HYHT_GC_HT_VERSION_USED(ht)
+#endif
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -223,8 +230,6 @@ lock_acq_resize(hyht_lock_t* lock)
 /* intefance */
 /* ******************************************************************************** */
 
-void ht_thread_init(hashtable_t* hashtable, int id);
-
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets);
 
@@ -241,10 +246,13 @@ size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
-void ht_gc_destroy(hashtable_t** hashtable);
-int ht_gc_free(hashtable_t* hashtable);
+void ht_gc_thread_init(hashtable_t* hashtable, int id);
+inline void ht_gc_thread_version(hashtable_t* h);
+inline int hyht_gc_get_id();
 int ht_gc_collect(hashtable_t* h);
 int ht_gc_collect_all(hashtable_t* h);
+int ht_gc_free(hashtable_t* hashtable);
+void ht_gc_destroy(hashtable_t** hashtable);
 
 void ht_print(hashtable_t* hashtable);
 size_t ht_status(hashtable_t** hashtable, int resize_increase, int just_print);
