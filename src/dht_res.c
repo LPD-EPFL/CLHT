@@ -233,7 +233,7 @@ ht_get(hashtable_t** h, ssht_addr_t key)
   hashtable_t* hashtable = *h;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
-  PREFETCH(bucket);
+  /* PREFETCH(bucket); */
   ht_thread_version(hashtable);
 
   uint32_t j;
@@ -492,7 +492,7 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
 
   hashtable_t* ht_old = *h;
 
-  if (TAS_U8(&ht_old->resize_lock))
+  if (TRYLOCK_ACQ(&ht_old->resize_lock))
     {
       return 0;
     }
@@ -567,7 +567,7 @@ ht_resize_pes(hashtable_t** h, int is_increase, int by)
     }
 
   
-  SWAP_PTR((volatile void*) h, (void*) ht_new);
+  SWAP_PTR(h, ht_new);
   ht_old->table_new = ht_new;
 
   ticks e = getticks() - s;
@@ -617,7 +617,7 @@ ht_gc_collect_all(hashtable_t* hashtable)
 static int
 ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 {
-  if (TAS_U8(&hashtable->gc_lock))
+  if (TRYLOCK_ACQ(&hashtable->gc_lock))
     {
       /* printf("** someone else is performing gc\n"); */
       return 0;
@@ -639,7 +639,7 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
   if (hashtable->version_min >= version_min)
     {
       /* printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_only_not_used), hashtable->version); */
-      hashtable->gc_lock = LOCK_FREE;
+      TRYLOCK_RLS(hashtable->gc_lock);
     }
   else
     {
@@ -651,7 +651,7 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 
       while (cur != NULL && cur->table_prev != NULL)
 	{
-	  if (TAS_U8(&cur->gc_lock))
+	  if (TRYLOCK_ACQ(&cur->gc_lock))
 	    {
 	      /* printf("[GC-%02d] someone else is performing gc: is locked: %zu\n", GET_ID(collect_only_not_used), cur->version); */
 	      gc_locks = 0;
@@ -687,7 +687,7 @@ ht_gc_collect_cond(hashtable_t* hashtable, int collect_only_not_used)
 
       do
 	{
-	  cur->gc_lock = LOCK_FREE;
+	  TRYLOCK_RLS(cur->gc_lock);
 	  /* printf("[GC-%02d] UNLOCK: %zu\n", GET_ID(collect_only_not_used), cur->version); */
 	  cur = cur->table_new;
 	}

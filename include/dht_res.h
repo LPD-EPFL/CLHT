@@ -62,11 +62,15 @@
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
-inline int is_power_of_two (unsigned int x);
+inline int is_power_of_two(unsigned int x);
 
 typedef uintptr_t ssht_addr_t;
 
-typedef uint64_t hyht_lock_t;
+#if defined(__tile__)
+typedef volatile uint32_t hyht_lock_t;
+#else
+typedef volatile uint8_t hyht_lock_t;
+#endif
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
@@ -88,8 +92,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       size_t hash;
       size_t version;
       uint8_t next_cache_line[CACHE_LINE_SIZE - (3 * sizeof(size_t)) - (sizeof(void*))];
-      volatile uint8_t resize_lock;
-      volatile uint8_t gc_lock;
+      volatile hyht_lock_t resize_lock;
+      volatile hyht_lock_t gc_lock;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_prev;
       struct hashtable_s* table_new;
@@ -132,7 +136,7 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-#if defined(XEON) | defined(COREi7)
+#if defined(XEON) | defined(COREi7) | defined(__tile__)
 #  define TAS_RLS_MFENCE() _mm_mfence();
 #else
 #  define TAS_RLS_MFENCE()
@@ -143,11 +147,16 @@ _mm_pause_rep(uint64_t w)
 #define LOCK_UPDATE 1
 #define LOCK_RESIZE 2
 
-#  define LOCK_ACQ(lock, ht)			\
+#define LOCK_ACQ(lock, ht)			\
   lock_acq_chk_resize(lock, ht)
-#  define LOCK_ACQ_RES(lock)			\
+#define LOCK_ACQ_RES(lock)			\
   lock_acq_resize(lock)
 
+#define TRYLOCK_ACQ(lock)			\
+    TAS_U8(lock)
+
+#define TRYLOCK_RLS(lock)			\
+  lock = LOCK_FREE
 
 void ht_resize_help(hashtable_t* h);
 
@@ -160,7 +169,7 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 {
   char once = 1;
   hyht_lock_t l;
-  while ((l = CAS_U8((volatile uint8_t*) lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
+  while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
     {
       if (once)
 	{
@@ -192,7 +201,7 @@ static inline int
 lock_acq_resize(hyht_lock_t* lock)
 {
   hyht_lock_t l;
-  while ((l = CAS_U8((volatile uint8_t*) lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
+  while ((l = CAS_U8(lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
     {
       _mm_pause();
     }
@@ -204,7 +213,6 @@ lock_acq_resize(hyht_lock_t* lock)
 
   return 1;
 }
-
 
 #define LOCK_RLS(lock)				\
   TAS_RLS_MFENCE();				\
