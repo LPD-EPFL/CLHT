@@ -541,9 +541,8 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create();
+  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
-  hashtable->ht = ht_create(num_buckets);
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));

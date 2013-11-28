@@ -97,6 +97,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
     {
       struct hashtable_s* ht;
       uint8_t next_cache_line[(sizeof(void*))];
+      struct hashtable_s* ht_oldest;
       volatile hyht_lock_t resize_lock;
       volatile hyht_lock_t gc_lock;
       struct ht_ts* version_list;
@@ -247,7 +248,7 @@ lock_acq_resize(hyht_lock_t* lock)
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets);
-hyht_wrapper_t* hyht_wrapper_create();
+hyht_wrapper_t* hyht_wrapper_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
 uint32_t ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);

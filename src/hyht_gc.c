@@ -124,21 +124,14 @@ ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
 
   if (hashtable->version_min >= version_min)
     {
-      /* printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_not_referenced_only), hashtable->version); */
+      /* printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_not_referenced_only), hashtable->ht->version); */
       TRYLOCK_RLS(hashtable->gc_lock);
     }
   else
     {
       /* printf("[GC-%02d] collect from %zu to %zu\n", GET_ID(collect_not_referenced_only), hashtable->version_min, version_min); */
 
-      int gc_locks_num = 1;
-      hashtable_t* cur = hashtable->ht->table_prev;
-
-      while (cur != NULL && cur->table_prev != NULL)
-	{
-	  cur = cur->table_prev;
-	}
-
+      hashtable_t* cur = hashtable->ht_oldest;
       while (cur != NULL && cur->version < version_min)
 	{
 	  gced = 1;
@@ -147,12 +140,11 @@ ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
 		 cur->version, hashtable->ht->version);
 	  nxt->table_prev = NULL;
 	  ht_gc_free(cur);
-	  gc_locks_num--;
 	  cur = nxt;
 	}
 
       hashtable->version_min = cur->version;
-
+      hashtable->ht_oldest = cur;
 
       TRYLOCK_RLS(hashtable->gc_lock);
       /* printf("[GC-%02d] UNLOCK: %zu\n", GET_ID(collect_not_referenced_only), cur->version); */

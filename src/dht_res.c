@@ -95,8 +95,10 @@ create_bucket_stats(hashtable_t* h, int* resize)
   return b;
 }
 
+hashtable_t* ht_create(uint32_t num_buckets);
+
 hyht_wrapper_t* 
-hyht_wrapper_create() 
+hyht_wrapper_create(uint32_t num_buckets)
 {
   hyht_wrapper_t* w = (hyht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(hyht_wrapper_t));
   if (w == NULL)
@@ -105,11 +107,17 @@ hyht_wrapper_create()
       return NULL;
     }
 
-  w->ht = NULL;
+  w->ht = ht_create(num_buckets);
+  if (w->ht == NULL)
+    {
+      free(w);
+      return NULL;
+    }
   w->resize_lock = LOCK_FREE;
   w->gc_lock = LOCK_FREE;
   w->version_list = NULL;
   w->version_min = 0;
+  w->ht_oldest = w->ht;
 
   return w;
 }
@@ -534,6 +542,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   ht_gc_collect(h);
   e = getticks() - s;
 
+  TRYLOCK_RLS(h->resize_lock);
   printf("   gc col:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
 
   if (ht_resize_again)
@@ -614,7 +623,7 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
 	}
     }
 
-  double full_ratio = 100.0 * size / ((hashtable->num_buckets + expands) * ENTRIES_PER_BUCKET);
+  double full_ratio = 100.0 * size / ((hashtable->num_buckets) * ENTRIES_PER_BUCKET);
 
   if (just_print)
     {
