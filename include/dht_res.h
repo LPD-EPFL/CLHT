@@ -96,12 +96,13 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
     struct
     {
       struct hashtable_s* ht;
+      uint8_t next_cache_line[(sizeof(void*))];
       volatile hyht_lock_t resize_lock;
       volatile hyht_lock_t gc_lock;
       struct ht_ts* version_list;
       size_t version_min;
     };
-    uint8_t padding[CACHE_LINE_SIZE];
+    uint8_t padding[2 * CACHE_LINE_SIZE];
   };
 } hyht_wrapper_t;
 
