@@ -136,7 +136,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  hashtable_t** ht;
+  hyht_wrapper_t* ht;
 } thread_data_t;
 
 
@@ -148,9 +148,9 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  hashtable_t** hashtable = td->ht;
+  hyht_wrapper_t* hashtable = td->ht;
 
-  ht_gc_thread_init(*hashtable, ID);    
+  ht_gc_thread_init(hashtable, ID);    
     
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;
@@ -205,7 +205,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
       /* ht_print(hashtable, num_buckets); */
     }
 #else
@@ -336,7 +336,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
     }
 #else
   if (!ID)
@@ -541,9 +541,9 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hashtable_t** hashtable = (hashtable_t**) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
+  hyht_wrapper_t* hashtable = hyht_wrapper_create();
   assert(hashtable != NULL);
-  *hashtable = ht_create(num_buckets);
+  hashtable->ht = ht_create(num_buckets);
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -682,7 +682,7 @@ main(int argc, char **argv)
 #define LLU long long unsigned int
 
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  int size_after = ht_size(*hashtable);
+  int size_after = ht_size(hashtable->ht);
 #if defined(DEBUG)
   printf("puts - rems  : %d\n", pr);
 #endif
@@ -707,10 +707,10 @@ main(int argc, char **argv)
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
 #endif
-  kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
+  kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  kb = ht_size_mem_garbage(*hashtable) / 1024.0;
+  kb = ht_size_mem_garbage(hashtable->ht) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 

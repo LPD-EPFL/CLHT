@@ -13,7 +13,7 @@
 #define READ_ONLY_FAIL
 /* #define DEBUG */
 #define HYHT_HELP_RESIZE      1
-#define HYHT_PERC_EXPANSIONS  0.05
+#define HYHT_PERC_EXPANSIONS  0.1
 #define HYHT_MAX_EXPANSIONS   2
 #define HYHT_PERC_FULL_DOUBLE 80	   /* % */
 #define HYHT_RATIO_DOUBLE     2		  
@@ -89,6 +89,22 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 } bucket_t;
 
 
+typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
+{
+  union
+  {
+    struct
+    {
+      struct hashtable_s* ht;
+      volatile hyht_lock_t resize_lock;
+      volatile hyht_lock_t gc_lock;
+      struct ht_ts* version_list;
+      size_t version_min;
+    };
+    uint8_t padding[CACHE_LINE_SIZE];
+  };
+} hyht_wrapper_t;
+
 typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
 {
   union
@@ -100,8 +116,6 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       size_t hash;
       size_t version;
       uint8_t next_cache_line[CACHE_LINE_SIZE - (3 * sizeof(size_t)) - (sizeof(void*))];
-      volatile hyht_lock_t resize_lock;
-      volatile hyht_lock_t gc_lock;
       struct hashtable_s* table_tmp;
       struct hashtable_s* table_prev;
       struct hashtable_s* table_new;
@@ -109,7 +123,6 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       volatile uint32_t num_expands_threshold;
       volatile int32_t is_helper;
       volatile int32_t helper_done;
-      struct ht_ts* version_list;
       size_t version_min;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
@@ -233,33 +246,34 @@ lock_acq_resize(hyht_lock_t* lock)
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets);
+hyht_wrapper_t* hyht_wrapper_create();
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put(hashtable_t** hashtable, hyht_addr_t key, hyht_val_t val);
+uint32_t ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);
 
 /* Retrieve a key-value pair from a hashtable. */
-hyht_val_t ht_get(hashtable_t** hashtable, hyht_addr_t key);
+hyht_val_t ht_get(hyht_wrapper_t* hashtable, hyht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-hyht_addr_t ht_remove(hashtable_t** hashtable, hyht_addr_t key);
+hyht_addr_t ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
 
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
-void ht_gc_thread_init(hashtable_t* hashtable, int id);
+void ht_gc_thread_init(hyht_wrapper_t* hashtable, int id);
 inline void ht_gc_thread_version(hashtable_t* h);
 inline int hyht_gc_get_id();
-int ht_gc_collect(hashtable_t* h);
-int ht_gc_collect_all(hashtable_t* h);
+int ht_gc_collect(hyht_wrapper_t* h);
+int ht_gc_collect_all(hyht_wrapper_t* h);
 int ht_gc_free(hashtable_t* hashtable);
-void ht_gc_destroy(hashtable_t** hashtable);
+void ht_gc_destroy(hyht_wrapper_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
-size_t ht_status(hashtable_t** hashtable, int resize_increase, int just_print);
+size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
 
 bucket_t* create_bucket();
-int ht_resize_pes(hashtable_t** h, int is_increase, int by);
+int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);
 
 
 #endif /* _DHT_RES_H_ */

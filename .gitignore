@@ -17,7 +17,9 @@
 /dht_mp.o
 /events_all
 /external
+/h
 /hclh.o
+/hl
 /htlock.o
 /hyht
 /hyht_h
