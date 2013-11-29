@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "atomic_ops.h"
+#include "utils.h"
 
 #define true 1
 #define false 0
@@ -19,11 +20,7 @@
 #endif
 
 #define CACHE_LINE_SIZE 64
-#if defined(XEON)
-#  define ENTRIES_PER_BUCKET 14
-#else
-#  define ENTRIES_PER_BUCKET 6
-#endif
+#define ENTRIES_PER_BUCKET 3
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -60,18 +57,29 @@
 
 typedef uintptr_t ssht_addr_t;
 
+typedef uint64_t hyht_lock_t;
+
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  uint64_t lock;
+  hyht_lock_t lock;
   ssht_addr_t key[ENTRIES_PER_BUCKET];
-  struct bucket_s *next;
+  void* val[ENTRIES_PER_BUCKET];
+  struct bucket_s* next;
 } bucket_t;
 
 typedef struct ALIGNED(64) hashtable_s
 {
-  uint32_t capacity;
-  ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
+  union
+  {
+    struct
+    {
+      size_t num_buckets;
+      ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
+    };
+    uint8_t padding[CACHE_LINE_SIZE];
+  };
 } hashtable_t;
+
 
 static inline void
 _mm_pause_rep(uint64_t w)
@@ -82,14 +90,16 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-/* #define TAS_WITH_FAI */
-#define TAS_WITH_TAS
+#define TAS_WITH_FAI
+/* #define TAS_WITH_TAS */
 /* #define TAS_WITH_CAS */
 /* #define TAS_WITH_SWAP */
 
-/* #define TAS_RLS_MFENCE */
-
-  /* while (!CAS_U64_BOOL(lock, 0, 1))		\ */
+#if defined(XEON)
+#  define TAS_RLS_MFENCE() _mm_mfence();
+#else
+#  define TAS_RLS_MFENCE()
+#endif
 
 #if defined(TAS_WITH_FAI)
 #  define LOCK_ACQ(lock)			\
@@ -114,39 +124,32 @@ _mm_pause_rep(uint64_t w)
     }						
 #endif
 
-
-#if defined(TAS_RLS_MFENCE)
-#  define LOCK_RLS(lock)			\
-  _mm_mfence();					\
+#define LOCK_RLS(lock)				\
+  TAS_RLS_MFENCE();				\
   *lock = 0;	  
-#else
-#  define LOCK_RLS(lock)			\
-  *lock = 0;	  
-#endif
 
 /* Create a new hashtable. */
-hashtable_t* ht_create(uint32_t capacity );
+hashtable_t* ht_create(uint32_t num_buckets );
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash( hashtable_t *hashtable, uint64_t key );
+uint32_t ht_hash(hashtable_t* hashtable, ssht_addr_t key );
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put( hashtable_t *hashtable, uint64_t key, uint32_t bin);
+uint32_t ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin);
 
 /* Retrieve a key-value pair from a hashtable. */
-ssht_addr_t ht_get( hashtable_t *hashtable, uint64_t key, uint32_t bin);
+void* ht_get(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin);
 
 /* Remove a key-value pair from a hashtable. */
-ssht_addr_t ht_remove( hashtable_t *hashtable, uint64_t key, int bin);
+ssht_addr_t ht_remove(hashtable_t* hashtable, ssht_addr_t key, int bin);
 
 /* Dealloc the hashtable */
-void ht_destroy( hashtable_t *hashtable);
+void ht_destroy(hashtable_t* hashtable);
 
-uint32_t ht_size( hashtable_t *hashtable, uint32_t capacity);
+size_t ht_size(hashtable_t* hashtable);
 
-void ht_print(hashtable_t *hashtable, uint32_t capacity);
+void ht_print(hashtable_t* hashtable);
 
 bucket_t* create_bucket();
-
 
 #endif /* _DHT_H_ */

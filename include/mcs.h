@@ -31,7 +31,7 @@ typedef volatile mcs_qnode *mcs_qnode_ptr;
 typedef mcs_qnode_ptr mcs_lock; //initialized to NULL
 
 //initializes the lock
-//mcs_lock *init_mcs(uint32_t capacity, int do_global_init, char *key);
+//mcs_lock *init_mcs(uint32_t num_buckets, int do_global_init, char *key);
 
 //lock
 void mcs_acquire(mcs_lock *the_lock, mcs_qnode_ptr I);
