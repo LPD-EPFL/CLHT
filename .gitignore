@@ -9,6 +9,7 @@
 /.nfs00000000084a10c300000011
 /.nfs00000000084a10ce0000008d
 /.nfs00000000084a15fe0000001e
+/.nfs00000000084a164900000027
 /Makefile~
 /alock.o
 /core
@@ -17,7 +18,9 @@
 /dht_mp.o
 /events_all
 /external
+/h
 /hclh.o
+/hl
 /htlock.o
 /hyht
 /hyht_h
@@ -37,6 +40,7 @@
 /hyht_res_lat_help
 /hyht_res_lat_help_no
 /hyht_res_lat_no_help
+/hyht_wrapper
 /hyhtl
 /hyhtp
 /hyhtp_lat

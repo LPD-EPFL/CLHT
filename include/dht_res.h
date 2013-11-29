@@ -20,7 +20,22 @@
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8
+#define HYHT_DO_CHECK_STATUS  1
 #define HYHT_DO_GC            1
+#define HYHT_STATUS_INVOK     500000
+#define HYHT_STATUS_INVOK_IN  500000
+
+#if HYHT_DO_CHECK_STATUS == 1
+#  define HYHT_CHECK_STATUS(h)				\
+  if ((--check_ht_status_steps) == 0)			\
+    {							\
+      ht_status(h, 0, 0);				\
+      check_ht_status_steps = HYHT_STATUS_INVOK;	\
+    }
+
+#else 
+#  define HYHT_CHECK_STATUS(h)
+#endif
 
 #if HYHT_DO_GC == 1
 #  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
