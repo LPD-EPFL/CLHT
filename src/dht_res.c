@@ -11,6 +11,8 @@ __thread uint32_t put_num_failed_expand = 0;
 __thread uint32_t put_num_failed_on_new = 0;
 #endif
 
+__thread size_t check_ht_status_steps = HYHT_STATUS_INVOK_IN;
+
 #include "stdlib.h"
 #include "assert.h"
 
@@ -25,25 +27,6 @@ int is_odd (int x)
 {
   return x & 1;
 }
-
-size_t ht_status(hyht_wrapper_t* h, int resize_increase, int just_print);
-#define HYHT_STATUS_INV 50000
-__thread size_t check_ht_status_steps = 0;
-
-#define HYHT_DO_CHECK_STATUS 1
-
-#if HYHT_DO_CHECK_STATUS == 1
-#  define HYHT_CHECK_STATUS(h)			\
-  if ((--check_ht_status_steps) == 0)		\
-    {						\
-      ht_status(h, 0, 0);			\
-      check_ht_status_steps = HYHT_STATUS_INV;	\
-    }
-
-#else 
-#  define HYHT_CHECK_STATUS()
-#endif
-
 
 /** Jenkins' hash function for 64-bit integers. */
 inline uint64_t
@@ -455,7 +438,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
 {
   ticks s = getticks();
 
-  check_ht_status_steps = HYHT_STATUS_INV;
+  check_ht_status_steps = HYHT_STATUS_INVOK;
 
   hashtable_t* ht_old = h->ht;
 
