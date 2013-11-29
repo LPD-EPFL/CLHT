@@ -13,7 +13,7 @@
 #define READ_ONLY_FAIL
 /* #define DEBUG */
 #define HYHT_HELP_RESIZE      1
-#define HYHT_PERC_EXPANSIONS  0.1
+#define HYHT_PERC_EXPANSIONS  0.05
 #define HYHT_MAX_EXPANSIONS   2
 #define HYHT_PERC_FULL_DOUBLE 80	   /* % */
 #define HYHT_RATIO_DOUBLE     2		  
