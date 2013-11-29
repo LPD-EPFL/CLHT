@@ -186,7 +186,7 @@ uint32_t
 ht_hash(hashtable_t* hashtable, hyht_addr_t key) 
 {
   /* uint64_t hashval; */
-  /* hashval = __ac_Jenkins_hash_64(key); */
+  /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
   /* return hashval % hashtable->num_buckets; */
   /* return key % hashtable->num_buckets; */
   /* return key & (hashtable->num_buckets - 1); */
@@ -534,6 +534,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   
   SWAP_PTR(h, ht_new);
   ht_old->table_new = ht_new;
+  TRYLOCK_RLS(h->resize_lock);
 
   ticks e = getticks() - s;
   printf("   resize:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
@@ -541,8 +542,6 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   s = getticks();
   ht_gc_collect(h);
   e = getticks() - s;
-
-  TRYLOCK_RLS(h->resize_lock);
   printf("   gc col:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
 
   if (ht_resize_again)

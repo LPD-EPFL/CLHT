@@ -211,9 +211,9 @@ test(void* thread)
 #else
   if (!ID)
     {
-      if(ht_size(*hashtable) == 3321445)
+      if(ht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -341,9 +341,9 @@ test(void* thread)
 #else
   if (!ID)
     {
-      if(ht_size(*hashtable) == 3321445)
+      if(ht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
 	}
     }  
 #endif
