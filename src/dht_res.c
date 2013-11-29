@@ -520,7 +520,9 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   TRYLOCK_RLS(h->resize_lock);
 
   ticks e = getticks() - s;
-  printf("   resize:: took: %20llu = %9.6f\n", (unsigned long long) e, e / 2.1e9);
+  double mbb = (ht_old->num_buckets * 64) / (1024.0 * 1024);
+  double mba = (ht_new->num_buckets * 64) / (1024.0 * 1024);
+  printf("   resize:: (%7.2f to %6.2f) took: %20llu = %9.6f\n", mbb, mba, (unsigned long long) e, e / 2.1e9);
 
   s = getticks();
   ht_gc_collect(h);
