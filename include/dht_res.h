@@ -266,13 +266,13 @@ hashtable_t* ht_create(uint32_t num_buckets);
 hyht_wrapper_t* hyht_wrapper_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);
+int ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);
 
 /* Retrieve a key-value pair from a hashtable. */
-hyht_val_t ht_get(hyht_wrapper_t* hashtable, hyht_addr_t key);
+hyht_val_t ht_get(hashtable_t* hashtable, hyht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-hyht_addr_t ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
+int ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
 
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);
