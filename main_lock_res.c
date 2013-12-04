@@ -41,10 +41,10 @@ int num_buckets = 256;
 int num_threads = 1;
 int num_elements = 2048;
 int duration = 1000;
-float filling_rate = 0.5;
-float update_rate = 0.1;
-float put_rate = 0.1;
-float get_rate = 0.9;
+double filling_rate = 0.5;
+double update_rate = 0.1;
+double put_rate = 0.1;
+double get_rate = 0.9;
 int print_vals_num = 0;
 size_t  pf_vals_num = 8191;
 
@@ -201,7 +201,7 @@ test(void* thread)
     
   uint64_t key;
   int c = 0;
-  uint32_t scale_update = (uint32_t)(update_rate * UINT_MAX);
+  uint32_t scale_update = (uint32_t) (update_rate * UINT_MAX);
   uint32_t scale_put = (uint32_t)(put_rate * UINT_MAX);
   uint8_t putting = 1;
     
@@ -303,7 +303,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
-      /* printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n",  */
+      /* printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", */
       /* 	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new); */
     }
 #endif

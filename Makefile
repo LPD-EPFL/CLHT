@@ -47,10 +47,10 @@ endif
 
 ifeq ($(UNAME), lpdpc34)
 PLATFORM=-DCOREi7
-GCC=gcc
+GCC=gcc-4.8
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS+= -lrt -lpthread -lm
+LIBS+= -lrt -lpthread -lm -mrtm
 LIBS_MP+= -lrt -lm
 endif
 

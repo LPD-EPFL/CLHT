@@ -10,8 +10,9 @@
 #define true 1
 #define false 0
 
-#define READ_ONLY_FAIL
 /* #define DEBUG */
+
+#define HYHT_READ_ONLY_FAIL   1
 #define HYHT_HELP_RESIZE      1
 #define HYHT_PERC_EXPANSIONS  0.05
 #define HYHT_MAX_EXPANSIONS   2
@@ -24,6 +25,9 @@
 #define HYHT_DO_GC            1
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
+#define HYHT_USE_RTM          1
+
+
 
 #if HYHT_DO_CHECK_STATUS == 1
 #  define HYHT_CHECK_STATUS(h)				\
@@ -181,18 +185,39 @@ _mm_pause_rep(uint64_t w)
 #  define TAS_RLS_MFENCE()
 #endif
 
-
 #define LOCK_FREE   0
 #define LOCK_UPDATE 1
 #define LOCK_RESIZE 2
 
-#define LOCK_ACQ(lock, ht)			\
+#if HYHT_USE_RTM == 1		/* USE RTM */
+#  define LOCK_ACQ(lock, ht)			\
+  lock_acq_rtm_chk_resize(lock, ht)
+#  define LOCK_RLS(lock)			\
+  if (*(lock) == LOCK_FREE)			\
+    {						\
+      _xend();					\
+      DPP(put_num_failed_on_new);		\
+    }						\
+  else						\
+    {						\
+     *lock = LOCK_FREE;				\
+      DPP(put_num_failed_expand);		\
+    }
+#else  /* NO RTM */
+#  define LOCK_ACQ(lock, ht)			\
   lock_acq_chk_resize(lock, ht)
+
+#  define LOCK_RLS(lock)			\
+  TAS_RLS_MFENCE();				\
+ *lock = 0;	  
+
+#endif	/* RTM */
+
 #define LOCK_ACQ_RES(lock)			\
   lock_acq_resize(lock)
 
 #define TRYLOCK_ACQ(lock)			\
-    TAS_U8(lock)
+  TAS_U8(lock)
 
 #define TRYLOCK_RLS(lock)			\
   lock = LOCK_FREE
@@ -211,10 +236,10 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
   while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
     {
       if (once)
-	{
-	  DPP(put_num_restarts);
-	  once = 0;
-	}
+      	{
+      	  DPP(put_num_restarts);
+      	  once = 0;
+      	}
       _mm_pause();
     }
 
@@ -253,9 +278,56 @@ lock_acq_resize(hyht_lock_t* lock)
   return 1;
 }
 
-#define LOCK_RLS(lock)				\
-  TAS_RLS_MFENCE();				\
- *lock = 0;	  
+
+/* ******************************************************************************** */
+#if HYHT_USE_RTM == 1  /* use RTM */
+/* ******************************************************************************** */
+
+#include <immintrin.h>		/*  */
+
+static inline int
+lock_acq_rtm_chk_resize(hyht_lock_t* lock, hashtable_t* h)
+{
+
+  int rtm_retries = 3;
+  do 
+    {
+
+      /* while (*lock == LOCK_UPDATE) */
+      /* 	{ */
+      /* 	  _mm_pause(); */
+      /* 	} */
+
+      if (_xbegin() == _XBEGIN_STARTED)
+	{
+	  hyht_lock_t lv = *lock;
+	  if (lv == LOCK_FREE)
+	    {
+	      return 1;
+	    }
+	  else if (lv == LOCK_RESIZE)
+	    {
+	      _xend();
+#  if HYHT_HELP_RESIZE == 1
+	      ht_resize_help(h);
+#  endif
+
+	      while (h->table_new == NULL)
+		{
+		  _mm_mfence();
+		}
+
+	      return 0;
+	    }
+
+	  DPP(put_num_restarts);
+	  _xabort(0xff);
+	}
+    } while (rtm_retries-- > 0);
+
+  return lock_acq_chk_resize(lock, h);
+}
+#endif	/* RTM */
 
 
 /* ******************************************************************************** */
