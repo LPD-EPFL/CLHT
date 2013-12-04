@@ -522,10 +522,9 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   TRYLOCK_RLS(h->resize_lock);
 
   ticks e = getticks() - s;
-  double mbb = (ht_old->num_buckets * 64) / (1024.0 * 1024);
   double mba = (ht_new->num_buckets * 64) / (1024.0 * 1024);
-  printf("[RESIZE-%02d] (#bu: %5zu -> %5zu / MB: %7.2f to %6.2f)         | took: %13llu ti = %8.6f s\n", 
-	 hyht_gc_get_id(), ht_old->num_buckets, ht_new->num_buckets, mbb, mba, (unsigned long long) e, e / 2.1e9);
+  printf("[RESIZE-%02d] to #bu %7zu = MB: %7.2f    | took: %13llu ti = %8.6f s\n", 
+	 hyht_gc_get_id(), ht_new->num_buckets, mba, (unsigned long long) e, e / 2.1e9);
 
   ht_gc_collect(h);
 
