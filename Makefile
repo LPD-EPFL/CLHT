@@ -14,8 +14,8 @@ endif
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
 ALL= hyht_res hyht_res_lat
 
-LIBS+=
-LIBS_MP+=-lssmp
+LIBS += -lsspfd
+LIBS_MP += -lssmp
 
 # default setings
 PLATFORM=-DDEFAULT
@@ -24,7 +24,6 @@ PLATFORM_NUMA=0
 OPTIMIZE=
 LIBS+= -lrt -lpthread -lm 
 LIBS_MP+= -lrt -lm
-
 
 UNAME := $(shell uname -n)
 
@@ -38,6 +37,15 @@ LIBS_MP+= -lrt -lm -lnuma
 endif
 
 ifeq ($(UNAME), lpdpc4)
+PLATFORM=-DCOREi7
+GCC=gcc
+PLATFORM_NUMA=0
+OPTIMIZE=
+LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
+endif
+
+ifeq ($(UNAME), lpdpc34)
 PLATFORM=-DCOREi7
 GCC=gcc
 PLATFORM_NUMA=0
@@ -89,7 +97,6 @@ GCC=tile-gcc
 LIBS+= -lrt -lpthread -lm -ltmc
 LIBS_MP+= -lrt -lm -ltmc
 endif
-
 
 COMPILE_FLAGS += $(PLATFORM)
 COMPILE_FLAGS += $(OPTIMIZE)

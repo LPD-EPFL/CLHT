@@ -8,12 +8,12 @@ static __thread ht_ts_t* hyht_ts_thread = NULL;
  * initialize thread metadata for GC
  */
 void
-ht_gc_thread_init(hashtable_t* h, int id)
+ht_gc_thread_init(hyht_wrapper_t* h, int id)
 {
   ht_ts_t* ts = (ht_ts_t*) memalign(CACHE_LINE_SIZE, sizeof(ht_ts_t));
   assert(ts != NULL);
 
-  ts->version = h->version;
+  ts->version = h->ht->version;
   ts->id = id;
 
 do
@@ -43,17 +43,17 @@ hyht_gc_get_id()
   return hyht_ts_thread->id;
 }
 
-static int ht_gc_collect_cond(hashtable_t* hashtable, int collect_not_referenced_only);
+static int ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only);
 
 /* 
  * perform a GC of the versions of the ht that are not currently used by any
  * of the participating threads
  */
 inline int
-ht_gc_collect(hashtable_t* hashtable)
+ht_gc_collect(hyht_wrapper_t* hashtable)
 {
 #if HYHT_DO_GC == 1
-  HYHT_GC_HT_VERSION_USED(hashtable);
+  HYHT_GC_HT_VERSION_USED(hashtable->ht);
   return ht_gc_collect_cond(hashtable, 1);
 #else
   return 0;
@@ -65,7 +65,7 @@ ht_gc_collect(hashtable_t* hashtable)
  * referenced by any of the threads
  */
 int
-ht_gc_collect_all(hashtable_t* hashtable)
+ht_gc_collect_all(hyht_wrapper_t* hashtable)
 {
   return ht_gc_collect_cond(hashtable, 0);
 }
@@ -78,11 +78,11 @@ ht_gc_collect_all(hashtable_t* hashtable)
  * than the returned value, can be GCed
  */
 static inline size_t
-ht_gc_min_version_used(hashtable_t* h)
+ht_gc_min_version_used(hyht_wrapper_t* h)
 {
   volatile ht_ts_t* cur = h->version_list;
 
-  size_t min = h->version;
+  size_t min = h->ht->version;
   while (cur != NULL)
     {
       if (cur->version < min)
@@ -101,86 +101,64 @@ ht_gc_min_version_used(hashtable_t* h)
  * collect_not_referenced_only != 0 -> ht_gc_collect();
  */
 static int
-ht_gc_collect_cond(hashtable_t* hashtable, int collect_not_referenced_only)
+ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
 {
-  if (TRYLOCK_ACQ(&hashtable->gc_lock))
+  /* if version_min >= current version there is nothing to collect! */
+  if ((hashtable->version_min >= hashtable->ht->version) || TRYLOCK_ACQ(&hashtable->gc_lock))
     {
       /* printf("** someone else is performing gc\n"); */
       return 0;
     }
 
-  /* printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_not_referenced_only), hashtable->version); */
+  ticks s = getticks();
 
-  size_t version_min = hashtable->version; 
+  /* printf("[GCOLLE-%02d] LOCK  : %zu\n", GET_ID(collect_not_referenced_only), hashtable->version); */
+
+  size_t version_min = hashtable->ht->version; 
   if (collect_not_referenced_only)
     {
       version_min = ht_gc_min_version_used(hashtable);
     }
 
-  /* printf("[GC-%02d] gc collect versions < %3zu - current: %3zu - oldest: %zu\n",  */
+  /* printf("[GCOLLE-%02d] gc collect versions < %3zu - current: %3zu - oldest: %zu\n",  */
   /* 	 GET_ID(collect_not_referenced_only), version_min, hashtable->version, hashtable->version_min); */
 
-  int gced = 0;
+  int gced_num = 0;
 
   if (hashtable->version_min >= version_min)
     {
-      /* printf("[GC-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_not_referenced_only), hashtable->version); */
+      /* printf("[GCOLLE-%02d] UNLOCK: %zu (nothing to collect)\n", GET_ID(collect_not_referenced_only), hashtable->ht->version); */
       TRYLOCK_RLS(hashtable->gc_lock);
     }
   else
     {
-      /* printf("[GC-%02d] collect from %zu to %zu\n", GET_ID(collect_not_referenced_only), hashtable->version_min, version_min); */
+      /* printf("[GCOLLE-%02d] collect from %zu to %zu\n", GET_ID(collect_not_referenced_only), hashtable->version_min, version_min); */
 
-      int gc_locks = 1;
-      int gc_locks_num = 1;
-      hashtable_t* cur = hashtable->table_prev;
-
-      while (cur != NULL && cur->table_prev != NULL)
+      hashtable_t* cur = hashtable->ht_oldest;
+      while (cur != NULL && cur->version < version_min)
 	{
-	  if (TRYLOCK_ACQ(&cur->gc_lock))
-	    {
-	      /* printf("[GC-%02d] someone else is performing gc: is locked: %zu\n", GET_ID(collect_not_referenced_only), cur->version); */
-	      gc_locks = 0;
-	      break;
-	    }
-
-	  gc_locks_num++;
-	  /* printf("[GC-%02d] LOCK  : %zu\n", GET_ID(collect_not_referenced_only), cur->version); */
-	  cur = cur->table_prev;
+	  gced_num++;
+	  hashtable_t* nxt = cur->table_new;
+	  /* printf("[GCOLLE-%02d] gc_free version: %6zu | current version: %6zu\n", GET_ID(collect_not_referenced_only), */
+	  /* 	 cur->version, hashtable->ht->version); */
+	  nxt->table_prev = NULL;
+	  ht_gc_free(cur);
+	  cur = nxt;
 	}
 
-      if (gc_locks)
-	{
-	  while (cur != NULL && cur->version < version_min)
-	    {
-	      gced = 1;
-	      hashtable_t* nxt = cur->table_new;
-	      printf("[GC-%02d] gc_free version: %6zu | current version: %6zu\n", GET_ID(collect_not_referenced_only),
-	      	     cur->version, hashtable->version);
-	      nxt->table_prev = NULL;
-	      ht_gc_free(cur);
-	      gc_locks_num--;
-	      cur = nxt;
-	    }
+      hashtable->version_min = cur->version;
+      hashtable->ht_oldest = cur;
 
-	  hashtable->version_min = cur->version;
-	}
-
-      if (gc_locks == 0 || gc_locks_num == 1)
-	{
-	  cur = cur->table_new;
-	}
-
-      do
-	{
-	  TRYLOCK_RLS(cur->gc_lock);
-	  /* printf("[GC-%02d] UNLOCK: %zu\n", GET_ID(collect_not_referenced_only), cur->version); */
-	  cur = cur->table_new;
-	}
-      while (cur != NULL && --gc_locks_num > 0);
+      TRYLOCK_RLS(hashtable->gc_lock);
+      /* printf("[GCOLLE-%02d] UNLOCK: %zu\n", GET_ID(collect_not_referenced_only), cur->version); */
     }
 
-  return gced;
+  ticks e = getticks() - s;
+  printf("[GCOLLE-%02d] collected: %-3d | took: %13llu ti = %8.6f s\n", 
+	 GET_ID(collect_not_referenced_only), gced_num, (unsigned long long) e, e / 2.1e9);
+
+
+  return gced_num;
 }
 
 /* 
@@ -206,13 +184,13 @@ ht_gc_free(hashtable_t* hashtable)
 	  bstack[bidx++] = bucket;
 	  if (bidx == 8)
 	    {
-	      /* printf("[GC] stack full\n"); */
+	      /* printf("[GCOLLE] stack full\n"); */
 	      bidx--;
 		while (--bidx >= 0) /* free from 7..0 */
 		{
 		  if (bstack[bidx] != NULL)
 		    {
-		      /* printf("[GC] free(%d) = %p\n", bidx, bstack[bidx]); */
+		      /* printf("[GCOLLE] free(%d) = %p\n", bidx, bstack[bidx]); */
 		      free(bstack[bidx]);
 		    }
 		}
@@ -224,10 +202,10 @@ ht_gc_free(hashtable_t* hashtable)
 
       while(--bidx >= 0)
 	{
-	  /* printf("[GC] done collecting\n"); */
+	  /* printf("[GCOLLE] done collecting\n"); */
 	  if (bstack[bidx] != NULL)
 	    {
-	      /* printf("[GC] free(%d) = %p\n", bidx, bstack[bidx]); */
+	      /* printf("[GCOLLE] free(%d) = %p\n", bidx, bstack[bidx]); */
 	      free(bstack[bidx]);
 	    }
 	}
@@ -243,10 +221,10 @@ ht_gc_free(hashtable_t* hashtable)
  * free all hashtable version (inluding the latest)
  */
 void
-ht_gc_destroy(hashtable_t** hashtable)
+ht_gc_destroy(hyht_wrapper_t* hashtable)
 {
-  ht_gc_collect_all(*hashtable);
-  ht_gc_free(*hashtable);
+  ht_gc_collect_all(hashtable);
+  ht_gc_free(hashtable->ht);
   free(hashtable);
 }
 

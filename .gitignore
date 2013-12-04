@@ -10,6 +10,7 @@
 /.nfs00000000084a10ce0000008d
 /.nfs00000000084a15fe0000001e
 /.nfs00000000084a164900000027
+/.nfs00000000084a16620000002a
 /Makefile~
 /alock.o
 /core
@@ -27,6 +28,7 @@
 /hyht_help
 /hyht_help_no
 /hyht_lat
+/hyht_mt
 /hyht_nh
 /hyht_no_val
 /hyht_res

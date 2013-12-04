@@ -24,6 +24,7 @@
 #  include <sys/procset.h>
 #endif
 
+#include "sspfd.h"
 #include "dht_res.h"
 #include "mcore_malloc.h"
 
@@ -44,6 +45,8 @@ float filling_rate = 0.5;
 float update_rate = 0.1;
 float put_rate = 0.1;
 float get_rate = 0.9;
+int print_vals_num = 0;
+size_t  pf_vals_num = 8191;
 
 int seed = 0;
 __thread unsigned long * seeds;
@@ -116,29 +119,48 @@ void barrier_cross(barrier_t *b)
 barrier_t barrier, barrier_global;
 
 
+#define PFD_TYPE 0
+
 #if defined(COMPUTE_THROUGHPUT)
-#  define START_TS()
-#  define END_TS()
+#  define START_TS(s)
+#  define END_TS(s, i)
 #  define ADD_DUR(tar)
 #  define ADD_DUR_FAIL(tar)
-#else
-#  define START_TS()   start_acq = getticks()
-#  define END_TS()     end_acq = getticks()
+#  define PF_INIT(s, e, id)
+#elif PFD_TYPE == 0
+#  define START_TS(s)				\
+  {						\
+    asm volatile ("");				\
+    start_acq = getticks();			\
+    asm volatile ("");
+#  define END_TS(s, i)				\
+    asm volatile ("");				\
+    end_acq = getticks();			\
+    asm volatile ("");				\
+    }
+
 #  define ADD_DUR(tar) tar += (end_acq - start_acq - correction)
 #  define ADD_DUR_FAIL(tar)					\
   else								\
     {								\
       ADD_DUR(tar);						\
     }
+#  define PF_INIT(s, e, id)
+#else
+#  define SSPFD_NUM_ENTRIES  pf_vals_num
+#  define START_TS(s)      SSPFDI(s)
+#  define END_TS(s, i)     SSPFDO(s, i & SSPFD_NUM_ENTRIES)
 
+#  define ADD_DUR(tar) 
+#  define ADD_DUR_FAIL(tar)
+#  define PF_INIT(s, e, id) SSPFDINIT(s, e, id)
 #endif
 
 typedef struct thread_data
 {
   uint8_t id;
-  hashtable_t** ht;
+  hyht_wrapper_t* ht;
 } thread_data_t;
-
 
 void*
 test(void* thread) 
@@ -148,10 +170,12 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  hashtable_t** hashtable = td->ht;
+  hyht_wrapper_t* hashtable = td->ht;
 
-  ht_gc_thread_init(*hashtable, ID);    
+  ht_gc_thread_init(hashtable, ID);    
     
+  PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
+
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;
   volatile ticks my_putting_fail = 0;
@@ -168,7 +192,7 @@ test(void* thread)
   uint64_t my_getting_count_succ = 0;
   uint64_t my_removing_count_succ = 0;
     
-#if !defined(COMPUTE_THROUGHPUT)
+#if !defined(COMPUTE_THROUGHPUT) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;
   volatile ticks correction = getticks_correction_calc();
 #endif
@@ -205,15 +229,15 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
       /* ht_print(hashtable, num_buckets); */
     }
 #else
   if (!ID)
     {
-      if(ht_size(*hashtable) == 3321445)
+      if(ht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -233,9 +257,10 @@ test(void* thread)
 	{
 	  if(putting) 
 	    {
-	      START_TS();
-	      int res = ht_put(hashtable, key, c);
-	      END_TS();
+	      int res;
+	      START_TS(1);
+	      res = ht_put(hashtable, key, c);
+	      END_TS(1, my_putting_count);
 	      if(res)
 		{
 		  ADD_DUR(my_putting_succ);
@@ -246,9 +271,10 @@ test(void* thread)
 	    } 
 	  else 
 	    {
-	      START_TS();
-	      hyht_addr_t removed = ht_remove(hashtable, key);
-	      END_TS();
+	      volatile int removed;
+	      START_TS(2);
+	      removed = ht_remove(hashtable, key);
+	      END_TS(2, my_removing_count);
 	      if(removed != 0) 
 		{
 		  ADD_DUR(my_removing_succ);
@@ -260,9 +286,10 @@ test(void* thread)
 	} 
       else
 	{ 
-	  START_TS();
-	  volatile hyht_val_t res = ht_get(hashtable, key);
-	  END_TS();
+	  volatile hyht_val_t res;
+	  START_TS(0);
+	  res= ht_get(hashtable->ht, key);
+	  END_TS(0, my_getting_count);
 	  if(res != 0) 
 	    {
 	      ADD_DUR(my_getting_succ);
@@ -273,55 +300,6 @@ test(void* thread)
 	}
     }
         
-  /* #if !defined(COMPUTE_THROUGHPUT) */
-  /*       end_rel = getticks(); */
-  /* #endif */
-        
-  /* #if defined(DETAILED_THROUGHPUT) */
-  /*       if(update)  */
-  /* 	{ */
-  /* 	  if(putting)  */
-  /* 	    { */
-  /* #  if defined(DEBUG) */
-  /* 	      my_putting_count_succ += succ; */
-  /* #  endif	/\* debug *\/ */
-  /* #  ifndef COMPUTE_THROUGHPUT */
-  /* 	      my_putting_succ += (end_acq - start_acq - correction); */
-  /* 	      my_putting_fail += (end_rel - start_rel - correction); */
-  /* 	      my_putting_opts += (start_rel - end_acq - correction); */
-  /* #  endif */
-  /* 	      my_putting_count++; */
-  /* 	    }  */
-  /* 	  else 			/\* removing *\/ */
-  /* 	    { */
-  /* #  if defined(DEBUG) */
-  /* 	      my_removing_count_succ += succ; */
-  /* #  endif	/\* debug *\/ */
-  /* #  ifndef COMPUTE_THROUGHPUT */
-  /* 	      my_removing_succ += (end_acq - start_acq - correction); */
-  /* 	      my_removing_fail += (end_rel - start_rel - correction); */
-  /* 	      my_removing_opts += (start_rel - end_acq - correction); */
-  /* #  endif */
-  /* 	      my_removing_count++; */
-  /* 	    } */
-  /* 	}  */
-  /*       else */
-  /* 	{ //if(c < scale_update_get) { */
-  /* #  if defined(DEBUG) */
-  /* 	  my_getting_count_succ += succ; */
-  /* #  endif */
-  /* #  ifndef COMPUTE_THROUGHPUT */
-  /* 	  my_getting_succ += (end_acq - start_acq - correction); */
-  /* 	  my_getting_fail += (end_rel - start_rel - correction); */
-  /* 	  my_getting_opts += (start_rel - end_acq - correction); */
-  /* #  endif */
-  /* 	  my_getting_count++; */
-  /* 	} */
-
-  /* #else  /\* not detaild throughput *\/ */
-  /*       my_getting_count++; */
-  /* #endif */
-    
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
@@ -336,14 +314,14 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(*hashtable));
+      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
     }
 #else
   if (!ID)
     {
-      if(ht_size(*hashtable) == 3321445)
+      if(ht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(*hashtable));
+	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -364,6 +342,21 @@ test(void* thread)
   getting_count_succ[ID] += my_getting_count_succ;
   removing_count_succ[ID]+= my_removing_count_succ;
 
+#if (PFD_TYPE == 1) && !defined(COMPUTE_THROUGHPUT)
+  if (ID == 0)
+    {
+      printf("get ----------------------------------------------------\n");
+      SSPFDPN(0, SSPFD_NUM_ENTRIES, print_vals_num);
+      printf("put ----------------------------------------------------\n");
+      SSPFDPN(1, SSPFD_NUM_ENTRIES, print_vals_num);
+      printf("rem ----------------------------------------------------\n");
+      SSPFDPN(2, SSPFD_NUM_ENTRIES, print_vals_num);
+
+    }
+#endif
+
+  /* SSPFDTERM(); */
+
   pthread_exit(NULL);
 }
 
@@ -383,6 +376,8 @@ main(int argc, char **argv)
     {"range",                     required_argument, NULL, 'r'},
     {"update-rate",               required_argument, NULL, 'u'},
     {"num-buckets",               required_argument, NULL, 'b'},
+    {"print-vals",                required_argument, NULL, 'v'},
+    {"vals-pf",                   required_argument, NULL, 'f'},
     {NULL, 0, NULL, 0}
   };
 
@@ -393,7 +388,7 @@ main(int argc, char **argv)
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -430,6 +425,10 @@ main(int argc, char **argv)
 		 "        Percentage of put update transactions (should be less than percentage of updates)\n"
 		 "  -b, --num-buckets <int>\n"
 		 "        Number of initial buckets (stronger than -l)\n"
+		 "  -v, --print-vals <int>\n"
+		 "        When using detailed profiling, how many values to print.\n"
+		 "  -f, --val-pf <int>\n"
+		 "        When using detailed profiling, how many values to keep track of.\n"
 		 );
 	  exit(0);
 	case 'd':
@@ -456,6 +455,12 @@ main(int argc, char **argv)
 	  break;
 	case 'b':
 	  num_buckets_param = atoi(optarg);
+	  break;
+	case 'v':
+	  print_vals_num = atoi(optarg);
+	  break;
+	case 'f':
+	  pf_vals_num = pow2roundup(atoi(optarg)) - 1;
 	  break;
 	case '?':
 	default:
@@ -541,9 +546,8 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hashtable_t** hashtable = (hashtable_t**) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
+  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
-  *hashtable = ht_create(num_buckets);
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -682,7 +686,7 @@ main(int argc, char **argv)
 #define LLU long long unsigned int
 
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  int size_after = ht_size(*hashtable);
+  int size_after = ht_size(hashtable->ht);
 #if defined(DEBUG)
   printf("puts - rems  : %d\n", pr);
 #endif
@@ -707,10 +711,10 @@ main(int argc, char **argv)
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
 #endif
-  kb = (*hashtable)->num_buckets * sizeof(bucket_t) / 1024.0;
+  kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  kb = ht_size_mem_garbage(*hashtable) / 1024.0;
+  kb = ht_size_mem_garbage(hashtable->ht) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
