@@ -20,7 +20,7 @@
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8
-#define HYHT_DO_CHECK_STATUS  1
+#define HYHT_DO_CHECK_STATUS  0
 #define HYHT_DO_GC            1
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
@@ -176,7 +176,7 @@ _mm_pause_rep(uint64_t w)
 }
 
 #if defined(XEON) | defined(COREi7) | defined(__tile__)
-#  define TAS_RLS_MFENCE() _mm_mfence();
+#  define TAS_RLS_MFENCE() _mm_sfence();
 #else
 #  define TAS_RLS_MFENCE()
 #endif
