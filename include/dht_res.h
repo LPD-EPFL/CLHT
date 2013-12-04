@@ -113,10 +113,11 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
       struct hashtable_s* ht;
       uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
       struct hashtable_s* ht_oldest;
-      volatile hyht_lock_t resize_lock;
-      volatile hyht_lock_t gc_lock;
       struct ht_ts* version_list;
       size_t version_min;
+      volatile hyht_lock_t resize_lock;
+      volatile hyht_lock_t gc_lock;
+      volatile hyht_lock_t status_lock;
     };
     uint8_t padding[2 * CACHE_LINE_SIZE];
   };
