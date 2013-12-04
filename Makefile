@@ -45,6 +45,15 @@ LIBS+= -lrt -lpthread -lm
 LIBS_MP+= -lrt -lm
 endif
 
+ifeq ($(UNAME), lpdpc34)
+PLATFORM=-DCOREi7
+GCC=gcc
+PLATFORM_NUMA=0
+OPTIMIZE=
+LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm
+endif
+
 ifeq ($(UNAME), diascld9)
 PLATFORM=-DOPTERON2
 GCC=gcc
