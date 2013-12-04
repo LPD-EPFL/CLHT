@@ -232,26 +232,26 @@ bucket_exists(bucket_t* bucket, hyht_addr_t key)
 int
 ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
 {
-  hashtable_t* hashtable;
+  hashtable_t* hashtable = h->ht;
+  size_t bin = ht_hash(hashtable, key);
+  bucket_t* bucket = hashtable->table + bin;
 
-  hyht_lock_t* lock;
-  bucket_t* bucket;
-
-  do
-    {
-      hashtable = h->ht;
-      size_t bin = ht_hash(hashtable, key);
-
-      bucket = hashtable->table + bin;
-#if defined(READ_ONLY_FAIL)
+#if HYHT_READ_ONLY_FAIL == 1
       if (bucket_exists(bucket, key))
 	{
 	  return false;
 	}
 #endif
+
+  hyht_lock_t* lock = &bucket->lock;
+  while (!LOCK_ACQ(lock, hashtable))
+    {
+      hashtable = h->ht;
+      size_t bin = ht_hash(hashtable, key);
+
+      bucket = hashtable->table + bin;
       lock = &bucket->lock;
     }
-  while (!LOCK_ACQ(lock, hashtable));
 
   HYHT_GC_HT_VERSION_USED(hashtable);
   HYHT_CHECK_STATUS(h);
@@ -313,7 +313,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
-#if defined(READ_ONLY_FAIL)
+#if HYHT_READ_ONLY_FAIL == 1
   if (!bucket_exists(bucket, key))
     {
       return false;
