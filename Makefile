@@ -46,7 +46,7 @@ LIBS_MP+= -lrt -lm
 endif
 
 ifeq ($(UNAME), lpdpc34)
-PLATFORM=-DCOREi7
+PLATFORM=-DCOREi7 -DRTM
 GCC=gcc-4.8
 PLATFORM_NUMA=0
 OPTIMIZE=

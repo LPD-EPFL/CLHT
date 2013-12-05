@@ -25,13 +25,15 @@
 #define HYHT_DO_GC            1
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
+#if defined(RTM)	       /* only for processors that have RTM */
 #define HYHT_USE_RTM          1
-
-
+#else
+#define HYHT_USE_RTM          0
+#endif
 
 #if HYHT_DO_CHECK_STATUS == 1
 #  define HYHT_CHECK_STATUS(h)				\
-  if ((--check_ht_status_steps) == 0)			\
+  if (unlikely((--check_ht_status_steps) == 0))		\
     {							\
       ht_status(h, 0, 0);				\
       check_ht_status_steps = HYHT_STATUS_INVOK;	\
@@ -63,6 +65,9 @@
 #    define ALIGNED(N)
 #  endif
 #endif
+
+#define likely(x)       __builtin_expect((x), 1)
+#define unlikely(x)     __builtin_expect((x), 0)
 
 #if defined(__sparc__)
 #  define PREFETCHW(x) 
@@ -193,13 +198,14 @@ _mm_pause_rep(uint64_t w)
 #  define LOCK_ACQ(lock, ht)			\
   lock_acq_rtm_chk_resize(lock, ht)
 #  define LOCK_RLS(lock)			\
-  if (*(lock) == LOCK_FREE)			\
+  if (likely(*(lock) == LOCK_FREE))		\
     {						\
       _xend();					\
       DPP(put_num_failed_on_new);		\
     }						\
   else						\
     {						\
+      TAS_RLS_MFENCE();				\
      *lock = LOCK_FREE;				\
       DPP(put_num_failed_expand);		\
     }
@@ -289,19 +295,18 @@ static inline int
 lock_acq_rtm_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 {
 
-  int rtm_retries = 3;
+  int rtm_retries = 1;
   do 
     {
-
-      /* while (*lock == LOCK_UPDATE) */
+      /* while (unlikely(*lock == LOCK_UPDATE)) */
       /* 	{ */
       /* 	  _mm_pause(); */
       /* 	} */
 
-      if (_xbegin() == _XBEGIN_STARTED)
+      if (likely(_xbegin() == _XBEGIN_STARTED))
 	{
 	  hyht_lock_t lv = *lock;
-	  if (lv == LOCK_FREE)
+	  if (likely(lv == LOCK_FREE))
 	    {
 	      return 1;
 	    }
