@@ -692,7 +692,6 @@ main(int argc, char **argv)
 #endif
   assert(size_after == (initial + pr));
 
-#if defined(DEBUG)
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
@@ -710,7 +709,7 @@ main(int argc, char **argv)
 	 (LLU) removing_count_total_succ,
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
-#endif
+
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
