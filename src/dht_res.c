@@ -306,7 +306,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
 
 /* Remove a key-value entry from a hash table. */
-int
+hyht_val_t
 ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
@@ -342,7 +342,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	    {
 	      bucket->key[j] = 0;
 	      LOCK_RLS(lock);
-	      return key;
+	      return bucket->val[j];
 	    }
 	}
       bucket = bucket->next;
@@ -707,7 +707,7 @@ ht_print(hashtable_t* hashtable)
 	    {
 	      if (bucket->key[j])
 	      	{
-		  printf("(%-5llu)-> ", (long long unsigned int) bucket->key[j]);
+		  printf("(%-5llu/%p)-> ", (long long unsigned int) bucket->key[j], (void*) bucket->val[j]);
 		}
 	    }
 

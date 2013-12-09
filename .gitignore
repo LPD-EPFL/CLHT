@@ -30,6 +30,7 @@
 /hyht_lat
 /hyht_lat_lock
 /hyht_lat_rtm
+/hyht_latm
 /hyht_lock
 /hyht_lock_lat
 /hyht_mt
@@ -49,6 +50,7 @@
 /hyht_rtm
 /hyht_wrapper
 /hyhtl
+/hyhtm
 /hyhtp
 /hyhtp_lat
 /hylzht

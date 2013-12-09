@@ -350,7 +350,7 @@ int ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);
 hyht_val_t ht_get(hashtable_t* hashtable, hyht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-int ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
+hyht_val_t ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
 
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);

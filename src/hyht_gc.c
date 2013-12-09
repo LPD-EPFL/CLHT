@@ -16,13 +16,13 @@ ht_gc_thread_init(hyht_wrapper_t* h, int id)
   ts->version = h->ht->version;
   ts->id = id;
 
-do
-  {
-    ts->next = h->version_list;
-  }
- while (CAS_U64((volatile size_t*) &h->version_list, (size_t) ts->next, (size_t) ts) != (size_t) ts->next);
+  do
+    {
+      ts->next = h->version_list;
+    }
+  while (CAS_U64((volatile size_t*) &h->version_list, (size_t) ts->next, (size_t) ts) != (size_t) ts->next);
 
- hyht_ts_thread = ts;
+  hyht_ts_thread = ts;
 }
 
 /* 
