@@ -139,6 +139,13 @@ hyht_mem: main_lock_mem.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_r
 hyht_mem_lat: main_lock_mem.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_mem.c src/dht_res.c src/hyht_gc.c src/ssmem.c -o hyht_latm $(LIBS)
 
+math_cache: math_cache.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c src/ssmem.c include/dht_res.h include/ssmem.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/dht_res.c src/hyht_gc.c src/ssmem.c -o math_cache $(LIBS)
+
+math_cache_lat: math_cache.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
+	$(GCC) -D_GNU_SOURCE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/dht_res.c src/hyht_gc.c src/ssmem.c -o math_cache_lat $(LIBS)
+
+
 hyhtp: main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/dht_packed.c -o hyhtp $(LIBS)
 
@@ -155,4 +162,4 @@ hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
 
 
 clean:				
-	rm -f *.o $(ALL)
+	rm -f *.o hyht* math_cache math_cache_lat
