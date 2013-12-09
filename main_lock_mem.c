@@ -335,6 +335,7 @@ test(void* thread)
 
       ssmem_free_list_print(&alloc);
       ssmem_collected_list_print(&alloc);
+      ssmem_available_list_print(&alloc);
       
       printf("size of ht is: %zu\n", ht_size(hashtable->ht));
     }

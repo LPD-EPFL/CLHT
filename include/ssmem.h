@@ -21,8 +21,9 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ssmem_allocator
       size_t free_set_num;
       struct ssmem_free_set* collected_set;
       size_t collected_set_num;
+      struct ssmem_free_set* available_set;
     };
-    uint8_t padding[CACHE_LINE_SIZE];
+    uint8_t padding[2 * CACHE_LINE_SIZE];
   };
   /* remember to padd */
 } ssmem_allocator_t;
@@ -64,6 +65,7 @@ void ssmem_ts_set_print(size_t* set);
 
 void ssmem_free_list_print(ssmem_allocator_t* a);
 void ssmem_collected_list_print(ssmem_allocator_t* a);
+void ssmem_available_list_print(ssmem_allocator_t* a);
 
 
 #endif /* _SSMEM_H_ */
