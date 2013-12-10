@@ -340,9 +340,10 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	{
 	  if (bucket->key[j] == key) 
 	    {
+	      hyht_val_t val = bucket->val[j];
 	      bucket->key[j] = 0;
 	      LOCK_RLS(lock);
-	      return bucket->val[j];
+	      return val;
 	    }
 	}
       bucket = bucket->next;
