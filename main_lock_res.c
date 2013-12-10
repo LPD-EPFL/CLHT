@@ -259,7 +259,7 @@ test(void* thread)
 	    {
 	      int res;
 	      START_TS(1);
-	      res = ht_put(hashtable, key, c);
+	      res = ht_put(hashtable, key, c + 1);
 	      END_TS(1, my_putting_count);
 	      if(res)
 		{
@@ -271,7 +271,7 @@ test(void* thread)
 	    } 
 	  else 
 	    {
-	      volatile int removed;
+	      hyht_val_t removed;
 	      START_TS(2);
 	      removed = ht_remove(hashtable, key);
 	      END_TS(2, my_removing_count);
@@ -286,7 +286,7 @@ test(void* thread)
 	} 
       else
 	{ 
-	  volatile hyht_val_t res;
+	  hyht_val_t res;
 	  START_TS(0);
 	  res= ht_get(hashtable->ht, key);
 	  END_TS(0, my_getting_count);
