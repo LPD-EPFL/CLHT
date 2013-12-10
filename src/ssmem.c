@@ -15,6 +15,8 @@ ssmem_get_id()
   return -1;
 }
 
+static ssmem_mem_chunk_t* ssmem_mem_chunk_new(void* mem, ssmem_mem_chunk_t* next);
+
 void
 ssmem_init(ssmem_allocator_t* a, size_t size, int id)
 {
@@ -24,8 +26,9 @@ ssmem_init(ssmem_allocator_t* a, size_t size, int id)
 
   a->mem_curr = 0;
   a->mem_size = size;
-
   a->tot_size = size;
+
+  a->mem_chunks = ssmem_mem_chunk_new(a->mem, NULL);
 
   a->ts = (ssmem_ts_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_ts_t));
   assert (a->ts != NULL);
@@ -49,6 +52,18 @@ ssmem_init(ssmem_allocator_t* a, size_t size, int id)
   a->collected_set_num = 0;
 
   a->available_set = NULL;
+}
+
+static ssmem_mem_chunk_t*
+ssmem_mem_chunk_new(void* mem, ssmem_mem_chunk_t* next)
+{
+  ssmem_mem_chunk_t* mc;
+  mc = (ssmem_mem_chunk_t*) malloc(sizeof(ssmem_mem_chunk_t));
+  assert(mc != NULL);
+  mc->mem = mem;
+  mc->next = next;
+
+  return mc;
 }
 
 ssmem_free_set_t*
@@ -132,8 +147,19 @@ ssmem_term(ssmem_allocator_t* a)
   	 a->tot_size, a->tot_size / 1024, a->tot_size / (1024 * 1024));
 
   /* printf("[ALLOC] free(mem)\n"); fflush(stdout); */
-  free(a->mem);
-  /* printf("[ALLOC] free(ts)\n"); fflush(stdout); */
+
+  int i = 0;
+  ssmem_mem_chunk_t* mcur = a->mem_chunks;
+  do
+    {
+      i++;
+      ssmem_mem_chunk_t* mnxt = mcur->next;
+      free(mcur->mem);
+      free(mcur);
+      mcur = mnxt;
+    }
+  while (mcur != NULL);
+
   free(a->ts);
 
   /* printf("[ALLOC] free(free_set)\n"); fflush(stdout); */
@@ -238,6 +264,8 @@ ssmem_alloc(ssmem_allocator_t* a, size_t size)
       a->mem_curr = 0;
       
       a->tot_size += a->mem_size;
+
+      a->mem_chunks = ssmem_mem_chunk_new(a->mem, a->mem_chunks);
     }
 
   void* ret = a->mem + a->mem_curr;

@@ -14,6 +14,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ssmem_allocator
       size_t mem_curr;
       size_t mem_size;
       size_t tot_size;
+      struct ssmem_mem_chunk* mem_chunks;
 
       struct ssmem_ts* ts;
 
@@ -50,6 +51,12 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ssmem_free_set
   struct ssmem_free_set* set_next;
   uintptr_t* free_set;
 } ssmem_free_set_t;
+
+typedef struct ssmem_mem_chunk
+{
+  void* mem;
+  struct ssmem_mem_chunk* next;
+} ssmem_mem_chunk_t;
 
 void ssmem_init(ssmem_allocator_t* a, size_t size, int id);
 void ssmem_gc_init(ssmem_allocator_t* a);
