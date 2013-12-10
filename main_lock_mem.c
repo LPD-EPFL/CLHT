@@ -235,7 +235,7 @@ test(void* thread)
   if (!ID)
     {
       printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-      ssmem_ts_list_print();
+      /* ssmem_ts_list_print(); */
       /* ht_print(hashtable, num_buckets); */
     }
 #else
@@ -328,14 +328,14 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      ssmem_ts_list_print();
-      size_t* ts_set = ssmem_ts_set_collect();
-      ssmem_ts_set_print(ts_set);
-      free(ts_set);
+      /* ssmem_ts_list_print(); */
+      /* size_t* ts_set = ssmem_ts_set_collect(); */
+      /* ssmem_ts_set_print(ts_set); */
+      /* free(ts_set); */
 
-      ssmem_free_list_print(&alloc);
-      ssmem_collected_list_print(&alloc);
-      ssmem_available_list_print(&alloc);
+      /* ssmem_free_list_print(&alloc); */
+      /* ssmem_collected_list_print(&alloc); */
+      /* ssmem_available_list_print(&alloc); */
       
       printf("size of ht is: %zu\n", ht_size(hashtable->ht));
     }
