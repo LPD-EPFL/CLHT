@@ -194,8 +194,10 @@ test(void* thread)
 
   ht_gc_thread_init(hashtable, ID);    
 
-  ssmem_allocator_t alloc;
-  ssmem_init(&alloc, 128*1024*1024, ID);
+
+  ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
+  assert(alloc != NULL);
+  ssmem_init(alloc, 1024*1024, ID);
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -228,7 +230,7 @@ test(void* thread)
 
   barrier_cross(&barrier);
 
-  ssmem_gc_init(&alloc);
+  ssmem_gc_init(alloc);
 
 #if defined(DEBUG)
   if (!ID)
@@ -248,9 +250,9 @@ test(void* thread)
 #endif
 
   barrier_cross(&barrier_global);
-  size_t* obj = NULL;
+  volatile size_t* obj = NULL;
 
-  size_t key_0 = 0, key_1 = 0, key_2 = 0, key_3 = 0;
+  volatile size_t key_0 = 0, key_1 = 0, key_2 = 0, key_3 = 0;
 
   while (stop == 0) 
     {
@@ -264,20 +266,26 @@ test(void* thread)
 	{
 	  key_0 = math_pow(key, 1);
 	  key_1 = math_pow(key, 2);
-	  key_2 = hash_rep(key, 4);
+	  key_2 = ID;//hash_rep(key, 4);
 	  key_3 = key;
 	}
 
       volatile size_t* res;
       START_TS(0);
-      res = (size_t*) ht_get(hashtable->ht, key);
+      res = (volatile size_t*) ht_get(hashtable->ht, key);
       END_TS(0, my_getting_count);
+
+      /* if (!ID) */
+      /* 	{ */
+      /* 	  usleep(my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & 2047); */
+      /* 	} */
+
       if(res != NULL) 
 	{
-	  if (run_correctness && (res[0] != key_0 || res[1] != key_1 || res[2] != key_2))
+	  if (run_correctness && (res[0] != key_0 || res[1] != key_1)) // || res[2] != key_2))
 	    {
-	      printf("** WRONG (%zu): %-3zu = %-3zu | %-3zu = %-3zu | %-3zu = %-3zu | %p\n",
-		     error, key, res[3], key_0, res[0], key_1, res[1], res);
+	      printf("** WRONG (%zu): %-3zu = %-3zu | %-3zu = %-3zu | %-3zu = %-3zu | %p | id: %zu\n",
+		     error, key, res[3], key_0, res[0], key_1, res[1], res, res[2]);
 	      goto same_key;
 	    }
 
@@ -292,7 +300,7 @@ test(void* thread)
 	    {
 	      key_0 = math_pow(key, 2);
 	      key_1 = math_pow(key, 6);
-	      key_2 = hash_rep(key, 2);
+	      key_2 = ID; //hash_rep(key, 2);
 	      key_3 = key;
 	    }
 
@@ -301,7 +309,7 @@ test(void* thread)
 	  START_TS(1);
 	  if (obj == 0)
 	    {
-	      obj = (size_t*) ssmem_alloc(&alloc, 4 * sizeof(size_t));
+	      obj = (size_t*) ssmem_alloc(alloc, 4 * sizeof(size_t));
 	    }
 	
 	  obj[0] = key_0;
@@ -330,7 +338,7 @@ test(void* thread)
       END_TS(2, my_removing_count);
       if(removed != 0) 
 	{
-	  ssmem_free(&alloc, (void*) removed);
+	  ssmem_free(alloc, (void*) removed);
 	  ADD_DUR(my_removing_succ);
 	  my_removing_count_succ++;
 	}
@@ -358,9 +366,9 @@ test(void* thread)
       /* ssmem_ts_set_print(ts_set); */
       /* free(ts_set); */
 
-      ssmem_free_list_print(&alloc);
-      ssmem_collected_list_print(&alloc);
-      ssmem_available_list_print(&alloc);
+      ssmem_free_list_print(alloc);
+      ssmem_collected_list_print(alloc);
+      ssmem_available_list_print(alloc);
       
       printf("size of ht is: %zu\n", ht_size(hashtable->ht));
     }
@@ -375,7 +383,8 @@ test(void* thread)
 #endif
 
   barrier_cross(&barrier);
-  ssmem_term(&alloc);
+  ssmem_term(alloc);
+  free(alloc);
 
 #if !defined(COMPUTE_THROUGHPUT)
   putting_succ[ID] += my_putting_succ;
