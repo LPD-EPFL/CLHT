@@ -96,7 +96,7 @@
 inline int is_power_of_two(unsigned int x);
 
 typedef uintptr_t hyht_addr_t;
-typedef uintptr_t hyht_val_t;
+typedef volatile uintptr_t hyht_val_t;
 
 #if defined(__tile__)
 typedef volatile uint32_t hyht_lock_t;
