@@ -107,9 +107,9 @@ typedef volatile uint8_t hyht_lock_t;
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   hyht_lock_t lock;
-  hyht_addr_t key[ENTRIES_PER_BUCKET];
+  volatile hyht_addr_t key[ENTRIES_PER_BUCKET];
   volatile hyht_val_t val[ENTRIES_PER_BUCKET];
-  struct bucket_s* next;
+  volatile struct bucket_s* next;
 } bucket_t;
 
 
@@ -171,6 +171,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ht_ts
   };
 } ht_ts_t;
 
+
+inline uint64_t __ac_Jenkins_hash_64(uint64_t key);
 
 /* Hash a key for a particular hashtable. */
 uint32_t ht_hash(hashtable_t* hashtable, hyht_addr_t key );
