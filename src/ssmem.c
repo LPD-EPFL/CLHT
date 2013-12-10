@@ -2,13 +2,12 @@
 
 ssmem_ts_t* ssmem_ts_list = NULL;
 uint32_t ssmem_ts_list_len = 0;
-__thread ssmem_ts_t* ssmem_ts_local = NULL;
-/* TODO: add a pointer to the size_t ts? */
+__thread volatile ssmem_ts_t* ssmem_ts_local = NULL;
 
 void
 ssmem_init(ssmem_allocator_t* a, size_t size, int id)
 {
-  printf("[ALLOC] initializing %zu bytes = %zu KB\n", size, size / 1024);
+  /* printf("[ALLOC] initializing %zu bytes = %zu KB\n", size, size / 1024); */
   a->mem = (void*) memalign(CACHE_LINE_SIZE, size);
   assert(a->mem != NULL);
 
@@ -68,13 +67,10 @@ ssmem_free_set_get(ssmem_allocator_t* a, size_t size, ssmem_free_set_t* next)
     {
       fs = a->available_set;
       a->available_set = fs->set_next;
-      if (fs->curr != 0)
-	{
-	  printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n");
-	}
-      /* fs->curr = 0; */
+
+      fs->curr = 0;
       fs->set_next = next;
-      printf("[ALLOC] got free_set from available_set : %p\n", fs);
+      /* printf("[ALLOC] got free_set from available_set : %p\n", fs); */
     }
   else
     {
@@ -95,7 +91,7 @@ ssmem_free_set_free(ssmem_free_set_t* set)
 static inline void
 ssmem_free_set_make_avail(ssmem_allocator_t* a, ssmem_free_set_t* set)
 {
-  printf("[ALLOC] added to avail_set : %p\n", set);
+  /* printf("[ALLOC] added to avail_set : %p\n", set); */
   set->set_next = a->available_set;
   a->available_set = set;
 }
@@ -115,8 +111,8 @@ ssmem_gc_init(ssmem_allocator_t* a)
 void
 ssmem_term(ssmem_allocator_t* a)
 {
-  printf("[ALLOC] term() : ~ total mem used: %zu bytes = %zu KB = %zu MB\n", 
-	 a->tot_size, a->tot_size / 1024, a->tot_size / (1024 * 1024));
+  printf("[ALLOC] term() : ~ total mem used: %zu bytes = %zu KB = %zu MB\n",
+  	 a->tot_size, a->tot_size / 1024, a->tot_size / (1024 * 1024));
 
   /* printf("[ALLOC] free(mem)\n"); fflush(stdout); */
   free(a->mem);
@@ -197,14 +193,14 @@ ssmem_alloc(ssmem_allocator_t* a, size_t size)
   void* m = NULL;
   /* 1st try to use from the collected memory */
 
-  ssmem_free_set_t* cs =a->collected_set;
+  ssmem_free_set_t* cs = a->collected_set;
   if (cs != NULL)
     {
       m = (void*) cs->free_set[--cs->curr];
 
       if (cs->curr <= 0)
 	{
-	  printf("[ALLOC] Collected mem @ %p is empty\n", cs);
+	  /* printf("[ALLOC] Collected mem @ %p is empty\n", cs); */
 	  a->collected_set = cs->set_next;
 	  a->collected_set_num--;
 
@@ -216,7 +212,7 @@ ssmem_alloc(ssmem_allocator_t* a, size_t size)
 
   if (a->mem_curr >= a->mem_size)
     {
-      printf("[ALLOC] out of mem, need to allocate\n");
+      /* printf("[ALLOC] out of mem, need to allocate\n"); */
       a->mem = (void*) memalign(CACHE_LINE_SIZE, a->mem_size);
       assert(a->mem != NULL);
       a->mem_curr = 0;
@@ -260,11 +256,11 @@ ssmem_gc(ssmem_allocator_t* a, size_t* ts_set_cur)
       if (ssmem_ts_compare(ts_set_cur, fs_cur->ts_set))
 	{
 	  int gced_num = a->free_set_num - not_gced_num;
-	  printf("[ALLOC] GCing %d sets (", gced_num);
-	  ssmem_ts_set_print_no_newline(ts_set_cur);
-	  printf(" vs. ");
-	  ssmem_ts_set_print_no_newline(fs_cur->ts_set);
-	  printf(")\n");
+	  /* printf("[ALLOC] GCing %d sets (", gced_num); */
+	  /* ssmem_ts_set_print_no_newline(ts_set_cur); */
+	  /* printf(" vs. "); */
+	  /* ssmem_ts_set_print_no_newline(fs_cur->ts_set); */
+	  /* printf(")\n"); */
 
 	  /* take the the suffix of the list (all collected free_sets) away from the
 	     free_set list of a and set the correct num of free_sets*/
@@ -298,14 +294,14 @@ ssmem_gc(ssmem_allocator_t* a, size_t* ts_set_cur)
 	  a->collected_set_num += gced_num;
 	  break;
 	}
-      else
-	{
-	  printf("[ALLOC] Do not GC (");
-	  ssmem_ts_set_print_no_newline(ts_set_cur);
-	  printf(" vs. ");
-	  ssmem_ts_set_print_no_newline(fs_cur->ts_set);
-	  printf(")\n");
-	}
+      /* else */
+      /* 	{ */
+      /* 	  printf("[ALLOC] Do not GC ("); */
+      /* 	  ssmem_ts_set_print_no_newline(ts_set_cur); */
+      /* 	  printf(" vs. "); */
+      /* 	  ssmem_ts_set_print_no_newline(fs_cur->ts_set); */
+      /* 	  printf(")\n"); */
+      /* 	} */
 
       not_gced_num++;
       fs_prv = fs_cur;
@@ -322,8 +318,8 @@ ssmem_free(ssmem_allocator_t* a, void* obj)
   ssmem_free_set_t* fs = a->free_set;
   if (fs->curr >= fs->size)
     {
-      size_t garbagep = a->free_set_num * SSMEM_GC_FREE_SET_SIZE * sizeof(uintptr_t);
-      printf("[ALLOC] free_set if full, doing GC / size of garbage pointers: %10zu = %zu KB\n", garbagep, garbagep / 1024);
+      /* size_t garbagep = a->free_set_num * SSMEM_GC_FREE_SET_SIZE * sizeof(uintptr_t); */
+      /* printf("[ALLOC] free_set is full, doing GC / size of garbage pointers: %10zu = %zu KB\n", garbagep, garbagep / 1024); */
 
 
       ssmem_free_set_t* fs_new = ssmem_free_set_get(a, SSMEM_GC_FREE_SET_SIZE, NULL);
