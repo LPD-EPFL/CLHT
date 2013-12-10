@@ -1,8 +1,19 @@
 #include "ssmem.h"
 
 ssmem_ts_t* ssmem_ts_list = NULL;
-uint32_t ssmem_ts_list_len = 0;
+volatile uint32_t ssmem_ts_list_len = 0;
 __thread volatile ssmem_ts_t* ssmem_ts_local = NULL;
+
+
+inline int 
+ssmem_get_id()
+{
+  if (ssmem_ts_local != NULL)
+    {
+      return ssmem_ts_local->id;
+    }
+  return -1;
+}
 
 void
 ssmem_init(ssmem_allocator_t* a, size_t size, int id)
@@ -94,13 +105,17 @@ static inline void
 ssmem_free_set_make_avail(ssmem_allocator_t* a, ssmem_free_set_t* set)
 {
   /* printf("[ALLOC] added to avail_set : %p\n", set); */
+  set->curr = 0;
   set->set_next = a->available_set;
   a->available_set = set;
 }
 
 
-#define SSMEM_GC_FREE_SET_SIZE 65530
-/* #define SSMEM_GC_FREE_SET_SIZE 16378 */
+/* #define SSMEM_GC_FREE_SET_SIZE 65532 */
+#define SSMEM_GC_FREE_SET_SIZE 16380
+/* #define SSMEM_GC_FREE_SET_SIZE 2044 */
+/* #define SSMEM_GC_FREE_SET_SIZE 4 */
+
 
 
 void
@@ -232,14 +247,31 @@ ssmem_alloc(ssmem_allocator_t* a, size_t size)
 
 
 /* return > 0 iff snew is > sold for each entry */
-static int			
-ssmem_ts_compare(size_t* snew, size_t* sold)
+__attribute__ ((unused)) static int			
+ssmem_ts_compare(size_t* s_new, size_t* s_old)
 {
   int is_newer = 1;
   int i;
   for (i = 0; i < ssmem_ts_list_len; i++)
     {
-      if (snew[i] <= sold[i])
+      if (s_new[i] <= s_old[i])
+	{
+	  is_newer = 0;
+	  break;
+	}
+    }
+  return is_newer;
+}
+
+/* return > 0 iff s_1 is > s_2 > s_3 for each entry */
+static int			
+ssmem_ts_compare_3(size_t* s_1, size_t* s_2, size_t* s_3)
+{
+  int is_newer = 1;
+  int i;
+  for (i = 0; i < ssmem_ts_list_len; i++)
+    {
+      if (s_1[i] <= s_2[i] || s_2[i] <= s_3[i])
 	{
 	  is_newer = 0;
 	  break;
@@ -250,92 +282,66 @@ ssmem_ts_compare(size_t* snew, size_t* sold)
 
 static void ssmem_ts_set_print_no_newline(size_t* set);
 
-static void
-ssmem_gc(ssmem_allocator_t* a, size_t* ts_set_cur)
+static int
+ssmem_gc(ssmem_allocator_t* a)
 {
   ssmem_free_set_t* fs_cur = a->free_set;
-  ssmem_free_set_t* fs_prv = fs_cur;
-  int not_gced_num = 0;
-  do
+  ssmem_free_set_t* fs_nxt = fs_cur->set_next;
+
+  int gced_num = 0;
+
+  if (fs_nxt == NULL || fs_nxt->set_next == NULL)
     {
-      if (ssmem_ts_compare(ts_set_cur, fs_cur->ts_set))
-	{
-	  int gced_num = a->free_set_num - not_gced_num;
-	  /* printf("[ALLOC] GCing %d sets (", gced_num); */
-	  /* ssmem_ts_set_print_no_newline(ts_set_cur); */
-	  /* printf(" vs. "); */
-	  /* ssmem_ts_set_print_no_newline(fs_cur->ts_set); */
-	  /* printf(")\n"); */
-
-	  /* take the the suffix of the list (all collected free_sets) away from the
-	     free_set list of a and set the correct num of free_sets*/
-	  if (not_gced_num == 0)
-	    {
-	      a->free_set = NULL;
-	    }
-	  else
-	    {
-	      fs_prv->set_next = NULL;
-	    }
-	  a->free_set_num = not_gced_num;
-
-	  /* find the tail for the collected_set list in order to append the new 
-	     free_sets that were just collected */
-
-	  ssmem_free_set_t* collected_set_cur = a->collected_set; 
-	  if (collected_set_cur != NULL)
-	    {
-	      while (collected_set_cur->set_next != NULL)
-		{
-		  collected_set_cur = collected_set_cur->set_next;
-		}
-
-	      collected_set_cur->set_next = fs_cur;
-	    }
-	  else
-	    {
-	      a->collected_set = fs_cur;
-	    }
-	  a->collected_set_num += gced_num;
-	  break;
-	}
-      /* else */
-      /* 	{ */
-      /* 	  printf("[ALLOC] Do not GC ("); */
-      /* 	  ssmem_ts_set_print_no_newline(ts_set_cur); */
-      /* 	  printf(" vs. "); */
-      /* 	  ssmem_ts_set_print_no_newline(fs_cur->ts_set); */
-      /* 	  printf(")\n"); */
-      /* 	} */
-
-      not_gced_num++;
-      fs_prv = fs_cur;
-      fs_cur = fs_cur->set_next;
+      return 0;
     }
-  while (fs_cur != NULL);
-}
 
+  ssmem_free_set_t* fs_nxt_nxt = fs_nxt->set_next;
+
+  int not_gced_num = 2;
+  if (ssmem_ts_compare_3(fs_cur->ts_set, fs_nxt->ts_set, fs_nxt_nxt->ts_set))
+    {
+      gced_num = a->free_set_num - not_gced_num;
+      /* take the the suffix of the list (all collected free_sets) away from the
+	 free_set list of a and set the correct num of free_sets*/
+      fs_nxt->set_next = NULL;
+      a->free_set_num = not_gced_num;
+
+      /* find the tail for the collected_set list in order to append the new 
+	 free_sets that were just collected */
+      ssmem_free_set_t* collected_set_cur = a->collected_set; 
+      if (collected_set_cur != NULL)
+	{
+	  while (collected_set_cur->set_next != NULL)
+	    {
+	      collected_set_cur = collected_set_cur->set_next;
+	    }
+
+	  collected_set_cur->set_next = fs_nxt_nxt;
+	}
+      else
+	{
+	  a->collected_set = fs_nxt_nxt;
+	}
+      a->collected_set_num += gced_num;
+    }
+  return gced_num;
+}
 
 inline void 
 ssmem_free(ssmem_allocator_t* a, void* obj)
 {
   ssmem_ts_next();
   ssmem_free_set_t* fs = a->free_set;
-  if (fs->curr >= fs->size)
+  if (fs->curr == fs->size)
     {
       /* size_t garbagep = a->free_set_num * SSMEM_GC_FREE_SET_SIZE * sizeof(uintptr_t); */
       /* printf("[ALLOC] free_set is full, doing GC / size of garbage pointers: %10zu = %zu KB\n", garbagep, garbagep / 1024); */
-
-
-      ssmem_free_set_t* fs_new = ssmem_free_set_get_avail(a, SSMEM_GC_FREE_SET_SIZE, NULL);
-      /* do GC with the ts_set from fs_new */
-      ssmem_gc(a, fs_new->ts_set);
-
-      fs_new->set_next = a->free_set;
-
+      ssmem_free_set_t* fs_new = ssmem_free_set_get_avail(a, SSMEM_GC_FREE_SET_SIZE, a->free_set);
       a->free_set = fs_new;
       a->free_set_num++;
       fs = fs_new;
+
+      ssmem_gc(a);
     }
   
   fs->free_set[fs->curr++] = (uintptr_t) obj;
