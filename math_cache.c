@@ -197,7 +197,7 @@ test(void* thread)
 
   ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
   assert(alloc != NULL);
-  ssmem_init(alloc, 1024*1024, ID);
+  ssmem_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 

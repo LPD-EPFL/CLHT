@@ -12,7 +12,7 @@ endif
 
 
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
-ALL= hyht_mem hyht_mem_lat hyht_res hyht_res_lat
+ALL= hyht_mem hyht_mem_lat hyht_res hyht_res_lat math_cache math_cache_lat
 
 LIBS += -lsspfd
 LIBS_MP += -lssmp

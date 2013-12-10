@@ -46,13 +46,13 @@ ssmem_init(ssmem_allocator_t* a, size_t size, int id)
   
   FAI_U32(&ssmem_ts_list_len);
 
-  a->free_set = NULL;
+  a->free_set_list = NULL;
   a->free_set_num = 0;
 
-  a->collected_set = NULL;
+  a->collected_set_list= NULL;
   a->collected_set_num = 0;
 
-  a->available_set = NULL;
+  a->available_set_list = NULL;
 }
 
 static ssmem_mem_chunk_t*
@@ -77,7 +77,7 @@ ssmem_free_set_new(size_t size, ssmem_free_set_t* next)
   fs->size = size;
   fs->curr = 0;
   
-  fs->free_set = (uintptr_t*) (((uintptr_t) fs) + sizeof(ssmem_free_set_t));
+  fs->set = (uintptr_t*) (((uintptr_t) fs) + sizeof(ssmem_free_set_t));
   fs->ts_set = ssmem_ts_set_collect(NULL);
 
   fs->set_next = next;
@@ -90,10 +90,10 @@ ssmem_free_set_t*
 ssmem_free_set_get_avail(ssmem_allocator_t* a, size_t size, ssmem_free_set_t* next)
 {
   ssmem_free_set_t* fs;
-  if (a->available_set != NULL)
+  if (a->available_set_list != NULL)
     {
-      fs = a->available_set;
-      a->available_set = fs->set_next;
+      fs = a->available_set_list;
+      a->available_set_list = fs->set_next;
 
       fs->curr = 0;
       fs->set_next = next;
@@ -122,22 +122,15 @@ ssmem_free_set_make_avail(ssmem_allocator_t* a, ssmem_free_set_t* set)
 {
   /* printf("[ALLOC] added to avail_set : %p\n", set); */
   set->curr = 0;
-  set->set_next = a->available_set;
-  a->available_set = set;
+  set->set_next = a->available_set_list;
+  a->available_set_list = set;
 }
-
-
-/* #define SSMEM_GC_FREE_SET_SIZE 65532 */
-#define SSMEM_GC_FREE_SET_SIZE 16380
-/* #define SSMEM_GC_FREE_SET_SIZE 2044 */
-/* #define SSMEM_GC_FREE_SET_SIZE 4 */
-
 
 
 void
 ssmem_gc_init(ssmem_allocator_t* a)
 {
-  a->free_set = ssmem_free_set_new(SSMEM_GC_FREE_SET_SIZE, NULL);
+  a->free_set_list = ssmem_free_set_new(SSMEM_GC_FREE_SET_SIZE, NULL);
   a->free_set_num++;
 }
 
@@ -160,7 +153,7 @@ ssmem_term(ssmem_allocator_t* a)
 
   /* printf("[ALLOC] free(free_set)\n"); fflush(stdout); */
   /* freeing free sets */
-  ssmem_free_set_t* fs = a->free_set;
+  ssmem_free_set_t* fs = a->free_set_list;
   while (fs != NULL)
     {
       ssmem_free_set_t* nxt = fs->set_next;
@@ -170,7 +163,7 @@ ssmem_term(ssmem_allocator_t* a)
 
   /* printf("[ALLOC] free(collected_set)\n"); fflush(stdout); */
   /* freeing collected sets */
-  fs = a->collected_set;
+  fs = a->collected_set_list;
   while (fs != NULL)
     {
       ssmem_free_set_t* nxt = fs->set_next;
@@ -180,7 +173,7 @@ ssmem_term(ssmem_allocator_t* a)
 
   /* printf("[ALLOC] free(available_set)\n"); fflush(stdout); */
   /* freeing available sets */
-  fs = a->available_set;
+  fs = a->available_set_list;
   while (fs != NULL)
     {
       ssmem_free_set_t* nxt = fs->set_next;
@@ -235,15 +228,15 @@ ssmem_alloc(ssmem_allocator_t* a, size_t size)
   void* m = NULL;
   /* 1st try to use from the collected memory */
 
-  ssmem_free_set_t* cs = a->collected_set;
+  ssmem_free_set_t* cs = a->collected_set_list;
   if (cs != NULL)
     {
-      m = (void*) cs->free_set[--cs->curr];
+      m = (void*) cs->set[--cs->curr];
 
       if (cs->curr <= 0)
 	{
 	  /* printf("[ALLOC] Collected mem @ %p is empty\n", cs); */
-	  a->collected_set = cs->set_next;
+	  a->collected_set_list= cs->set_next;
 	  a->collected_set_num--;
 
 	  ssmem_free_set_make_avail(a, cs);
@@ -307,9 +300,9 @@ ssmem_ts_compare_3(size_t* s_1, size_t* s_2, size_t* s_3)
 static void ssmem_ts_set_print_no_newline(size_t* set);
 
 static int
-ssmem_gc(ssmem_allocator_t* a)
+ssmem_mem_reclaim(ssmem_allocator_t* a)
 {
-  ssmem_free_set_t* fs_cur = a->free_set;
+  ssmem_free_set_t* fs_cur = a->free_set_list;
   ssmem_free_set_t* fs_nxt = fs_cur->set_next;
 
   int gced_num = 0;
@@ -332,7 +325,7 @@ ssmem_gc(ssmem_allocator_t* a)
 
       /* find the tail for the collected_set list in order to append the new 
 	 free_sets that were just collected */
-      ssmem_free_set_t* collected_set_cur = a->collected_set; 
+      ssmem_free_set_t* collected_set_cur = a->collected_set_list; 
       if (collected_set_cur != NULL)
 	{
 	  while (collected_set_cur->set_next != NULL)
@@ -344,7 +337,7 @@ ssmem_gc(ssmem_allocator_t* a)
 	}
       else
 	{
-	  a->collected_set = fs_nxt_nxt;
+	  a->collected_set_list= fs_nxt_nxt;
 	}
       a->collected_set_num += gced_num;
     }
@@ -355,20 +348,20 @@ inline void
 ssmem_free(ssmem_allocator_t* a, void* obj)
 {
   ssmem_ts_next();
-  ssmem_free_set_t* fs = a->free_set;
+  ssmem_free_set_t* fs = a->free_set_list;
   if (fs->curr == fs->size)
     {
       /* size_t garbagep = a->free_set_num * SSMEM_GC_FREE_SET_SIZE * sizeof(uintptr_t); */
       /* printf("[ALLOC] free_set is full, doing GC / size of garbage pointers: %10zu = %zu KB\n", garbagep, garbagep / 1024); */
-      ssmem_free_set_t* fs_new = ssmem_free_set_get_avail(a, SSMEM_GC_FREE_SET_SIZE, a->free_set);
-      a->free_set = fs_new;
+      ssmem_free_set_t* fs_new = ssmem_free_set_get_avail(a, SSMEM_GC_FREE_SET_SIZE, a->free_set_list);
+      a->free_set_list = fs_new;
       a->free_set_num++;
       fs = fs_new;
 
-      ssmem_gc(a);
+      ssmem_mem_reclaim(a);
     }
   
-  fs->free_set[fs->curr++] = (uintptr_t) obj;
+  fs->set[fs->curr++] = (uintptr_t) obj;
 }
 
 static void 
@@ -390,7 +383,7 @@ ssmem_free_list_print(ssmem_allocator_t* a)
   printf("[ALLOC] free_set list (%zu sets): \n", a->free_set_num);
 
   int n = 0;
-  ssmem_free_set_t* cur = a->free_set;
+  ssmem_free_set_t* cur = a->free_set_list;
   while (cur != NULL)
     {
       printf("(%-3d | %p::", n++, cur);
@@ -407,7 +400,7 @@ ssmem_collected_list_print(ssmem_allocator_t* a)
   printf("[ALLOC] collected_set list (%zu sets): \n", a->collected_set_num);
 
   int n = 0;
-  ssmem_free_set_t* cur = a->collected_set;
+  ssmem_free_set_t* cur = a->collected_set_list;
   while (cur != NULL)
     {
       printf("(%-3d | %p::", n++, cur);
@@ -424,7 +417,7 @@ ssmem_available_list_print(ssmem_allocator_t* a)
   printf("[ALLOC] avail_set list: \n");
 
   int n = 0;
-  ssmem_free_set_t* cur = a->available_set;
+  ssmem_free_set_t* cur = a->available_set_list;
   while (cur != NULL)
     {
       printf("(%-3d | %p::", n++, cur);

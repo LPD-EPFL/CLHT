@@ -174,7 +174,7 @@ test(void* thread)
   ht_gc_thread_init(hashtable, ID);    
 
   ssmem_allocator_t alloc;
-  ssmem_init(&alloc, 8*1024*1024, ID);
+  ssmem_init(&alloc, SSMEM_GC_FREE_SET_SIZE, ID);
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
