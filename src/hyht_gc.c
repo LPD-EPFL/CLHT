@@ -168,14 +168,14 @@ int
 ht_gc_free(hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
-  bucket_t* bucket = NULL;
+  volatile bucket_t* bucket = NULL;
 
   uint32_t bin;
   for (bin = 0; bin < num_buckets; bin++)
     {
       bucket = hashtable->table + bin;
        
-      bucket_t* bstack[8] = {0};
+      volatile bucket_t* bstack[8] = {0};
       int bidx = 0;
 
       do
@@ -191,7 +191,7 @@ ht_gc_free(hashtable_t* hashtable)
 		  if (bstack[bidx] != NULL)
 		    {
 		      /* printf("[GCOLLE] free(%d) = %p\n", bidx, bstack[bidx]); */
-		      free(bstack[bidx]);
+		      free((void*) bstack[bidx]);
 		    }
 		}
 	      bstack[0] = bstack[7]; /* do not free the current bucket* */
@@ -206,7 +206,7 @@ ht_gc_free(hashtable_t* hashtable)
 	  if (bstack[bidx] != NULL)
 	    {
 	      /* printf("[GCOLLE] free(%d) = %p\n", bidx, bstack[bidx]); */
-	      free(bstack[bidx]);
+	      free((void*) bstack[bidx]);
 	    }
 	}
     }
