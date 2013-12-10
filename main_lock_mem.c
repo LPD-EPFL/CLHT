@@ -219,8 +219,10 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
       
-      hyht_val_t obj = (hyht_val_t) ssmem_alloc(&alloc, 64);
-      if(!ht_put(hashtable, key, obj))
+      uint64_t* obj = (uint64_t*) ssmem_alloc(&alloc, 8);
+      *obj = key;
+      
+      if(!ht_put(hashtable, key, (hyht_val_t) obj))
 	{
 	  i--;
 	}
