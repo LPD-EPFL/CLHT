@@ -184,7 +184,7 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 {
   size_t bin = ht_hash(hashtable, key);
   HYHT_GC_HT_VERSION_USED(hashtable);
-  bucket_t* bucket = hashtable->table + bin;
+  volatile bucket_t* bucket = hashtable->table + bin;
 
   uint32_t j;
   do 
@@ -211,7 +211,7 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 static inline int
-bucket_exists(bucket_t* bucket, hyht_addr_t key)
+bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
 {
   uint32_t j;
   do 
@@ -234,7 +234,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
+  volatile bucket_t* bucket = hashtable->table + bin;
 
 #if HYHT_READ_ONLY_FAIL == 1
       if (bucket_exists(bucket, key))
@@ -255,7 +255,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
   HYHT_GC_HT_VERSION_USED(hashtable);
   HYHT_CHECK_STATUS(h);
-  hyht_addr_t* empty = NULL;
+  volatile hyht_addr_t* empty = NULL;
   volatile hyht_val_t* empty_v = NULL;
 
   uint32_t j;
@@ -282,8 +282,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    {
 	      DPP(put_num_failed_expand);
 	      bucket->next = create_bucket_stats(hashtable, &resize);
-	      bucket->next->key[0] = key;
 	      bucket->next->val[0] = val;
+	      bucket->next->key[0] = key;
 	    }
 	  else 
 	    {
@@ -311,7 +311,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
+  volatile bucket_t* bucket = hashtable->table + bin;
 
 #if HYHT_READ_ONLY_FAIL == 1
   if (!bucket_exists(bucket, key))
@@ -346,7 +346,8 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	    }
 	}
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (bucket != NULL);
   LOCK_RLS(lock);
   return false;
 }
@@ -354,7 +355,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 static uint32_t
 ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin) 
 {
-  bucket_t* bucket = hashtable->table + bin;
+  volatile bucket_t* bucket = hashtable->table + bin;
   uint32_t j;
 
   do 
@@ -363,8 +364,8 @@ ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin
 	{
 	  if (bucket->key[j] == 0)
 	    {
-	      bucket->key[j] = key;
 	      bucket->val[j] = val;
+	      bucket->key[j] = key;
 	      return true;
 	    }
 	}
@@ -374,18 +375,19 @@ ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin
 	  DPP(put_num_failed_expand);
 	  int null;
 	  bucket->next = create_bucket_stats(hashtable, &null);
-	  bucket->next->key[0] = key;
 	  bucket->next->val[0] = val;
+	  bucket->next->key[0] = key;
 	  return true;
 	}
 
       bucket = bucket->next;
-    } while (true);
+    } 
+  while (true);
 }
 
 
 static int
-bucket_cpy(bucket_t* bucket, hashtable_t* ht_new)
+bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
 {
   if (!LOCK_ACQ_RES(&bucket->lock))
     {
@@ -540,7 +542,7 @@ size_t
 ht_size(hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
-  bucket_t* bucket = NULL;
+  volatile bucket_t* bucket = NULL;
   size_t size = 0;
 
   uint32_t bin;
@@ -576,7 +578,7 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
 
   hashtable_t* hashtable = h->ht;
   uint32_t num_buckets = hashtable->num_buckets;
-  bucket_t* bucket = NULL;
+  volatile bucket_t* bucket = NULL;
   size_t size = 0;
   int expands = 0;
   int expands_max = 0;
@@ -689,7 +691,7 @@ void
 ht_print(hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
-  bucket_t* bucket;
+  volatile bucket_t* bucket;
 
   printf("Number of buckets: %u\n", num_buckets);
 
