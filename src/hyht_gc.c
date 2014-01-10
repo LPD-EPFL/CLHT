@@ -174,40 +174,12 @@ ht_gc_free(hashtable_t* hashtable)
   for (bin = 0; bin < num_buckets; bin++)
     {
       bucket = hashtable->table + bin;
-       
-      volatile bucket_t* bstack[8] = {0};
-      int bidx = 0;
-
-      do
+      bucket = bucket->next;
+      while (bucket != NULL)
 	{
+	  volatile bucket_t* cur = bucket;
 	  bucket = bucket->next;
-	  bstack[bidx++] = bucket;
-	  if (bidx == 8)
-	    {
-	      /* printf("[GCOLLE] stack full\n"); */
-	      bidx--;
-		while (--bidx >= 0) /* free from 7..0 */
-		{
-		  if (bstack[bidx] != NULL)
-		    {
-		      /* printf("[GCOLLE] free(%d) = %p\n", bidx, bstack[bidx]); */
-		      free((void*) bstack[bidx]);
-		    }
-		}
-	      bstack[0] = bstack[7]; /* do not free the current bucket* */
-	      bidx = 1;
-	    }
-	}
-      while (bucket != NULL);
-
-      while(--bidx >= 0)
-	{
-	  /* printf("[GCOLLE] done collecting\n"); */
-	  if (bstack[bidx] != NULL)
-	    {
-	      /* printf("[GCOLLE] free(%d) = %p\n", bidx, bstack[bidx]); */
-	      free((void*) bstack[bidx]);
-	    }
+	  free((void*) cur);
 	}
     }
 
