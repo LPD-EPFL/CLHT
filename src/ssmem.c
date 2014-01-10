@@ -1,10 +1,15 @@
+/* 
+ * File: ssmem.c
+ * Description: a simple object-based memory allocator with epoch-based garbage collection
+ * Author: Vasileios Trigonakis 
+ *
+ */
 #include "ssmem.h"
 #include <malloc.h>
 
 ssmem_ts_t* ssmem_ts_list = NULL;
 volatile uint32_t ssmem_ts_list_len = 0;
 __thread volatile ssmem_ts_t* ssmem_ts_local = NULL;
-
 
 inline int 
 ssmem_get_id()

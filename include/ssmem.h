@@ -23,19 +23,22 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ssmem_allocator
   {
     struct
     {
-      void* mem;
-      size_t mem_curr;
-      size_t mem_size;
-      size_t tot_size;
-      struct ssmem_mem_chunk* mem_chunks;
+      void* mem;		/* the actual memory the allocator uses */
+      size_t mem_curr;		/* pointer to the next addrr to be allocated */
+      size_t mem_size;		/* size of mem chunk */
+      size_t tot_size;		/* total memory that the allocator uses */
+      struct ssmem_mem_chunk* mem_chunks; /* list of mem chunks (used to free the mem) */
 
-      struct ssmem_ts* ts;
+      struct ssmem_ts* ts;	/* timestamp object associated with the allocator */
 
-      struct ssmem_free_set* free_set_list;
-      size_t free_set_num;
-      struct ssmem_free_set* collected_set_list;
-      size_t collected_set_num;
-      struct ssmem_free_set* available_set_list;
+      struct ssmem_free_set* free_set_list; /* list of free_set. A free set holds freed mem 
+					     that has not yet been reclaimed */
+      size_t free_set_num;	/* number of sets in the free_set_list */
+      struct ssmem_free_set* collected_set_list; /* list of collected_set. A collected set
+						  contains mem that has been reclaimed */
+      size_t collected_set_num;	/* number of sets in the collected_set_list */
+      struct ssmem_free_set* available_set_list; /* list of set structs that are not used
+						  and can be used as free sets */
     };
     uint8_t padding[2 * CACHE_LINE_SIZE];
   };
@@ -98,7 +101,7 @@ inline void* ssmem_alloc(ssmem_allocator_t* a, size_t size);
 /* free some memory using allocator a */
 inline void ssmem_free(ssmem_allocator_t* a, void* obj);
 
-/* debug functions */
+/* debug/help functions */
 void ssmem_ts_list_print();
 size_t* ssmem_ts_set_collect();
 void ssmem_ts_set_print(size_t* set);
