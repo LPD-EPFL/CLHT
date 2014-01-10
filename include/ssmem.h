@@ -58,8 +58,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ssmem_ts
 
 /* 
  * a timestamped free_set. It holds:  
- *  1. the collection of timestamps at the point the freeing for this set
- *   starts
+ *  1. the collection of timestamps at the point when the free_set gets full
  *  2. the array of freed pointers to be used by ssmem_free()
  *  3. a set_next pointer in order to be able to create linked lists of
  *   free_sets
