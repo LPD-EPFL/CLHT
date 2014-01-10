@@ -24,7 +24,7 @@
 #define KEY_VALID 1
 #define KEY_INSRT 2
 
-#define KEY_BUCKT 3
+#define KEY_BUCKT 6
 #define ENTRIES_PER_BUCKET KEY_BUCKT
 
 
@@ -73,7 +73,13 @@ typedef volatile union
   uint64_t snapshot;
   struct
   {
+#if KEY_BUCKT == 4
     uint32_t version;
+#elif KEY_BUCKT == 6
+    uint16_t version;
+#else
+#  error "KEY_BUCKT should be either 4 or 6"
+#endif
     uint8_t map[KEY_BUCKT];
   };
 } lfht_snapshot_t;
@@ -85,7 +91,13 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
     uint64_t snapshot;
     struct
     {
-      uint32_t version;
+#if KEY_BUCKT == 4
+    uint32_t version;
+#elif KEY_BUCKT == 6
+    uint16_t version;
+#else
+#  error "KEY_BUCKT should be either 4 or 6"
+#endif
       uint8_t map[KEY_BUCKT];
     };
   };
