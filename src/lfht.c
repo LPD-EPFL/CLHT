@@ -143,7 +143,7 @@ hyht_val_t
 ht_get(hashtable_t* hashtable, hyht_addr_t key)
 {
   size_t bin = ht_hash(hashtable, key);
-  volatile bucket_t* bucket = hashtable->table + bin;
+  bucket_t* bucket = hashtable->table + bin;
 
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
@@ -174,6 +174,10 @@ ht_print_retry_stats()
   printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu\n", num_retry_cas1, num_retry_cas2, num_retry_cas3);
 }
 
+
+#define EQUAL(a, b)				\
+  (a) == (b)
+
 /* Insert a key-value entry into a hash table. */
 int
 ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
@@ -198,9 +202,9 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
   int empty_index = snap_get_empty_index(s.snapshot);
   s1.snapshot = snap_set_map(s.snapshot, empty_index, KEY_INSRT);
-  if (CAS_U64_BOOL(&bucket->snapshot, s.snapshot, s1.snapshot) == false)
+  if (CAS_U64(&bucket->snapshot, s.snapshot, s1.snapshot) != s.snapshot)
     {
-      num_retry_cas1++;
+      /* num_retry_cas1++; */
       goto retry;
     }
   
@@ -208,10 +212,10 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   bucket->key[empty_index] = key;
   
   s2.snapshot = snap_set_map_and_inc_version(s1.snapshot, empty_index, KEY_VALID);
-  if (CAS_U64_BOOL(&bucket->snapshot, s1.snapshot, s2.snapshot) == false)
+  if (CAS_U64(&bucket->snapshot, s1.snapshot, s2.snapshot) != s1.snapshot)
     {
       bucket->map[empty_index] = KEY_INVLD;
-      num_retry_cas2++;
+      /* num_retry_cas2++; */
       goto retry;
     }
 
@@ -233,14 +237,14 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
       if (bucket->key[i] == key && bucket->map[i] == KEY_VALID)
 	{
 	  hyht_val_t removed = bucket->val[i];
-	  if (CAS_U64_BOOL(&bucket->key[i], key, 0))
+	  if (CAS_U64(&bucket->key[i], key, 0) == key)
 	    {
 	      bucket->map[i] = KEY_INVLD;
 	      return removed;
 	    }
 	  else
 	    {
-	      num_retry_cas3++;
+	      /* num_retry_cas3++; */
 	      return 0;
 	    }
 	}

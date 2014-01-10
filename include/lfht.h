@@ -68,7 +68,7 @@ inline int is_power_of_two(unsigned int x);
 typedef uintptr_t hyht_addr_t;
 typedef volatile uintptr_t hyht_val_t;
 
-typedef volatile union
+typedef union
 {
   uint64_t snapshot;
   struct
