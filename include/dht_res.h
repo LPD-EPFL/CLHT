@@ -21,8 +21,8 @@
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8
-#define HYHT_DO_CHECK_STATUS  1
-#define HYHT_DO_GC            1
+#define HYHT_DO_CHECK_STATUS  0
+#define HYHT_DO_GC            0
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
 #if defined(RTM)	       /* only for processors that have RTM */

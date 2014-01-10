@@ -10,9 +10,9 @@ ifeq ($(M),1)
 MC=-DMEASURE_CONTENTION
 endif
 
-
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
-ALL= hyht_mem hyht_mem_lat hyht_res hyht_res_lat math_cache math_cache_lat
+ALL= hyht_mem hyht_mem_lat hyht_res hyht_res_lat math_cache math_cache_lat lfht
+ALL= hyht_res lfht
 
 LIBS += -lsspfd
 LIBS_MP += -lssmp
@@ -130,6 +130,9 @@ hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 hyht_res: main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_res.c src/hyht_gc.c -o hyht $(LIBS)
 
+lfht: main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/lfht.c -o lfht $(LIBS)
+
 hyht_res_lat: main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_res.c src/hyht_gc.c -o hyht_lat $(LIBS)
 
@@ -162,4 +165,4 @@ hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
 
 
 clean:				
-	rm -f *.o hyht* math_cache math_cache_lat
+	rm -f *.o hyht* math_cache math_cache_lat lfht*
