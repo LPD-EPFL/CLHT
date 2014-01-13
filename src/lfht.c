@@ -174,9 +174,14 @@ ht_print_retry_stats()
   printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu\n", num_retry_cas1, num_retry_cas2, num_retry_cas3);
 }
 
+#define DO_LF_STATS 1
 
-#define EQUAL(a, b)				\
-  (a) == (b)
+#if DO_LF_STATS == 1
+#  define INC(x) x++
+#else
+#  define INC(x) ;
+#endif
+
 
 /* Insert a key-value entry into a hash table. */
 int
@@ -201,10 +206,14 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
     }
 
   int empty_index = snap_get_empty_index(s.snapshot);
+  if (empty_index < 0)
+    {
+      printf("** no space in the bucket\n");
+    }
   s1.snapshot = snap_set_map(s.snapshot, empty_index, KEY_INSRT);
   if (CAS_U64(&bucket->snapshot, s.snapshot, s1.snapshot) != s.snapshot)
     {
-      /* num_retry_cas1++; */
+      INC(num_retry_cas1);
       goto retry;
     }
   
@@ -215,7 +224,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   if (CAS_U64(&bucket->snapshot, s1.snapshot, s2.snapshot) != s1.snapshot)
     {
       bucket->map[empty_index] = KEY_INVLD;
-      /* num_retry_cas2++; */
+      INC(num_retry_cas2);
       goto retry;
     }
 
@@ -244,7 +253,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	    }
 	  else
 	    {
-	      /* num_retry_cas3++; */
+	      INC(num_retry_cas3);
 	      return 0;
 	    }
 	}
