@@ -20,9 +20,13 @@
 
 #define CACHE_LINE_SIZE    64
 
-#define KEY_INVLD 0
-#define KEY_VALID 1
-#define KEY_INSRT 2
+#define MAP_INVLD 0
+#define MAP_INSRT 1
+#define MAP_VALID 2
+#define MAP_REMOV 3
+
+/* #define KEY_INVLD  0 */
+#define KEY_BLOCK  -1
 
 #define KEY_BUCKT 6
 #define ENTRIES_PER_BUCKET KEY_BUCKT
@@ -67,8 +71,9 @@ inline int is_power_of_two(unsigned int x);
 
 typedef uintptr_t hyht_addr_t;
 typedef volatile uintptr_t hyht_val_t;
+typedef volatile uint64_t lfht_snapshot_all_t;
 
-typedef union
+typedef volatile union
 {
   uint64_t snapshot;
   struct
@@ -78,7 +83,7 @@ typedef union
 #elif KEY_BUCKT == 6
     uint16_t version;
 #else
-#  error "KEY_BUCKT should be either 4 or 6"
+    uint32_t version;
 #endif
     uint8_t map[KEY_BUCKT];
   };
@@ -96,7 +101,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 #elif KEY_BUCKT == 6
     uint16_t version;
 #else
-#  error "KEY_BUCKT should be either 4 or 6"
+    uint32_t version;
+/* #  error "KEY_BUCKT should be either 4 or 6" */
 #endif
       uint8_t map[KEY_BUCKT];
     };
@@ -145,13 +151,59 @@ snap_get_empty_index(uint64_t snap)
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (s.map[i] == KEY_INVLD)
+      if (s.map[i] == MAP_INVLD)
 	{
 	  return i;
 	}
     }
   return -1;
 }
+
+static inline int
+keys_get_empty_index(hyht_addr_t* keys)
+{
+  int i;
+  for (i = 0; i < KEY_BUCKT; i++)
+    {
+      if (keys[i] == 0)
+	{
+	  return i;
+	}
+    }
+  return -1;
+}
+
+static inline int
+buck_get_empty_index(bucket_t* b, uint64_t snap)
+{
+  lfht_snapshot_t s = { .snapshot = snap };
+
+  int i;
+  for (i = 0; i < KEY_BUCKT; i++)
+    {
+      if (b->key[i] == 0 && s.map[i] != MAP_INSRT)
+	{
+	  return i;
+	}
+    }
+  return -1;
+}
+
+
+static inline int
+vals_get_empty_index(hyht_val_t* vals)
+{
+  int i;
+  for (i = 0; i < KEY_BUCKT; i++)
+    {
+      if (vals[i] == 0)
+	{
+	  return i;
+	}
+    }
+  return -1;
+}
+
 
 static inline uint64_t
 snap_set_map(uint64_t s, int index, int val)
