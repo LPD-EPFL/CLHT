@@ -145,11 +145,13 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
+  lfht_snapshot_t s;
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];
-      if (bucket->key[i] == key && bucket->map[i] == MAP_VALID)
+      s.snapshot = bucket->snapshot;
+      if (s.map[i] == MAP_VALID && bucket->key[i] == key)
 	{
 	  if (bucket->val[i] == val)
 	    {
@@ -166,12 +168,13 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 
-__thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0;
+__thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, num_retry_cas4 = 0;
 
 void
 ht_print_retry_stats()
 {
-  printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu\n", num_retry_cas1, num_retry_cas2, num_retry_cas3);
+  printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu / #cas4: %-8zu\n", 
+	 num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4);
 }
 
 #define DO_LF_STATS 1
@@ -191,6 +194,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   size_t bin = ht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
 
+  lfht_snapshot_t sr;
   lfht_snapshot_all_t s, s1, s2;
 
  retry:
@@ -199,7 +203,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (bucket->key[i] == key && bucket->map[i] == MAP_VALID)
+      sr.snapshot = bucket->snapshot;
+      if (bucket->key[i] == key && sr.map[i] == MAP_VALID)
 	{
 	  return false;
 	}
@@ -208,7 +213,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   int empty_index = snap_get_empty_index(s);
   if (empty_index < 0)
     {
-      printf("** no space in the bucket\n");
+      /* printf("** no space in the bucket\n"); */
+      goto retry;
     }
   s1 = snap_set_map(s, empty_index, MAP_INSRT);
   if (CAS_U64(&bucket->snapshot, s, s1) != s)
@@ -217,13 +223,23 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
       goto retry;
     }
   
+  asm volatile ("nop");
   bucket->val[empty_index] = val;
+  asm volatile ("nop");
   bucket->key[empty_index] = key;
+  asm volatile ("nop");
   
   s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
   if (CAS_U64(&bucket->snapshot, s1, s2) != s1)
     {
-      bucket->map[empty_index] = KEY_INVLD;
+      /* bucket->map[empty_index] = MAP_INVLD; */
+      do
+	{
+	  INC(num_retry_cas4);
+	  s = bucket->snapshot;
+	  s1 = snap_set_map(s, empty_index, MAP_INVLD);
+	}
+      while (CAS_U64(&bucket->snapshot, s, s1) != s);
       INC(num_retry_cas2);
       goto retry;
     }
@@ -240,21 +256,26 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   size_t bin = ht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
 
+  lfht_snapshot_t s;
+
   int i;
+ retry:
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (bucket->key[i] == key && bucket->map[i] == MAP_VALID)
+      s.snapshot = bucket->snapshot;
+      if (bucket->key[i] == key && s.map[i] == MAP_VALID)
 	{
 	  hyht_val_t removed = bucket->val[i];
-	  if (CAS_U64(&bucket->key[i], key, 0) == key)
+
+	  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
+	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
 	    {
-	      bucket->map[i] = KEY_INVLD;
 	      return removed;
 	    }
 	  else
 	    {
 	      INC(num_retry_cas3);
-	      return 0;
+	      goto retry;
 	    }
 	}
     }
