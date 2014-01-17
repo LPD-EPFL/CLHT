@@ -267,8 +267,8 @@ void*
 ssmem_alloc(ssmem_allocator_t* a, size_t size)
 {
   void* m = NULL;
-  /* 1st try to use from the collected memory */
 
+  /* 1st try to use from the collected memory */
   ssmem_free_set_t* cs = a->collected_set_list;
   if (cs != NULL)
     {
@@ -285,7 +285,7 @@ ssmem_alloc(ssmem_allocator_t* a, size_t size)
     }
   else
     {
-      if (a->mem_curr >= a->mem_size)
+      if ((a->mem_curr + size) >= a->mem_size)
 	{
 	  /* printf("[ALLOC] out of mem, need to allocate\n"); */
 	  a->mem = (void*) memalign(CACHE_LINE_SIZE, a->mem_size);
@@ -353,7 +353,7 @@ ssmem_mem_reclaim(ssmem_allocator_t* a)
 
   int gced_num = 0;
 
-  if (fs_nxt == NULL)
+  if (fs_nxt == NULL)		/* need at least 2 sets to compare */
     {
       return 0;
     }
@@ -380,10 +380,15 @@ ssmem_mem_reclaim(ssmem_allocator_t* a)
 	}
       else
 	{
-	  a->collected_set_list= fs_nxt;
+	  a->collected_set_list = fs_nxt;
 	}
       a->collected_set_num += gced_num;
     }
+
+  /* if (gced_num) */
+  /*   { */
+  /*     printf("//collected %d sets\n", gced_num); */
+  /*   } */
   return gced_num;
 }
 
@@ -492,6 +497,16 @@ ssmem_available_list_print(ssmem_allocator_t* a)
       cur = cur->set_next;
     }
   printf("NULL\n");
+}
+
+/* 
+ *
+ */
+void
+ssmem_all_list_print(ssmem_allocator_t* a, int id)
+{
+  printf("[ALLOC] [%-2d] free_set list: %-4zu / collected_set list: %-4zu\n",
+	 id, a->free_set_num, a->collected_set_num);
 }
 
 /* 
