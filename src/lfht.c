@@ -207,7 +207,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	{
 	  if (likely(bucket->val[i] == val))
 	    {
-	      if (unlikely(empty_index > 0))
+	      if (unlikely(empty_index >= 0))
 		{
 		  bucket->map[empty_index] = MAP_INVLD;
 		}
