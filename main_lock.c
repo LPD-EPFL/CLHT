@@ -720,8 +720,8 @@ main(int argc, char **argv)
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%-10.0f = %.3f M\n", num_threads, throughput, throughput / 1e6);
-    
+  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
+  printf("#Mops %.3f\n", throughput / 1e6);
   /* ht_destroy( hashtable ); */
     
   /* Last thing that main() should do */

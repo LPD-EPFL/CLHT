@@ -722,8 +722,8 @@ main(int argc, char **argv)
   ht_gc_destroy(hashtable);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%-10.0f = %.3f M\n", num_threads, throughput, throughput / 1e6);
-    
+  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
+  printf("#Mops %.3f\n", throughput / 1e6);
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");
