@@ -21,14 +21,10 @@
 #define CACHE_LINE_SIZE    64
 
 #define MAP_INVLD 0
-#define MAP_INSRT 1
-#define MAP_VALID 2
-#define MAP_REMOV 3
+#define MAP_VALID 1
+#define MAP_INSRT 2
 
-/* #define KEY_INVLD  0 */
-#define KEY_BLOCK  -1
-
-#define KEY_BUCKT 6
+#define KEY_BUCKT 3
 #define ENTRIES_PER_BUCKET KEY_BUCKT
 
 
@@ -71,11 +67,11 @@ inline int is_power_of_two(unsigned int x);
 
 typedef uintptr_t hyht_addr_t;
 typedef volatile uintptr_t hyht_val_t;
-typedef volatile uint64_t lfht_snapshot_all_t;
+typedef uint64_t lfht_snapshot_all_t;
 
-typedef volatile union
+typedef union
 {
-  uint64_t snapshot;
+  volatile uint64_t snapshot;
   struct
   {
 #if KEY_BUCKT == 4
@@ -89,27 +85,31 @@ typedef volatile union
   };
 } lfht_snapshot_t;
 
-typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
+_Static_assert (sizeof(lfht_snapshot_t) == 8, "sizeof(lfht_snapshot_t) == 8");
+
+typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   union
   {
-    uint64_t snapshot;
+    volatile uint64_t snapshot;
     struct
     {
 #if KEY_BUCKT == 4
-    uint32_t version;
+      uint32_t version;
 #elif KEY_BUCKT == 6
-    uint16_t version;
+      uint16_t version;
 #else
-    uint32_t version;
+      uint32_t version;
 /* #  error "KEY_BUCKT should be either 4 or 6" */
 #endif
       uint8_t map[KEY_BUCKT];
     };
   };
-  volatile hyht_addr_t key[KEY_BUCKT];
-  volatile hyht_val_t val[KEY_BUCKT];
+  hyht_addr_t key[KEY_BUCKT];
+  hyht_val_t val[KEY_BUCKT];
 } bucket_t;
+
+_Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) lfht_wrapper
 {
@@ -191,12 +191,14 @@ buck_get_empty_index(bucket_t* b, uint64_t snap)
 
 
 static inline int
-vals_get_empty_index(hyht_val_t* vals)
+vals_get_empty_index(hyht_val_t* vals, lfht_snapshot_all_t snap)
 {
+  lfht_snapshot_t s = { .snapshot = snap };
+
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (vals[i] == 0)
+      if (vals[i] == 0 && s.map[i] != MAP_INSRT)
 	{
 	  return i;
 	}
