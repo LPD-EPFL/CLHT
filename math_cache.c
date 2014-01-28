@@ -763,9 +763,9 @@ main(int argc, char **argv)
 #endif
 
   size_t all_total = putting_count_total + getting_count_total + removing_count_total;
-  float throughput = (all_total) * 1000.0 / duration;
+  double throughput = (all_total) * 1000.0 / duration;
   printf("#txs tot (%zu\n", all_total);
-  printf("#txs %-4d(%f\n", num_threads, throughput);
+  printf("#txs %-4d(%10.0f = %.3f M\n", num_threads, throughput, throughput / 1.e6);
     
     
   /* Last thing that main() should do */
