@@ -27,9 +27,9 @@
 #include "sspfd.h"
 
 #if defined(LOCKFREE)
-#include "lfht.h"
+#  include "lfht.h"
 #else
-#include "dht_res.h"
+#  include "dht_res.h"
 #endif
 
 /* #define DETAILED_THROUGHPUT */
@@ -718,8 +718,9 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%f\n", num_threads, throughput);
+
+  double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
+  printf("#txs %d\t(%-10.0f = %.3f M\n", num_threads, throughput, throughput / 1e6);
     
   /* ht_destroy( hashtable ); */
     
