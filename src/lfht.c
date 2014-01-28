@@ -151,7 +151,7 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
       hyht_val_t val = bucket->val[i];
       if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
       	{
-	  if (bucket->val[i] == val)
+	  if (likely(bucket->val[i] == val))
 	    {
 	      return val;
 	    }
@@ -203,9 +203,9 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];
-      if (val && bucket->map[i] == MAP_VALID && bucket->key[i] == key)
+      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
 	{
-	  if (bucket->val[i] == val)
+	  if (likely(bucket->val[i] == val))
 	    {
 	      if (unlikely(empty_index > 0))
 		{
