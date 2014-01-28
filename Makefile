@@ -1,6 +1,9 @@
 ifeq ($(DEBUG),1)
   DEBUG_FLAGS=-Wall -ggdb -DDEBUG
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
+else ifeq ($(DEBUG),2)
+  DEBUG_FLAGS=-Wall
+  COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
 else
   DEBUG_FLAGS=-Wall
   COMPILE_FLAGS=-O3 -DADD_PADDING -DDEBUG
@@ -12,7 +15,7 @@ endif
 
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
 ALL= hyht_mem hyht_mem_lat hyht_res hyht_res_lat math_cache math_cache_lat lfht
-ALL= hyht_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup
+ALL= hyht_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht
 
 LIBS += -lsspfd
 LIBS_MP += -lssmp
@@ -35,6 +38,16 @@ OPTIMIZE=-DOPTERON_OPTIMIZE
 LIBS+= -lrt -lpthread -lm -lnuma
 LIBS_MP+= -lrt -lm -lnuma
 endif
+
+ifeq ($(UNAME), lpdxeon2680)
+PLATFORM=-DXEON2
+GCC=gcc
+PLATFORM_NUMA=1
+OPTIMIZE=
+LIBS+= -lrt -lpthread -lm -lnuma
+LIBS_MP+= -lrt -lm -lnuma
+endif
+
 
 ifeq ($(UNAME), lpdpc4)
 PLATFORM=-DCOREi7
@@ -147,6 +160,19 @@ math_cache: math_cache.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c src/ssmem.c in
 math_cache_lf: math_cache.c $(OBJ_FILES) src/lfht.c src/ssmem.c include/lfht.h include/ssmem.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/lfht.c src/hyht_gc.c src/ssmem.c -o math_cache_lf $(LIBS)
 
+snap_stress: snap_stress.c $(OBJ_FILES) src/lfht.c src/ssmem.c include/lfht.h include/ssmem.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) snap_stress.c src/lfht.c src/hyht_gc.c src/ssmem.c -o snap_stress $(LIBS)
+
+full_stress_lf: full_stress.c $(OBJ_FILES) src/lfht.c src/ssmem.c include/lfht.h include/ssmem.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) full_stress.c src/lfht.c src/hyht_gc.c src/ssmem.c -o full_stress_lf $(LIBS)
+
+math_cache_lf_s: math_cache.c $(OBJ_FILES) src/lfht.c src/ssmem.c include/lfht.h include/ssmem.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/lfht.c src/hyht_gc.c src/ssmem.c $(LIBS) -S
+
+lfht_s_annot: src/lfht.c include/lfht.h
+	$(GCC) -c -g -Wa,-a,-ad -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/lfht.c $(LIBS) > lfht.lst
+
+
 math_cache_lf_dup: math_cache.c $(OBJ_FILES) src/lfht_dup.c src/ssmem.c include/lfht_dup.h include/ssmem.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/lfht_dup.c src/hyht_gc.c src/ssmem.c -o math_cache_lf_dup $(LIBS)
 
@@ -174,4 +200,4 @@ hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
 
 
 clean:				
-	rm -f *.o hyht* math_cache math_cache_lf* math_cache_nogc_lf lfht*
+	rm -f *.o hyht* math_cache math_cache_lf* math_cache_nogc_lf lfht* full_stress_lf snap_stress
