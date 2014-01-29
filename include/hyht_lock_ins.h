@@ -1,5 +1,5 @@
-#ifndef _DHT_RES_H_
-#define _DHT_RES_H_
+#ifndef _HYHT_LOCK_INS_H_
+#define _HYHT_LOCK_INS_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -57,6 +57,8 @@
 
 #define CACHE_LINE_SIZE    64
 #define ENTRIES_PER_BUCKET 3
+
+#define KEY_BLCK -1
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -186,10 +188,8 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-#if defined(XEON) | defined(COREi7) 
+#if defined(XEON) | defined(COREi7) | defined(__tile__)
 #  define TAS_RLS_MFENCE() _mm_sfence();
-#elif defined(__tile__)
-#  define TAS_RLS_MFENCE() _mm_mfence();
 #else
 #  define TAS_RLS_MFENCE()
 #endif
@@ -252,22 +252,6 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
       	}
       _mm_pause();
     }
-
-  if (l == LOCK_RESIZE)
-    {
-      /* helping with the resize */
-#if HYHT_HELP_RESIZE == 1
-      ht_resize_help(h);
-#endif
-
-      while (h->table_new == NULL)
-	{
-	  _mm_mfence();
-	}
-
-      return 0;
-    }
-
   return 1;
 }
 
@@ -375,5 +359,5 @@ bucket_t* create_bucket();
 int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);
 
 
-#endif /* _DHT_RES_H_ */
+#endif /* _HYHT_LOCK_INS_H_ */
 

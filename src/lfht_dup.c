@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "lfht.h"
+#include "lfht_dup.h"
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -55,7 +55,6 @@ create_bucket()
   uint32_t j;
   for (j = 0; j < KEY_BUCKT; j++)
     {
-      bucket->snapshot = 0;
       bucket->key[j] = 0;
     }
 
@@ -105,7 +104,7 @@ ht_create(uint32_t num_buckets)
       return NULL;
     }
 
-  memset((void*) hashtable->table, 0, num_buckets * (sizeof(bucket_t)));
+  memset(hashtable->table, 0, num_buckets * (sizeof(bucket_t)));
     
   uint32_t i;
   for (i = 0; i < num_buckets; i++)
@@ -113,7 +112,6 @@ ht_create(uint32_t num_buckets)
       uint32_t j;
       for (j = 0; j < ENTRIES_PER_BUCKET; j++)
 	{
-	  hashtable->table[i].snapshot = 0;
 	  hashtable->table[i].key[j] = 0;
 	}
     }
@@ -138,16 +136,20 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 
-static inline hyht_val_t
-lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
+/* Retrieve a key-value entry from a hash table. */
+hyht_val_t
+ht_get(hashtable_t* hashtable, hyht_addr_t key)
 {
+  size_t bin = ht_hash(hashtable, key);
+  bucket_t* bucket = hashtable->table + bin;
+
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];
-      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
-      	{
-	  if (likely(bucket->val[i] == val))
+      if (bucket->key[i] == key)
+	{
+	  if (bucket->val[i] == val)
 	    {
 	      return val;
 	    }
@@ -157,29 +159,17 @@ lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
 	    }
 	}
     }
+
   return 0;
 }
 
 
-/* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
-{
-  size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-
-  return lfht_bucket_search(bucket, key);
-}
-
-
-
-__thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, num_retry_cas4 = 0, num_retry_cas5 = 0;
+__thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0;
 
 void
 ht_print_retry_stats()
 {
-  printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu / #cas4: %-8zu\n",
-	 num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4);
+  printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu\n", num_retry_cas1, num_retry_cas2, num_retry_cas3);
 }
 
 #define DO_LF_STATS 0
@@ -197,53 +187,36 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
+  volatile bucket_t* bucket = hashtable->table + bin;
 
-  int empty_index = -2;
-  lfht_snapshot_all_t s, s1;
+  int i;
 
  retry:
-  s = bucket->snapshot;
-
-  if (lfht_bucket_search(bucket, key) != 0)
+  for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (unlikely(empty_index >= 0))
-	{
-	  bucket->map[empty_index] = MAP_INVLD;
-	}
-      return false;
+      if (bucket->key[i] == key)
+  	{
+  	  return false;
+  	}
     }
 
-  if (likely(empty_index < 0))
+  int empty_index = keys_get_empty_index(bucket->key);
+  if (empty_index < 0)
     {
-      empty_index = snap_get_empty_index(s);
-      if (empty_index < 0)
-	{
-	  goto retry;
-	}
-      s1 = snap_set_map(s, empty_index, MAP_INSRT);
-      if (CAS_U64(&bucket->snapshot, s, s1) != s)
-	{
-	  empty_index = -2;
-	  INC(num_retry_cas1);
-	  goto retry;
-	}
-  
-      bucket->val[empty_index] = val;
-      bucket->key[empty_index] = key;
-    }
-  else
-    {
-      s1 = snap_set_map(s, empty_index, MAP_INSRT);
-    }
-
-  lfht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
-  if (CAS_U64(&bucket->snapshot, s1, s2) != s1)
-    {
-      INC(num_retry_cas2);
+      /* printf("** no space in the bucket\n"); */
+      /* return 0; */
       goto retry;
     }
 
+  if (CAS_U64(&bucket->key[empty_index], KEY_NULL, KEY_BLCK) != KEY_NULL)
+    {
+      INC(num_retry_cas1);
+      goto retry;
+    }
+  
+  bucket->val[empty_index] = val;
+  bucket->key[empty_index] = key;
+  
   return true;
 }
 
@@ -254,27 +227,18 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-
-  lfht_snapshot_t s;
+  volatile bucket_t* bucket = hashtable->table + bin;
 
   int i;
- retry:
-  s.snapshot = bucket->snapshot;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (bucket->key[i] == key && s.map[i] == MAP_VALID)
+      if (bucket->key[i] == key)
 	{
-	  hyht_val_t removed = bucket->val[i];
-	  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
-	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
+	  if (CAS_U64(&bucket->key[i], key, KEY_BLCK) == key)
 	    {
+	      hyht_val_t removed = bucket->val[i];
+	      bucket->key[i] = KEY_NULL;
 	      return removed;
-	    }
-	  else
-	    {
-	      INC(num_retry_cas3);
-	      goto retry;
 	    }
 	}
     }
@@ -285,7 +249,7 @@ size_t
 ht_size(hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
-  bucket_t* bucket = NULL;
+  volatile bucket_t* bucket = NULL;
   size_t size = 0;
 
   uint32_t bin;
@@ -295,7 +259,7 @@ ht_size(hashtable_t* hashtable)
       int i;
       for (i = 0; i < KEY_BUCKT; i++)
 	{
-	  if (bucket->key[i] != 0  && bucket->map[i] == MAP_VALID)
+	  if (bucket->key[i] != 0  && bucket->key[i] != KEY_BLCK)
 	    {
 	      size++;
 	    }
@@ -309,7 +273,7 @@ void
 ht_print(hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
-  bucket_t* bucket;
+  volatile bucket_t* bucket;
 
   printf("Number of buckets: %u\n", num_buckets);
 
@@ -326,7 +290,7 @@ ht_print(hashtable_t* hashtable)
 	  for (j = 0; j < ENTRIES_PER_BUCKET; j++)
 	    {
 	      if (bucket->key[j])
-		{
+	      	{
 		  printf("(%-5llu/%p)-> ", (long long unsigned int) bucket->key[j], (void*) bucket->val[j]);
 		}
 	    }

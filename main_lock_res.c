@@ -24,7 +24,9 @@
 #  include <sys/procset.h>
 #endif
 
-#include "sspfd.h"
+#if defined(USE_SSPFD)
+#   include "sspfd.h"
+#endif
 #include "dht_res.h"
 #include "mcore_malloc.h"
 
@@ -721,9 +723,9 @@ main(int argc, char **argv)
 
   ht_gc_destroy(hashtable);
 
-  float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%f\n", num_threads, throughput);
-    
+  double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
+  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
+  printf("#Mops %.3f\n", throughput / 1e6);
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");

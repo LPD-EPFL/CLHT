@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "lfht.h"
+#include "lfht_only_map_rem.h"
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -138,14 +138,18 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 
-static inline hyht_val_t
-lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
+/* Retrieve a key-value entry from a hash table. */
+hyht_val_t
+ht_get(hashtable_t* hashtable, hyht_addr_t key)
 {
+  size_t bin = ht_hash(hashtable, key);
+  bucket_t* bucket = hashtable->table + bin;
+
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];
-      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
+      if (bucket->map[i] >= MAP_VALID && bucket->key[i] == key)
       	{
 	  if (likely(bucket->val[i] == val))
 	    {
@@ -157,18 +161,8 @@ lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
 	    }
 	}
     }
+
   return 0;
-}
-
-
-/* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
-{
-  size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-
-  return lfht_bucket_search(bucket, key);
 }
 
 
@@ -200,21 +194,29 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   bucket_t* bucket = hashtable->table + bin;
 
   int empty_index = -2;
-  lfht_snapshot_all_t s, s1;
+  lfht_snapshot_all_t s, s1, s2;
 
  retry:
   s = bucket->snapshot;
 
-  if (lfht_bucket_search(bucket, key) != 0)
+  int i;
+  for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (unlikely(empty_index >= 0))
+      hyht_val_t val = bucket->val[i];
+      if (bucket->map[i] >= MAP_VALID && bucket->key[i] == key)
 	{
-	  bucket->map[empty_index] = MAP_INVLD;
+	  if (likely(bucket->val[i] == val))
+	    {
+	      if (unlikely(empty_index >= 0))
+		{
+		  bucket->map[empty_index] = MAP_INVLD;
+		}
+	      return false;
+	    }
 	}
-      return false;
     }
 
-  if (likely(empty_index < 0))
+  if (empty_index < 0)
     {
       empty_index = snap_get_empty_index(s);
       if (empty_index < 0)
@@ -237,7 +239,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
       s1 = snap_set_map(s, empty_index, MAP_INSRT);
     }
 
-  lfht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
+
+  s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
   if (CAS_U64(&bucket->snapshot, s1, s2) != s1)
     {
       INC(num_retry_cas2);
@@ -256,25 +259,29 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
-  lfht_snapshot_t s;
-
   int i;
- retry:
-  s.snapshot = bucket->snapshot;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      if (bucket->key[i] == key && s.map[i] == MAP_VALID)
+      hyht_val_t val = bucket->val[i];
+      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
 	{
-	  hyht_val_t removed = bucket->val[i];
-	  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
-	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
+	  if (likely(bucket->val[i] == val))
 	    {
-	      return removed;
-	    }
-	  else
-	    {
-	      INC(num_retry_cas3);
-	      goto retry;
+	      if (CAS_U8(&bucket->map[i], MAP_VALID, MAP_REMOV) == MAP_VALID)
+		{
+		  if (bucket->key[i] == key)
+		    {
+		      val = bucket->val[i];
+		      bucket->map[i] = MAP_INVLD;
+		      return val;
+		    }
+		  else
+		    {
+		      bucket->map[i] = MAP_VALID;
+		    }
+		}
+
+	      return 0;
 	    }
 	}
     }
