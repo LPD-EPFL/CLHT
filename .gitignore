@@ -81,6 +81,7 @@
 /math_cache_lat
 /math_cache_lf
 /math_cache_lf_dup
+/math_cache_lock_ins
 /math_cache_nogc_lf
 /mcore_malloc.o
 /mcore_malloc_mp.o

@@ -14,7 +14,7 @@ MC=-DMEASURE_CONTENTION
 endif
 
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
-ALL= hyht_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht lfht_only_map_rem lfht_dup
+ALL= hyht_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht lfht_only_map_rem lfht_dup hyht_lock_ins
 
 LIBS += -lsspfd
 LIBS_MP += -lssmp
@@ -144,6 +144,8 @@ hyht_res: main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_r
 lfht: main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/lfht.c -o lfht $(LIBS)
 
+hyht_lock_ins: main_lock.c $(OBJ_FILES) src/hyht_lock_ins.c include/hyht_lock_ins.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/hyht_lock_ins.c -o hyht_lock_ins $(LIBS)
 
 lfht_dup: main_lock.c $(OBJ_FILES) src/lfht_dup.c include/lfht_dup.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/lfht_dup.c -o lfht_dup $(LIBS)
@@ -186,6 +188,8 @@ lfht_s_annot: src/lfht.c include/lfht.h
 math_cache_lf_dup: math_cache.c $(OBJ_FILES) src/lfht_dup.c src/ssmem.c include/lfht_dup.h include/ssmem.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/lfht_dup.c src/hyht_gc.c src/ssmem.c -o math_cache_lf_dup $(LIBS)
 
+math_cache_lock_ins: math_cache.c $(OBJ_FILES) src/hyht_lock_ins.c src/ssmem.c include/hyht_lock_ins.h include/ssmem.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache.c src/hyht_lock_ins.c src/hyht_gc.c src/ssmem.c -o math_cache_lock_ins $(LIBS)
 
 math_cache_nogc_lf: math_cache_no_gc.c $(OBJ_FILES) src/lfht.c src/ssmem.c include/lfht.h include/ssmem.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) math_cache_no_gc.c src/lfht.c src/hyht_gc.c src/ssmem.c -o math_cache_nogc_lf $(LIBS)
