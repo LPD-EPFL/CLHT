@@ -176,7 +176,7 @@ ht_print_retry_stats()
 	 num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4);
 }
 
-#define DO_LF_STATS 1
+#define DO_LF_STATS 0
 
 #if DO_LF_STATS == 1
 #  define INC(x) x++
@@ -259,11 +259,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
-  /* lfht_snapshot_t s; */
-
   int i;
- /* retry: */
-  /* s.snapshot = bucket->snapshot; */
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];

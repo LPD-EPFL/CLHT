@@ -138,13 +138,9 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 
-/* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
+static inline hyht_val_t
+lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
 {
-  size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
@@ -161,8 +157,18 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 	    }
 	}
     }
-
   return 0;
+}
+
+
+/* Retrieve a key-value entry from a hash table. */
+hyht_val_t
+ht_get(hashtable_t* hashtable, hyht_addr_t key)
+{
+  size_t bin = ht_hash(hashtable, key);
+  bucket_t* bucket = hashtable->table + bin;
+
+  return lfht_bucket_search(bucket, key);
 }
 
 
@@ -176,7 +182,7 @@ ht_print_retry_stats()
 	 num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4);
 }
 
-#define DO_LF_STATS 1
+#define DO_LF_STATS 0
 
 #if DO_LF_STATS == 1
 #  define INC(x) x++
@@ -194,29 +200,21 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   bucket_t* bucket = hashtable->table + bin;
 
   int empty_index = -2;
-  lfht_snapshot_all_t s, s1, s2;
+  lfht_snapshot_all_t s, s1;
 
  retry:
   s = bucket->snapshot;
 
-  int i;
-  for (i = 0; i < KEY_BUCKT; i++)
+  if (lfht_bucket_search(bucket, key) != 0)
     {
-      hyht_val_t val = bucket->val[i];
-      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
+      if (unlikely(empty_index >= 0))
 	{
-	  if (likely(bucket->val[i] == val))
-	    {
-	      if (unlikely(empty_index >= 0))
-		{
-		  bucket->map[empty_index] = MAP_INVLD;
-		}
-	      return false;
-	    }
+	  bucket->map[empty_index] = MAP_INVLD;
 	}
+      return false;
     }
 
-  if (empty_index < 0)
+  if (likely(empty_index < 0))
     {
       empty_index = snap_get_empty_index(s);
       if (empty_index < 0)
@@ -239,8 +237,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
       s1 = snap_set_map(s, empty_index, MAP_INSRT);
     }
 
-
-  s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
+  lfht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
   if (CAS_U64(&bucket->snapshot, s1, s2) != s1)
     {
       INC(num_retry_cas2);

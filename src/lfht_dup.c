@@ -172,7 +172,7 @@ ht_print_retry_stats()
   printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu\n", num_retry_cas1, num_retry_cas2, num_retry_cas3);
 }
 
-#define DO_LF_STATS 1
+#define DO_LF_STATS 0
 
 #if DO_LF_STATS == 1
 #  define INC(x) x++
