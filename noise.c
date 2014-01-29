@@ -2,6 +2,8 @@
 #include <assert.h>
 
 int core = 0;
+int direct = 0;
+
 
 typedef struct thd
 {
@@ -15,6 +17,11 @@ test(void* d)
   thd_t* td = (thd_t*) d;
   int id = td->id;
   int my_core = the_cores[core + td->core];
+  if (direct)
+    {
+      my_core = core + td->core;
+    }
+
   printf("[%-2d] running on core %d\n", id, my_core);
   set_cpu(my_core);
 
@@ -52,8 +59,12 @@ main(int a, char** v)
     {
       per_core = atoi(v[2]);
     }
+  if (a > 3)
+    {
+      direct = 1;
+    }
 
-  printf("# num of threads: %d / threads per core: %d\n", num_threads, per_core);
+  printf("# num of threads: %d / threads per core: %d / direct placement: %d\n", num_threads, per_core, direct);
 
 
   pthread_t threads[num_threads];
