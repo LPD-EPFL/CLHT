@@ -24,7 +24,7 @@
 #  include <sys/procset.h>
 #endif
 
-#include "sspfd.h"
+/* #include "sspfd.h" */
 #include "dht_res.h"
 #include "ssmem.h"
 
@@ -316,6 +316,9 @@ test(void* thread)
 	  obj[1] = key_1;
 	  obj[2] = key_2;
 	  obj[3] = key_3;
+#if defined(__tile__)
+	  _mm_sfence();
+#endif
 	  res = ht_put(hashtable, key, (hyht_val_t) obj);
 	  END_TS(1, my_putting_count);
 	  if(res)
