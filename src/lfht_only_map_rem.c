@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "lfht.h"
+#include "lfht_only_map_rem.h"
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
