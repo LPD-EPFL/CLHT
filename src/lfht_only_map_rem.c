@@ -267,7 +267,11 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	{
 	  if (likely(bucket->val[i] == val))
 	    {
+#if !defined(__tile__)
 	      if (CAS_U8(&bucket->map[i], MAP_VALID, MAP_REMOV) == MAP_VALID)
+#else  /* tilera does not support atomic ops on bytes */
+#  warning "Tilera does not support atomic ops on bytes"
+#endif
 		{
 		  if (bucket->key[i] == key)
 		    {

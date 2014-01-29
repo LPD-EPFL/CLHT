@@ -375,7 +375,7 @@ test(void* thread)
 #endif
 
 #if defined(LOCKFREE)
-  ht_print_retry_stats();
+  /* ht_print_retry_stats(); */
 #endif
     
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
