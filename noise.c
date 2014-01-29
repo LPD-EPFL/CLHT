@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <assert.h>
 
 int core = 0;
 
