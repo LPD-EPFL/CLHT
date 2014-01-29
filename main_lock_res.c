@@ -24,7 +24,9 @@
 #  include <sys/procset.h>
 #endif
 
-#include "sspfd.h"
+#if defined(USE_SSPFD)
+#   include "sspfd.h"
+#endif
 #include "dht_res.h"
 #include "mcore_malloc.h"
 

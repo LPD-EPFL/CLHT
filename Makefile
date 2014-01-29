@@ -10,13 +10,13 @@ else
 endif
 
 ifeq ($(M),1)
-MC=-DMEASURE_CONTENTION
+LIBS += -lsspfd
+COMPILE_FLAGS += -DUSE_SSPFD
 endif
 
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
 ALL= hyht_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht lfht_only_map_rem lfht_dup
 
-LIBS += -lsspfd
 LIBS_MP += -lssmp
 
 # default setings

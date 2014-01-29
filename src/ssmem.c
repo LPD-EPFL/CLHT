@@ -6,6 +6,7 @@
  */
 #include "ssmem.h"
 #include <malloc.h>
+#include <assert.h>
 
 ssmem_ts_t* ssmem_ts_list = NULL;
 volatile uint32_t ssmem_ts_list_len = 0;
