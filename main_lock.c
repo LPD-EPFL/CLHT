@@ -301,7 +301,7 @@ test(void* thread)
 	}
     }
 
-  ht_print_retry_stats();
+  /* ht_print_retry_stats(); */
         
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
