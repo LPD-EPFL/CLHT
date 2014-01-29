@@ -186,8 +186,10 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-#if defined(XEON) | defined(COREi7) | defined(__tile__)
+#if defined(XEON) | defined(COREi7) 
 #  define TAS_RLS_MFENCE() _mm_sfence();
+#elif defined(__tile__)
+#  define TAS_RLS_MFENCE() _mm_mfence();
 #else
 #  define TAS_RLS_MFENCE()
 #endif
