@@ -69,6 +69,8 @@
 /latency_ttas
 /lf-ht
 /lfht
+/lfht_only_map_rem
+/lfht_s
 /main_lock.c~
 /math_cache
 /math_cache_lat
