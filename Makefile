@@ -213,5 +213,8 @@ hylzht: main_lock.c $(OBJ_FILES) src/hylzht.c include/hylzht.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/hylzht.c  -o hylzht $(LIBS)
 
 
+noise: noise.c
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) noise.c -o noise $(LIBS)
+
 clean:				
 	rm -f *.o hyht* math_cache math_cache_lf* math_cache_nogc_lf lfht* full_stress_lf snap_stress

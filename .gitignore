@@ -86,6 +86,7 @@
 /mcore_malloc.o
 /mcore_malloc_mp.o
 /mcs.o
+/noise
 /o
 /perf.sh
 /perf.sh~
