@@ -10,8 +10,8 @@ do
     r=$((2*$i));
     for u in $updates;
     do
-	params="-i$i -u$u      -r$r -d$duration";
+	params="-i$i -u$u      -b$i -r$r -d$duration";
 	echo "## PARAMS: $params";
-	./scripts/scalability4.sh socket hyht lfht_dup lfht lfht_only_map_rem $params;
+	./scripts/scalability5.sh socket hyht lfht_dup lfht3 lfht6 lfht_only_map_rem $params;
     done;
 done;
