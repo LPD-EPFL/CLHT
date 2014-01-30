@@ -520,7 +520,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
     }
 
   
-  SWAP_U64((uintptr_t*) h, (uintptr_t*) ht_new);
+  SWAP_U64((uint64_t*) h, (uint64_t) ht_new);
   ht_old->table_new = ht_new;
   TRYLOCK_RLS(h->resize_lock);
 
