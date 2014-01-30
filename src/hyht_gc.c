@@ -77,7 +77,7 @@ ht_gc_collect_all(hyht_wrapper_t* hashtable)
  * version that is currently used. In other words, all versions, less
  * than the returned value, can be GCed
  */
-static inline size_t
+size_t
 ht_gc_min_version_used(hyht_wrapper_t* h)
 {
   volatile ht_ts_t* cur = h->version_list;

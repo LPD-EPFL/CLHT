@@ -27,7 +27,12 @@
 #if defined(USE_SSPFD)
 #   include "sspfd.h"
 #endif
-#include "dht_res.h"
+
+#if defined(LOCKFREE_RES)
+#  include "lfht_res.h"
+#else
+#  include "dht_res.h"
+#endif
 #include "mcore_malloc.h"
 
 
@@ -164,6 +169,8 @@ typedef struct thread_data
   hyht_wrapper_t* ht;
 } thread_data_t;
 
+volatile uint32_t ntr = 0;
+
 void*
 test(void* thread) 
 {
@@ -226,6 +233,15 @@ test(void* thread)
     }
   MEM_BARRIER;
 
+#if defined(LOCKFREE_RES)
+  /* sort barrier */
+  FAI_U32(&ntr);
+  do
+    {
+      LFHT_GC_HT_VERSION_USED(hashtable->ht);
+    }
+  while (ntr != num_threads);
+#endif
   barrier_cross(&barrier);
 
 #if defined(DEBUG)
@@ -715,13 +731,14 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
+#if !defined(LOCKFREE_RES)
   kb = ht_size_mem_garbage(hashtable->ht) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
   ht_status(hashtable, 0, 1);
-
   ht_gc_destroy(hashtable);
+#endif
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %d\t(%-10.0f\n", num_threads, throughput);

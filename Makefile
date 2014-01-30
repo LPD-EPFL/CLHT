@@ -144,6 +144,9 @@ hyht_res: main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_r
 lfht: main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/lfht.c -o lfht $(LIBS)
 
+lfht_res: main_lock_res.c $(OBJ_FILES) src/lfht_res.c include/lfht_res.h src/hyht_gc.c
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE_RES  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/lfht_res.c src/hyht_gc.c -o lfht_res $(LIBS)
+
 hyht_lock_ins: main_lock.c $(OBJ_FILES) src/hyht_lock_ins.c include/hyht_lock_ins.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/hyht_lock_ins.c -o hyht_lock_ins $(LIBS)
 

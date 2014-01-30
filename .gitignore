@@ -6,6 +6,7 @@
 /.gitignore~
 /.nfs00000000083a09c60000001a
 /.nfs00000000084a0ac40000008e
+/.nfs00000000084a10480000000e
 /.nfs00000000084a10c300000011
 /.nfs00000000084a10ce0000008d
 /.nfs00000000084a15a900000003
@@ -75,6 +76,7 @@
 /lfht6
 /lfht_dup
 /lfht_only_map_rem
+/lfht_res
 /lfht_s
 /main_lock.c~
 /math_cache

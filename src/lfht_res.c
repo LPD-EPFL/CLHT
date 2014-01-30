@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "lfht.h"
+#include "lfht_res.h"
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -75,6 +75,14 @@ hyht_wrapper_create(uint32_t num_buckets)
     }
 
   w->ht = ht_create(num_buckets);
+
+  w->resize_lock = 0;
+  w->gc_lock = 0;
+  w->status_lock = 0;
+  w->version_list = NULL;
+  w->version_min = 0;
+  w->ht_oldest = w->ht;
+
   return w;
 }
 
@@ -121,6 +129,9 @@ ht_create(uint32_t num_buckets)
   hashtable->num_buckets = num_buckets;
   hashtable->hash = num_buckets - 1;
 
+  hashtable->table_new = NULL;
+  hashtable->table_prev = NULL;
+
   return hashtable;
 }
 
@@ -165,6 +176,7 @@ lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
 hyht_val_t
 ht_get(hashtable_t* hashtable, hyht_addr_t key)
 {
+  LFHT_GC_HT_VERSION_USED(hashtable);
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
@@ -195,6 +207,9 @@ ht_print_retry_stats()
 int
 ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
 {
+  int empty_retries = 0;
+ retry_all:
+  LFHT_CHECK_RESIZE(h);
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
@@ -219,7 +234,15 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
       empty_index = snap_get_empty_index(s);
       if (empty_index < 0)
 	{
-	  goto retry;
+	  if (empty_retries++ >= 2)
+	    {
+	      empty_retries = 0;
+	      if (LFHT_LOCK_RESIZE(h))
+		{
+		  ht_resize_pes(h, 1, 2);
+		}
+	    }
+	  goto retry_all;
 	}
       s1 = snap_set_map(s, empty_index, MAP_INSRT);
       if (CAS_U64(&bucket->snapshot, s, s1) != s)
@@ -252,6 +275,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 hyht_val_t
 ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 {
+  LFHT_CHECK_RESIZE(h);
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
@@ -280,6 +304,125 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
     }
   return 0;
 }
+
+
+static uint32_t
+ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin) 
+{
+  volatile bucket_t* bucket = hashtable->table + bin;
+  uint32_t j;
+  for (j = 0; j < KEY_BUCKT; j++) 
+    {
+      if (bucket->key[j] == 0)
+	{
+	  bucket->val[j] = val;
+	  bucket->key[j] = key;
+	  bucket->map[j] = MAP_VALID;
+	  return true;
+	}
+    }
+
+  printf("[LFHT] even the new ht does not have space (bucket %d) \n", bin);
+  return false;
+}
+
+static int
+bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
+{
+  uint32_t j;
+  for (j = 0; j < KEY_BUCKT; j++) 
+    {
+      if (bucket->map[j] == MAP_VALID)
+	{
+	  hyht_addr_t key = bucket->key[j];
+	  uint32_t bin = ht_hash(ht_new, key);
+	  ht_put_seq(ht_new, key, bucket->val[j], bin);
+	}
+    }
+
+  return 1;
+}
+
+
+/* resizing */
+int 
+ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
+{
+  ticks s = getticks();
+
+  hashtable_t* ht_old = h->ht;
+
+  size_t num_buckets_new;
+  if (is_increase == true)
+    {
+      num_buckets_new = by * ht_old->num_buckets;
+    }
+  else
+    {
+      num_buckets_new = ht_old->num_buckets / 2;
+    }
+
+  hashtable_t* ht_new = ht_create(num_buckets_new);
+  
+  size_t cur_version = ht_old->version;
+  ht_old->version++;
+
+  LFHT_GC_HT_VERSION_USED(ht_old);
+
+  size_t version_min;
+  do
+    {
+      version_min = ht_gc_min_version_used(h);
+    }
+  while(cur_version >= version_min);
+
+  ht_new->version = cur_version + 2;
+
+  int32_t b;
+  for (b = 0; b < ht_old->num_buckets; b++)
+    {
+      bucket_t* bu_cur = ht_old->table + b;
+      bucket_cpy(bu_cur, ht_new);
+    }
+
+#if defined(DEBUG)
+  if (ht_size(ht_old) != ht_size(ht_new))
+    {
+      printf("**ht_size(ht_old) = %zu != ht_size(ht_new) = %zu\n", ht_size(ht_old), ht_size(ht_new));
+    }
+#endif
+
+  ht_new->table_prev = ht_old;
+
+  /* int ht_resize_again = 0; */
+  /* if (ht_new->num_expands >= ht_new->num_expands_threshold) */
+  /*   { */
+  /*     /\* printf("--problem: have already %u expands\n", ht_new->num_expands); *\/ */
+  /*     ht_resize_again = 1; */
+  /*     /\* ht_new->num_expands_threshold = ht_new->num_expands + 1; *\/ */
+  /*   } */
+
+  
+  SWAP_U64((uint64_t*) h, (uint64_t) ht_new);
+  ht_old->table_new = ht_new;
+
+  LFHT_RLS_RESIZE(h);
+
+  ticks e = getticks() - s;
+  printf("[RESIZE-%02d] to #bu %7zu    | took: %13llu ti = %8.6f s\n", 
+	 0, ht_new->num_buckets, (unsigned long long) e, e / 2.1e9);
+
+  /* ht_gc_collect(h); */
+
+  /* if (ht_resize_again) */
+  /*   { */
+  /*     ht_status(h, 1, 0); */
+  /*   } */
+
+  return 1;
+}
+
+
 
 size_t
 ht_size(hashtable_t* hashtable)
