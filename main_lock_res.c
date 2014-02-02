@@ -224,7 +224,7 @@ test(void* thread)
     
   for(i = 0; i < num_elems_thread; i++) 
     {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
       if(!ht_put(hashtable, key, key*key))
 	{
@@ -495,7 +495,7 @@ main(int argc, char **argv)
       initial = initial_pow2;
     }
 
-  if (range <= initial)
+  if (range < initial)
     {
       range = 2 * initial;
     }
@@ -516,6 +516,8 @@ main(int argc, char **argv)
       num_buckets = num_buckets_pow2;
       initial = pow2roundup(initial);
     }
+
+  printf("## Initial: %zu / Range: %zu\n", initial, range);
 
   double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
@@ -632,18 +634,18 @@ main(int argc, char **argv)
 
   free(tds);
     
-  volatile ticks putting_suc_total = 1;
-  volatile ticks putting_fal_total = 1;
-  volatile ticks getting_suc_total = 1;
-  volatile ticks getting_fal_total = 1;
-  volatile ticks removing_suc_total = 1;
-  volatile ticks removing_fal_total = 1;
-  volatile uint64_t putting_count_total = 1;
-  volatile uint64_t putting_count_total_succ = 2;
-  volatile uint64_t getting_count_total = 1;
-  volatile uint64_t getting_count_total_succ = 2;
-  volatile uint64_t removing_count_total = 1;
-  volatile uint64_t removing_count_total_succ = 2;
+  volatile ticks putting_suc_total = 0;
+  volatile ticks putting_fal_total = 0;
+  volatile ticks getting_suc_total = 0;
+  volatile ticks getting_fal_total = 0;
+  volatile ticks removing_suc_total = 0;
+  volatile ticks removing_fal_total = 0;
+  volatile uint64_t putting_count_total = 0;
+  volatile uint64_t putting_count_total_succ = 0;
+  volatile uint64_t getting_count_total = 0;
+  volatile uint64_t getting_count_total_succ = 0;
+  volatile uint64_t removing_count_total = 0;
+  volatile uint64_t removing_count_total_succ = 0;
     
   for(t=0; t < num_threads; t++) 
     {
@@ -661,43 +663,19 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
-  if(putting_count_total == 0) 
-    {
-      putting_suc_total = 0;
-      putting_fal_total = 0;
-      putting_count_total = 1;
-      putting_count_total_succ = 2;
-    }
-    
-  if(getting_count_total == 0) 
-    {
-      getting_suc_total = 0;
-      getting_fal_total = 0;
-      getting_count_total = 1;
-      getting_count_total_succ = 2;
-    }
-    
-  if(removing_count_total == 0) 
-    {
-      removing_suc_total = 0;
-      removing_fal_total = 0;
-      removing_count_total = 1;
-      removing_count_total_succ = 2;
-    }
-    
 #if !defined(COMPUTE_THROUGHPUT)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
+
+  long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
+  long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
+  long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
+  long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
+  long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
+  long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
   printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-	 num_threads,
-	 getting_suc_total / getting_count_total_succ,
-	 getting_fal_total / (getting_count_total - getting_count_total_succ),
-	 putting_suc_total / putting_count_total_succ,
-	 putting_fal_total / (putting_count_total - putting_count_total_succ),
-	 removing_suc_total / removing_count_total_succ,
-	 removing_fal_total / (removing_count_total - removing_count_total_succ)
-	 );
+	 num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
 
     
