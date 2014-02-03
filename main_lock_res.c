@@ -169,8 +169,6 @@ typedef struct thread_data
   hyht_wrapper_t* ht;
 } thread_data_t;
 
-volatile uint32_t ntr = 0;
-
 void*
 test(void* thread) 
 {
@@ -715,7 +713,7 @@ main(int argc, char **argv)
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
   ht_status(hashtable, 0, 1);
-  ht_gc_destroy(hashtable);
+  /* ht_gc_destroy(hashtable); */
 #endif
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;

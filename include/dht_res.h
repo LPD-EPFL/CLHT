@@ -107,10 +107,13 @@ typedef volatile uint8_t hyht_lock_t;
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   hyht_lock_t lock;
+  volatile uint32_t hops;
   hyht_addr_t key[ENTRIES_PER_BUCKET];
   hyht_val_t val[ENTRIES_PER_BUCKET];
   volatile struct bucket_s* next;
 } bucket_t;
+
+_Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
