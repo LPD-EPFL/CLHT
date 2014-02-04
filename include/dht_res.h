@@ -31,11 +31,6 @@
 #define HYHT_USE_RTM          0
 #endif
 
-#define HYHT_LINKED_PERC_FULL_DOUBLE  75
-#define HYHT_LINKED_MAX_AVG_EXPANSION 1
-#define HYHT_LINKED_MAX_EXPANSIONS    8
-
-
 #if HYHT_DO_CHECK_STATUS == 1
 #  define HYHT_CHECK_STATUS(h)				\
   if (unlikely((--check_ht_status_steps) == 0))		\
@@ -49,10 +44,19 @@
 #endif
 
 #if HYHT_DO_GC == 1
-#  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
+#  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version((hashtable_t*) ht)
 #else
 #  define HYHT_GC_HT_VERSION_USED(ht)
 #endif
+
+
+/* HYHT LINKED version specific parameters */
+#define HYHT_LINKED_PERC_FULL_DOUBLE       75
+#define HYHT_LINKED_MAX_AVG_EXPANSION      1
+#define HYHT_LINKED_MAX_EXPANSIONS         7
+#define HYHT_LINKED_MAX_EXPANSIONS_HARD    16
+#define HYHT_LINKED_EMERGENCY_RESIZE       4 /* how many times to increase the size on emergency */
+/* *************************************** */
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -155,7 +159,11 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       struct hashtable_s* table_prev;
       struct hashtable_s* table_new;
       volatile uint32_t num_expands;
-      volatile uint32_t num_expands_threshold;
+      union
+      {
+	volatile uint32_t num_expands_threshold;
+	uint32_t num_buckets_prev;
+      };
       volatile int32_t is_helper;
       volatile int32_t helper_done;
       size_t version_min;
@@ -379,8 +387,12 @@ int ht_gc_free(hashtable_t* hashtable);
 void ht_gc_destroy(hyht_wrapper_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
+#if defined(HYHT_LINKED)
+/* emergency_increase, grabs the lock and forces an increase by *emergency_increase times */
+size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
+#else
 size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
-
+#endif
 bucket_t* create_bucket();
 int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);
 
