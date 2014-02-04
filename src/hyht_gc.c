@@ -167,6 +167,8 @@ ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
 int
 ht_gc_free(hashtable_t* hashtable)
 {
+  /* the HYHT_LINKED version does not allocate any extra buckets! */
+#if !defined(HYHT_LINKED)
   uint32_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
 
@@ -182,6 +184,7 @@ ht_gc_free(hashtable_t* hashtable)
 	  free((void*) cur);
 	}
     }
+#endif
 
   free(hashtable->table);
   free(hashtable);

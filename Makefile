@@ -142,7 +142,10 @@ hyht_res: main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_r
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_res.c src/hyht_gc.c -o hyht $(LIBS)
 
 hyht_linked: main_lock_res.c $(OBJ_FILES) src/dht_linked.c src/hyht_gc.c include/dht_res.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_linked.c src/hyht_gc.c -o hyht_linked $(LIBS)
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DHYHT_LINKED  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_linked.c src/hyht_gc.c -o hyht_linked $(LIBS)
+
+hyht_linked_lat: main_lock_res.c $(OBJ_FILES) src/dht_linked.c src/hyht_gc.c include/dht_res.h
+	$(GCC) -D_GNU_SOURCE -DHYHT_LINKED  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock_res.c src/dht_linked.c src/hyht_gc.c -o hyht_linked_lat $(LIBS)
 
 lfht: main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) main_lock.c src/lfht.c -o lfht $(LIBS)

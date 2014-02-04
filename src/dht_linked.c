@@ -163,8 +163,8 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
   HYHT_GC_HT_VERSION_USED(hashtable);
   volatile bucket_t* bucket = hashtable->table + bin;
 
-  uint32_t j, hops = bucket->hops;
-  do 
+  uint32_t j, h, hops = bucket->hops;
+  for (h = 0; h <= hops; h++, bucket++)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
@@ -181,8 +181,6 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 		}
 	    }
 	}
-
-      bucket = bucket->next;
     } while (hops-- > 0);
   return 0;
 }
@@ -190,8 +188,8 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 static inline int
 bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
 {
-  int32_t j, hops = bucket->hops;
-  do 
+  uint32_t j, h, hops = bucket->hops;
+  for (h = 0; h <= hops; h++, bucket++)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++)
       	{
@@ -200,8 +198,7 @@ bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
       	      return true;
       	    }
       	}
-      bucket = bucket->next;
-    } while (hops-- > 0);
+    }
   return false;
 }
 
@@ -246,7 +243,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   size_t tot_hops = bucket_first->hops;
 
   int hops;
-  for (hops = 0; hops <= tot_hops; hops++)
+  for (hops = 0; hops <= tot_hops; hops++, bucket++)
     {
       if (!LOCK_ACQ(&bucket->lock, (hashtable_t*) hashtable))
 	{
@@ -272,19 +269,17 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	      empty_v = &bucket->val[j];
 	    }
 	}
-        
-      bucket = bucket->next;
     }
 
 
-  if (empty == NULL)
+  if (unlikely(empty == NULL))
     {
       /* just find a free spot */
       uint32_t j;
       do
 	{
 	  tot_hops++;
-	  if (tot_hops > HYHT_LINKED_MAX_EXPANSIONS_HARD)
+	  if (unlikely(tot_hops > HYHT_LINKED_MAX_EXPANSIONS_HARD))
 	    {
 	      lock_release_n(bucket_first, l);
 
@@ -315,7 +310,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 		  break;
 		}
 	    }
-	  bucket = bucket->next;
+	  bucket++;
 	}
       while (empty == NULL);
 
@@ -360,7 +355,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   int l = 0;
   int j;
   int hops;
-  for (hops = 0; hops <= bucket_first->hops; hops++)
+  for (hops = 0; hops <= bucket_first->hops; hops++, bucket++)
     {
       if (!LOCK_ACQ(&bucket->lock, (hashtable_t*) hashtable))
 	{
@@ -379,7 +374,6 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	      return val;
 	    }
 	}
-      bucket = bucket->next;
     } 
 
   lock_release_n(bucket_first, l);
