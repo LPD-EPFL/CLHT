@@ -44,33 +44,16 @@ __ac_Jenkins_hash_64(uint64_t key)
 }
 
 /* Create a new bucket. */
-bucket_t*
-create_bucket() 
-{
-  bucket_t* bucket = NULL;
-  bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t));
-  if (bucket == NULL)
-    {
-      return NULL;
-    }
-
-  bucket->lock = 0;
-
-  uint32_t j;
-  for (j = 0; j < ENTRIES_PER_BUCKET; j++)
-    {
-      bucket->key[j] = 0;
-    }
-  bucket->next = NULL;
-
-  return bucket;
-}
-
 hashtable_t* ht_create(uint32_t num_buckets);
 
 hyht_wrapper_t* 
 hyht_wrapper_create(uint32_t num_buckets)
 {
+  if (unlikely(num_buckets == 1))
+    {
+      num_buckets++;
+    }
+
   hyht_wrapper_t* w = (hyht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(hyht_wrapper_t));
   if (w == NULL)
     {
@@ -112,7 +95,7 @@ ht_create(uint32_t num_buckets)
       return NULL;
     }
     
-  hashtable->table = (bucket_t*) memalign(CACHE_LINE_SIZE, num_buckets * (sizeof(bucket_t)));
+  hashtable->table = (bucket_t*) memalign(CACHE_LINE_SIZE, (num_buckets) * (sizeof(bucket_t)));
   if (hashtable->table == NULL) 
     {
       printf("** alloc: hashtable->table\n"); fflush(stdout);
@@ -259,8 +242,6 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   int l = 0;
   int j;
 
-  assert(bucket_first->hops < (hashtable->num_buckets - 1));
-
   size_t tot_hops = bucket_first->hops;
 
   int hops;
@@ -306,12 +287,12 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    {
 	      if (once)
 		{
-		  printf(" ** emergency // total hops: %zu \n", tot_hops);
+		  printf(" **[%02d] emergency // total hops: %zu out of %zu \n", hyht_gc_get_id(), tot_hops, hashtable->num_buckets);
 		  once = 0;
 		}
 	      lock_release_n(bucket_first, l);
 
-	      ht_status(h, 0, 0);
+	      ht_status(h, 0, HYHT_LINKED_EMERGENCY_RESIZE, 0);
 	      while (hashtable->table_new == NULL)
 		{
 		  _mm_pause();
@@ -352,9 +333,9 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
   lock_release_n(bucket_first, l);
 
-  if (unlikely(bucket_first->hops > 12))
+  if (unlikely(bucket_first->hops > HYHT_LINKED_MAX_EXPANSIONS))
     {
-      ht_status(h, 0, 0);
+      ht_status(h, 0, 0, 0);
     }
 
   return true;
@@ -519,6 +500,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
 
   hashtable_t* ht_new = ht_create(num_buckets_new);
   ht_new->version = ht_old->version + 1;
+  ht_new->num_buckets_prev = ht_old->num_buckets;
 
 #if HYHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
@@ -542,21 +524,12 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
     }
 
 #else
-
-  int one_p = ht_old->num_buckets / 100;
-
-  /* printf("RES%%"); fflush(stdout); */
   int32_t b;
   for (b = 0; b < ht_old->num_buckets; b++)
     {
       bucket_t* bu_cur = ht_old->table + b;
       bucket_cpy(bu_cur, ht_new);
-      /* if (b % one_p == 0) */
-      /* 	{ */
-      /* 	  printf("|"); fflush(stdout); */
-      /* 	} */
     }
-  /* printf("\n"); */
 #endif
 
 #if defined(DEBUG)
@@ -591,7 +564,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
 
   if (ht_resize_again)
     {
-      ht_status(h, 1, 0);
+      ht_status(h, 1, 0, 0);
     }
 
   return 1;
@@ -622,7 +595,7 @@ ht_size(hashtable_t* hashtable)
 }
 
 size_t
-ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
+ht_status(hyht_wrapper_t* h, int resize_increase, int emergency_increase, int just_print)
 {
   if (TRYLOCK_ACQ(&h->status_lock) && !resize_increase)
     {
@@ -636,52 +609,68 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
   int expands = 0;
   int expands_max = 0;
 
-  uint32_t bin;
-  for (bin = 0; bin < num_buckets; bin++)
+  if (emergency_increase)
     {
-      bucket = hashtable->table + bin;
-
-      expands += bucket->hops;
-      if (bucket->hops > expands_max)
-	{
-	  expands_max = bucket->hops;
-	}
-
-      uint32_t j;
-      for (j = 0; j < ENTRIES_PER_BUCKET; j++)
-	{
-	  if (bucket->key[j] > 0)
-	    {
-	      size++;
-	    }
-	}
-    }
-
-  double full_ratio = 100.0 * size / ((hashtable->num_buckets) * ENTRIES_PER_BUCKET);
-
-  if (just_print)
-    {
-      printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / avg expands: %.1f / max expands: %2d\n",
-	     99, hashtable->num_buckets, size, full_ratio, expands, (double) expands / hashtable->num_buckets, expands_max);
+      int inc_by_pow2 = pow2roundup(emergency_increase);
+      printf("[STATUS-%02d] #bu: %7zu / #elems: emrgncy / full%%: ???????? / expands: ???? /avg expands: ???? / max expands: ??\n",
+	     hyht_gc_get_id(), hashtable->num_buckets);
+      ht_resize_pes(h, 1, inc_by_pow2);
+      
     }
   else
     {
-      if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE)
+      uint32_t bin;
+      for (bin = 0; bin < num_buckets; bin++)
 	{
-	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
-		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max);
-	  ht_resize_pes(h, 0, 33);
-	}
-      else if ((full_ratio > 0 && full_ratio > HYHT_LINKED_PERC_FULL_DOUBLE) || expands_max > HYHT_LINKED_MAX_EXPANSIONS ||
-	       ((double) expands / hashtable->num_buckets) > HYHT_LINKED_MAX_AVG_EXPANSION || resize_increase)
-	{
-	  int inc_by = (full_ratio / 33) + resize_increase;
-	  int inc_by_pow2 = pow2roundup(inc_by);
+	  bucket = hashtable->table + bin;
 
-	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d /avg expands: %.1f / max expands: %2d\n",
-		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, 
-		 expands, (double) expands / hashtable->num_buckets, expands_max);
-	  ht_resize_pes(h, 1, inc_by_pow2);
+	  expands += bucket->hops;
+	  if (bucket->hops > expands_max)
+	    {
+	      expands_max = bucket->hops;
+	    }
+
+	  uint32_t j;
+	  for (j = 0; j < ENTRIES_PER_BUCKET; j++)
+	    {
+	      if (bucket->key[j] > 0)
+		{
+		  size++;
+		}
+	    }
+	}
+
+      double full_ratio = 100.0 * size / ((hashtable->num_buckets) * ENTRIES_PER_BUCKET);
+
+      if (just_print)
+	{
+	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / avg expands: %.1f / max expands: %2d\n",
+		 99, hashtable->num_buckets, size, full_ratio, expands, (double) expands / hashtable->num_buckets, expands_max);
+	}
+      else
+	{
+	  if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE)
+	    {
+	      printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
+		     hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max);
+	      ht_resize_pes(h, 0, 33);
+	    }
+	  else if ((full_ratio > 0 && full_ratio > HYHT_LINKED_PERC_FULL_DOUBLE) || expands_max > HYHT_LINKED_MAX_EXPANSIONS ||
+		   ((double) expands / hashtable->num_buckets) > HYHT_LINKED_MAX_AVG_EXPANSION || resize_increase)
+	    {
+	      int inc_by = (full_ratio / 33) + resize_increase;
+	      if (hashtable->num_buckets == hashtable->num_buckets_prev)
+		{
+		  printf("******** previous resize was a reshuffle: %u\n", hashtable->num_buckets_prev);
+		  inc_by++;
+		}
+	      int inc_by_pow2 = pow2roundup(inc_by);
+
+	      printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d /avg expands: %.1f / max expands: %2d\n",
+		     hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, 
+		     expands, (double) expands / hashtable->num_buckets, expands_max);
+	      ht_resize_pes(h, 1, inc_by_pow2);
+	    }
 	}
     }
 
