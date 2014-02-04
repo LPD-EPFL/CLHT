@@ -632,7 +632,7 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
       else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS ||
 	       resize_increase)
 	{
-	  int inc_by = full_ratio / 50;
+	  int inc_by = (full_ratio / 20);
 	  int inc_by_pow2 = pow2roundup(inc_by);
 
 	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
