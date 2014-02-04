@@ -507,6 +507,8 @@ main(int argc, char **argv)
       num_buckets = initial / load_factor;
     }
 
+  range = pow2roundup(range);
+
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
@@ -712,7 +714,11 @@ main(int argc, char **argv)
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
+#if defined(HYHT_LINKED)
+  ht_status(hashtable, 0, 0, 1);
+#else
   ht_status(hashtable, 0, 1);
+#endif
   /* ht_gc_destroy(hashtable); */
 #endif
 
