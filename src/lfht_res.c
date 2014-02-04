@@ -238,9 +238,10 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    {
 	      empty_retries = 0;
 	      if (LFHT_LOCK_RESIZE(h))
-		{
-		  ht_resize_pes(h, 1, 2);
-		}
+	      	{
+	      	  ht_resize_pes(h, 1, 2);
+	      	}
+	      /* ht_status(h, 0, 0); */
 	    }
 	  goto retry_all;
 	}
@@ -433,6 +434,105 @@ ht_size(hashtable_t* hashtable)
   return size;
 }
 
+size_t
+ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
+{
+  if (TRYLOCK_ACQ(&h->status_lock) && !resize_increase)
+    {
+      return 0;
+    }
+
+  hashtable_t* hashtable = h->ht;
+  uint32_t num_buckets = hashtable->num_buckets;
+  volatile bucket_t* bucket = NULL;
+  size_t size = 0;
+
+  uint32_t bin;
+  for (bin = 0; bin < num_buckets; bin++)
+    {
+      bucket = hashtable->table + bin;
+
+      uint32_t j;
+      for (j = 0; j < ENTRIES_PER_BUCKET; j++)
+	{
+	  if (bucket->key[j] > 0 && bucket->map[j] == MAP_VALID)
+	    {
+	      size++;
+	    }
+	}
+    }
+
+  double full_ratio = 100.0 * size / ((hashtable->num_buckets) * ENTRIES_PER_BUCKET);
+
+  if (just_print)
+    {
+      printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% \n",
+	     99, hashtable->num_buckets, size, full_ratio);
+    }
+  else
+    {
+      /* if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE) */
+      /* 	{ */
+      /* 	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n", */
+      /* 		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max); */
+      /* 	  ht_resize_pes(h, 0, 33); */
+      /* 	} */
+      /* else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS || */
+      /* 	       resize_increase) */
+      /* 	{ */
+      /* 	  int inc_by = (full_ratio / 20); */
+      /* 	  int inc_by_pow2 = pow2roundup(inc_by); */
+
+      /* 	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n", */
+      /* 		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max); */
+      /* 	  if (inc_by_pow2 == 1) */
+      /* 	    { */
+      /* 	      inc_by_pow2 = 2; */
+      /* 	    } */
+      /* 	  ht_resize_pes(h, 1, inc_by_pow2); */
+      /* 	} */
+    }
+
+  if (!just_print)
+    {
+      ht_gc_collect(h);
+    }
+
+  TRYLOCK_RLS(h->status_lock);
+  return size;
+}
+
+size_t
+ht_size_mem(hashtable_t* h) /* in bytes */
+{
+  if (h == NULL)
+    {
+      return 0;
+    }
+
+  size_t size_tot = sizeof(hashtable_t**);
+  size_tot += h->num_buckets * sizeof(bucket_t);
+  return size_tot;
+}
+
+size_t
+ht_size_mem_garbage(hashtable_t* h) /* in bytes */
+{
+  if (h == NULL)
+    {
+      return 0;
+    }
+
+  size_t size_tot = 0;
+  hashtable_t* cur = h->table_prev;
+  while (cur != NULL)
+    {
+      size_tot += ht_size_mem(cur);
+      cur = cur->table_prev;
+    }
+
+  return size_tot;
+}
 
 void
 ht_print(hashtable_t* hashtable)

@@ -133,11 +133,17 @@ typedef volatile uint8_t hyht_lock_t;
       LFHT_GC_HT_VERSION_USED(w->ht);			\
     }
 
-#define LFHT_LOCK_RESIZE(w)			\
+#define LFHT_LOCK_RESIZE(w)						\
   (CAS_U64(&w->resize_lock, LFHT_LOCK_FREE, LFHT_LOCK_ACQR) == LFHT_LOCK_FREE)
 
 #define LFHT_RLS_RESIZE(w)			\
   w->resize_lock = LFHT_LOCK_FREE
+
+#define TRYLOCK_ACQ(lock)			\
+  TAS_U8(lock)
+
+#define TRYLOCK_RLS(lock)			\
+  lock = LFHT_LOCK_FREE
 
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
@@ -159,21 +165,6 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
   };
 } hyht_wrapper_t;
 
-/* typedef struct ALIGNED(CACHE_LINE_SIZE) lfht_wrapper */
-/* { */
-/*   union */
-/*   { */
-/*     struct */
-/*     { */
-/*       struct hashtable_s* ht; */
-/*       uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))]; */
-/*       lfht_lock_t resize_lock; */
-
-/*     }; */
-/*     uint8_t padding[2 * CACHE_LINE_SIZE]; */
-/*   }; */
-/* } hyht_wrapper_t; */
-
 typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
 {
   union
@@ -185,9 +176,18 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       size_t hash;
       size_t version;
       uint8_t next_cache_line[CACHE_LINE_SIZE - (3 * sizeof(size_t)) - (sizeof(void*))];
+      struct hashtable_s* table_tmp;
       struct hashtable_s* table_prev;
       struct hashtable_s* table_new;
-
+      volatile uint32_t num_expands;
+      union
+      {
+	volatile uint32_t num_expands_threshold;
+	uint32_t num_buckets_prev;
+      };
+      volatile int32_t is_helper;
+      volatile int32_t helper_done;
+      size_t version_min;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };
