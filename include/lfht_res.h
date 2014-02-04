@@ -27,7 +27,11 @@
 #define KEY_BUCKT 3
 #define ENTRIES_PER_BUCKET KEY_BUCKT
 
-#define LFHT_DO_GC 1
+#define LFHT_DO_GC               1
+#define LFHT_PERC_FULL_HALVE     2
+#define LFHT_PERC_FULL_DOUBLE    15
+#define LFHT_INC_EMERGENCY       2
+#define LFHT_NO_EMPTY_SLOT_TRIES 3
 #define LFHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
 
 
@@ -313,7 +317,7 @@ size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
 void ht_gc_thread_init(hyht_wrapper_t* hashtable, int id);
 inline void ht_gc_thread_version(hashtable_t* h);
-inline int lfht_gc_get_id();
+inline int hyht_gc_get_id();
 int ht_gc_collect(hyht_wrapper_t* h);
 int ht_gc_collect_all(hyht_wrapper_t* h);
 int ht_gc_free(hashtable_t* hashtable);
@@ -321,7 +325,7 @@ void ht_gc_destroy(hyht_wrapper_t* hashtable);
 size_t ht_gc_min_version_used(hyht_wrapper_t* h);
 
 void ht_print(hashtable_t* hashtable);
-size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
+size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
 
 bucket_t* create_bucket();
 int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);

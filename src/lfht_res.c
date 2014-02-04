@@ -234,14 +234,10 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
       empty_index = snap_get_empty_index(s);
       if (empty_index < 0)
 	{
-	  if (empty_retries++ >= 2)
+	  if (empty_retries++ >= LFHT_NO_EMPTY_SLOT_TRIES)
 	    {
 	      empty_retries = 0;
-	      if (LFHT_LOCK_RESIZE(h))
-	      	{
-	      	  ht_resize_pes(h, 1, 2);
-	      	}
-	      /* ht_status(h, 0, 0); */
+	      ht_status(h, 0, 2, 0);
 	    }
 	  goto retry_all;
 	}
@@ -349,6 +345,11 @@ bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
 int 
 ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
 {
+  if (LFHT_LOCK_RESIZE(h))
+    {
+      ht_resize_pes(h, 1, 2);
+    }
+
   ticks s = getticks();
 
   hashtable_t* ht_old = h->ht;
@@ -435,7 +436,7 @@ ht_size(hashtable_t* hashtable)
 }
 
 size_t
-ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
+ht_status(hyht_wrapper_t* h, int resize_increase, int emergency_increase, int just_print)
 {
   if (TRYLOCK_ACQ(&h->status_lock) && !resize_increase)
     {
@@ -471,26 +472,25 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
     }
   else
     {
-      /* if (full_ratio > 0 && full_ratio < HYHT_PERC_FULL_HALVE) */
-      /* 	{ */
-      /* 	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n", */
-      /* 		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max); */
-      /* 	  ht_resize_pes(h, 0, 33); */
-      /* 	} */
-      /* else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS || */
-      /* 	       resize_increase) */
-      /* 	{ */
-      /* 	  int inc_by = (full_ratio / 20); */
-      /* 	  int inc_by_pow2 = pow2roundup(inc_by); */
+      if (full_ratio > 0 && full_ratio < LFHT_PERC_FULL_HALVE)
+      	{
+      	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%%\n",
+      		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio);
+      	  ht_resize_pes(h, 0, 33);
+      	}
+      else if ((full_ratio > 0 && full_ratio > LFHT_PERC_FULL_DOUBLE) || emergency_increase || resize_increase)
+      	{
+      	  int inc_by = (full_ratio / 10);
+      	  int inc_by_pow2 = pow2roundup(inc_by);
 
-      /* 	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n", */
-      /* 		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max); */
-      /* 	  if (inc_by_pow2 == 1) */
-      /* 	    { */
-      /* 	      inc_by_pow2 = 2; */
-      /* 	    } */
-      /* 	  ht_resize_pes(h, 1, inc_by_pow2); */
-      /* 	} */
+      	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%%\n",
+      		 hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio);
+      	  if (inc_by_pow2 <= 1)
+      	    {
+      	      inc_by_pow2 = 2;
+      	    }
+      	  ht_resize_pes(h, 1, inc_by_pow2);
+      	}
     }
 
   if (!just_print)
