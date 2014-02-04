@@ -82,6 +82,7 @@
 /lfht_dup
 /lfht_only_map_rem
 /lfht_res
+/lfht_res1
 /lfht_s
 /main_lock.c~
 /math_cache
