@@ -1,5 +1,5 @@
-#ifndef _DHT_RES_H_
-#define _DHT_RES_H_
+#ifndef _HYHT_LOCK_INS_H_
+#define _HYHT_LOCK_INS_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,7 +13,7 @@
 /* #define DEBUG */
 
 #define HYHT_READ_ONLY_FAIL   1
-#define HYHT_HELP_RESIZE      0
+#define HYHT_HELP_RESIZE      1
 #define HYHT_PERC_EXPANSIONS  0.05
 #define HYHT_MAX_EXPANSIONS   2
 #define HYHT_PERC_FULL_DOUBLE 80	   /* % */
@@ -22,7 +22,7 @@
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8
 #define HYHT_DO_CHECK_STATUS  0
-#define HYHT_DO_GC            1
+#define HYHT_DO_GC            0
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
 #if defined(RTM)	       /* only for processors that have RTM */
@@ -44,19 +44,10 @@
 #endif
 
 #if HYHT_DO_GC == 1
-#  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version((hashtable_t*) ht)
+#  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
 #else
 #  define HYHT_GC_HT_VERSION_USED(ht)
 #endif
-
-
-/* HYHT LINKED version specific parameters */
-#define HYHT_LINKED_PERC_FULL_DOUBLE       75
-#define HYHT_LINKED_MAX_AVG_EXPANSION      1
-#define HYHT_LINKED_MAX_EXPANSIONS         7
-#define HYHT_LINKED_MAX_EXPANSIONS_HARD    16
-#define HYHT_LINKED_EMERGENCY_RESIZE       4 /* how many times to increase the size on emergency */
-/* *************************************** */
 
 #if defined(DEBUG)
 #  define DPP(x)	x++				
@@ -66,6 +57,8 @@
 
 #define CACHE_LINE_SIZE    64
 #define ENTRIES_PER_BUCKET 3
+
+#define KEY_BLCK -1
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -116,13 +109,10 @@ typedef volatile uint8_t hyht_lock_t;
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   hyht_lock_t lock;
-  volatile uint32_t hops;
   hyht_addr_t key[ENTRIES_PER_BUCKET];
   hyht_val_t val[ENTRIES_PER_BUCKET];
   volatile struct bucket_s* next;
 } bucket_t;
-
-_Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
@@ -159,11 +149,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       struct hashtable_s* table_prev;
       struct hashtable_s* table_new;
       volatile uint32_t num_expands;
-      union
-      {
-	volatile uint32_t num_expands_threshold;
-	uint32_t num_buckets_prev;
-      };
+      volatile uint32_t num_expands_threshold;
       volatile int32_t is_helper;
       volatile int32_t helper_done;
       size_t version_min;
@@ -202,10 +188,8 @@ _mm_pause_rep(uint64_t w)
     }
 }
 
-#if defined(XEON) | defined(COREi7) 
+#if defined(XEON) | defined(COREi7) | defined(__tile__)
 #  define TAS_RLS_MFENCE() _mm_sfence();
-#elif defined(__tile__)
-#  define TAS_RLS_MFENCE() _mm_mfence();
 #else
 #  define TAS_RLS_MFENCE()
 #endif
@@ -268,24 +252,6 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
       	}
       _mm_pause();
     }
-
-  if (l == LOCK_RESIZE)
-    {
-      /* helping with the resize */
-#if HYHT_HELP_RESIZE == 1
-      ht_resize_help(h);
-#endif
-
-#if !defined(HYHT_LINKED)
-      while (h->table_new == NULL)
-	{
-	  _mm_mfence();
-	}
-#endif
-
-      return 0;
-    }
-
   return 1;
 }
 
@@ -387,15 +353,11 @@ int ht_gc_free(hashtable_t* hashtable);
 void ht_gc_destroy(hyht_wrapper_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
-#if defined(HYHT_LINKED)
-/* emergency_increase, grabs the lock and forces an increase by *emergency_increase times */
-size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
-#else
 size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
-#endif
+
 bucket_t* create_bucket();
 int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);
 
 
-#endif /* _DHT_RES_H_ */
+#endif /* _HYHT_LOCK_INS_H_ */
 

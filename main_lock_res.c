@@ -24,8 +24,15 @@
 #  include <sys/procset.h>
 #endif
 
-#include "sspfd.h"
-#include "dht_res.h"
+#if defined(USE_SSPFD)
+#   include "sspfd.h"
+#endif
+
+#if defined(LOCKFREE_RES)
+#  include "lfht_res.h"
+#else
+#  include "dht_res.h"
+#endif
 #include "mcore_malloc.h"
 
 
@@ -162,6 +169,10 @@ typedef struct thread_data
   hyht_wrapper_t* ht;
 } thread_data_t;
 
+#if defined(LOCKFREE_RES)
+uint32_t ntr = 0;
+#endif
+
 void*
 test(void* thread) 
 {
@@ -215,7 +226,7 @@ test(void* thread)
     
   for(i = 0; i < num_elems_thread; i++) 
     {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
       if(!ht_put(hashtable, key, key*key))
 	{
@@ -224,6 +235,15 @@ test(void* thread)
     }
   MEM_BARRIER;
 
+#if defined(LOCKFREE_RES)
+  /* sort barrier */
+  FAI_U32(&ntr);
+  do
+    {
+      LFHT_GC_HT_VERSION_USED(hashtable->ht);
+    }
+  while (ntr != num_threads);
+#endif
   barrier_cross(&barrier);
 
 #if defined(DEBUG)
@@ -477,7 +497,7 @@ main(int argc, char **argv)
       initial = initial_pow2;
     }
 
-  if (range <= initial)
+  if (range < initial)
     {
       range = 2 * initial;
     }
@@ -491,6 +511,8 @@ main(int argc, char **argv)
       num_buckets = initial / load_factor;
     }
 
+  range = pow2roundup(range);
+
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
@@ -498,6 +520,8 @@ main(int argc, char **argv)
       num_buckets = num_buckets_pow2;
       initial = pow2roundup(initial);
     }
+
+  printf("## Initial: %zu / Range: %zu\n", initial, range);
 
   double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
@@ -614,18 +638,18 @@ main(int argc, char **argv)
 
   free(tds);
     
-  volatile ticks putting_suc_total = 1;
-  volatile ticks putting_fal_total = 1;
-  volatile ticks getting_suc_total = 1;
-  volatile ticks getting_fal_total = 1;
-  volatile ticks removing_suc_total = 1;
-  volatile ticks removing_fal_total = 1;
-  volatile uint64_t putting_count_total = 1;
-  volatile uint64_t putting_count_total_succ = 2;
-  volatile uint64_t getting_count_total = 1;
-  volatile uint64_t getting_count_total_succ = 2;
-  volatile uint64_t removing_count_total = 1;
-  volatile uint64_t removing_count_total_succ = 2;
+  volatile ticks putting_suc_total = 0;
+  volatile ticks putting_fal_total = 0;
+  volatile ticks getting_suc_total = 0;
+  volatile ticks getting_fal_total = 0;
+  volatile ticks removing_suc_total = 0;
+  volatile ticks removing_fal_total = 0;
+  volatile uint64_t putting_count_total = 0;
+  volatile uint64_t putting_count_total_succ = 0;
+  volatile uint64_t getting_count_total = 0;
+  volatile uint64_t getting_count_total_succ = 0;
+  volatile uint64_t removing_count_total = 0;
+  volatile uint64_t removing_count_total_succ = 0;
     
   for(t=0; t < num_threads; t++) 
     {
@@ -643,43 +667,19 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
-  if(putting_count_total == 0) 
-    {
-      putting_suc_total = 0;
-      putting_fal_total = 0;
-      putting_count_total = 1;
-      putting_count_total_succ = 2;
-    }
-    
-  if(getting_count_total == 0) 
-    {
-      getting_suc_total = 0;
-      getting_fal_total = 0;
-      getting_count_total = 1;
-      getting_count_total_succ = 2;
-    }
-    
-  if(removing_count_total == 0) 
-    {
-      removing_suc_total = 0;
-      removing_fal_total = 0;
-      removing_count_total = 1;
-      removing_count_total_succ = 2;
-    }
-    
 #if !defined(COMPUTE_THROUGHPUT)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
+
+  long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
+  long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
+  long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
+  long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
+  long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
+  long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
   printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-	 num_threads,
-	 getting_suc_total / getting_count_total_succ,
-	 getting_fal_total / (getting_count_total - getting_count_total_succ),
-	 putting_suc_total / putting_count_total_succ,
-	 putting_fal_total / (putting_count_total - putting_count_total_succ),
-	 removing_suc_total / removing_count_total_succ,
-	 removing_fal_total / (removing_count_total - removing_count_total_succ)
-	 );
+	 num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
 
     
@@ -717,13 +717,16 @@ main(int argc, char **argv)
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
+#if defined(HYHT_LINKED) || defined(LOCKFREE_RES)
+  ht_status(hashtable, 0, 0, 1);
+#else
   ht_status(hashtable, 0, 1);
-
+#endif
   ht_gc_destroy(hashtable);
 
-  float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%f\n", num_threads, throughput);
-    
+  double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
+  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
+  printf("#Mops %.3f\n", throughput / 1e6);
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");

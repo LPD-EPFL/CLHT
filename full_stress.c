@@ -24,15 +24,8 @@
 #  include <sys/procset.h>
 #endif
 
-#if defined(USE_SSPFD)
-#   include "sspfd.h"
-#endif
-
-#if defined(LOCKFREE)
-#  include "lfht.h"
-#else
-#  include "dht_res.h"
-#endif
+#include "dht_res.h"
+#include "ssmem.h"
 
 /* #define DETAILED_THROUGHPUT */
 
@@ -46,12 +39,9 @@ int num_buckets = 256;
 int num_threads = 1;
 int num_elements = 2048;
 int duration = 1000;
-double filling_rate = 0.5;
-double update_rate = 0.1;
-double put_rate = 0.1;
-double get_rate = 0.9;
+int run_correctness = 0;
 int print_vals_num = 0;
-size_t  pf_vals_num = 8191;
+size_t pf_vals_num = 8191;
 
 int seed = 0;
 __thread unsigned long * seeds;
@@ -167,6 +157,30 @@ typedef struct thread_data
   hyht_wrapper_t* ht;
 } thread_data_t;
 
+
+size_t 
+math_pow(size_t n, size_t pow)
+{
+  size_t base = n;
+  int r;
+  for (r = 0; r < pow; r++)
+    {
+      base *= n;
+    }
+  return base;
+}
+
+size_t 
+hash_rep(size_t key, size_t times)
+{
+  int r;
+  for (r = 0; r < times; r++)
+    {
+      key = __ac_Jenkins_hash_64(key);
+    }
+  return key;
+}
+
 void*
 test(void* thread) 
 {
@@ -177,6 +191,13 @@ test(void* thread)
 
   hyht_wrapper_t* hashtable = td->ht;
 
+  ht_gc_thread_init(hashtable, ID);    
+
+
+  ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
+  assert(alloc != NULL);
+  ssmem_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+    
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
 #if !defined(COMPUTE_THROUGHPUT)
@@ -203,36 +224,18 @@ test(void* thread)
   seeds = seed_rand();
     
   uint64_t key;
-  int c = 0;
-  uint32_t scale_update = (uint32_t) (update_rate * UINT_MAX);
-  uint32_t scale_put = (uint32_t)(put_rate * UINT_MAX);
-  uint8_t putting = 1;
     
-  int i;
-  uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
-  int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
-  if (ID < missing)
-    {
-      num_elems_thread++;
-    }
-    
-  for(i = 0; i < num_elems_thread; i++) 
-    {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
-      
-      if(!ht_put(hashtable, key, key*key))
-	{
-	  i--;
-	}
-    }
   MEM_BARRIER;
 
   barrier_cross(&barrier);
+
+  ssmem_gc_init(alloc);
 
 #if defined(DEBUG)
   if (!ID)
     {
       printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+      /* ssmem_ts_list_print(); */
       /* ht_print(hashtable, num_buckets); */
     }
 #else
@@ -246,64 +249,90 @@ test(void* thread)
 #endif
 
   barrier_cross(&barrier_global);
+  volatile size_t* obj = NULL;
 
-  uint8_t update = false;
+  volatile size_t key_0 = 0, key_1 = 0;
+
+  key = (ID & 1) + 2;
+
+  key_0 = key;
+  key_1 = 2*key;
+
+
   while (stop == 0) 
     {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
-        
-      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
-      update = (c <= scale_update);
-      putting = (c <= scale_put);
+      size_t error = 0;
+    /* same_key: */
+      error++;
 
-      if(update) 
+      if (ID < 2)
 	{
-	  if(putting) 
+	  volatile size_t* res;
+	  res = (volatile size_t*) ht_get(hashtable->ht, key);
+
+	  if(res != NULL) 
 	    {
-	      int res;
-	      START_TS(1);
-	      res = ht_put(hashtable, key, c + 1);
-	      END_TS(1, my_putting_count);
-	      if(res)
+	      if (res[0] != key_0 || res[1] != key_1)
 		{
-		  ADD_DUR(my_putting_succ);
-		  my_putting_count_succ++;
+		  printf("*[%-2d* WRONG<get> (%zu): %-3zu = %-3zu | %-3zu = %-3zu",
+			 ID, error, key, res[0], 2 * key, res[1]);
+
+		  int r = 0;
+		  while (r++ < 27 && (res[0] != key_0 || res[1] != key_1))
+		    {
+		      _mm_pause_rep(1LL<<r);
+		      printf("%d", r);
+		    }
+		  printf("\n");
 		}
-	      ADD_DUR_FAIL(my_putting_fail);
-	      my_putting_count++;
-	    } 
-	  else 
-	    {
-	      hyht_val_t removed;
-	      START_TS(2);
-	      removed = ht_remove(hashtable, key);
-	      END_TS(2, my_removing_count);
-	      if(removed != 0) 
-		{
-		  ADD_DUR(my_removing_succ);
-		  my_removing_count_succ++;
-		}
-	      ADD_DUR_FAIL(my_removing_fail);
-	      my_removing_count++;
-	    }
-	} 
-      else
-	{ 
-	  hyht_val_t res;
-	  START_TS(0);
-	  res= ht_get(hashtable->ht, key);
-	  END_TS(0, my_getting_count);
-	  if(res != 0) 
-	    {
+
 	      ADD_DUR(my_getting_succ);
 	      my_getting_count_succ++;
 	    }
-	  ADD_DUR_FAIL(my_getting_fail);
 	  my_getting_count++;
 	}
-    }
+      else			/* ID > 0 */
+	{			
+	  size_t* res = (size_t*) ht_remove(hashtable, key);
+	  if(res != NULL) 
+	    {
 
-  /* ht_print_retry_stats(); */
+	      if (res[0] != key_0 || res[1] != key_1)
+		{
+		  printf("*[%-2d* WRONG<rem> (%zu): %-3zu = %-3zu | %-3zu = %-3zu",
+			 ID, error, key, res[0], 2 * key, res[1]);
+
+		  int r = 0;
+		  while (r++ < 27 && (res[0] != key_0 || res[1] != key_1))
+		    {
+		      _mm_pause_rep(1LL<<r);
+		      printf("%d", r);
+		    }
+		  printf("\n");
+		}
+	      ssmem_free(alloc, res);
+	      ADD_DUR(my_removing_succ);
+	      my_removing_count_succ++;
+	    }
+	  my_removing_count++;
+
+	  if (obj == 0)
+	    {
+	      obj = (size_t*) ssmem_alloc(alloc, 2 * sizeof(size_t));
+	    }
+	  obj[0] = key_0;
+	  obj[1] = key_1;
+
+	  int resp = ht_put(hashtable, key, (hyht_val_t) obj);
+	  END_TS(1, my_putting_count);
+	  if(resp)
+	    {
+	      obj = NULL;
+	      my_putting_count_succ++;
+	    }
+	  my_putting_count++;
+	}
+    }
         
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
@@ -319,6 +348,15 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
+      /* ssmem_ts_list_print(); */
+      /* size_t* ts_set = ssmem_ts_set_collect(); */
+      /* ssmem_ts_set_print(ts_set); */
+      /* free(ts_set); */
+
+      ssmem_free_list_print(alloc);
+      ssmem_collected_list_print(alloc);
+      ssmem_available_list_print(alloc);
+      
       printf("size of ht is: %zu\n", ht_size(hashtable->ht));
     }
 #else
@@ -330,6 +368,10 @@ test(void* thread)
 	}
     }  
 #endif
+
+  barrier_cross(&barrier);
+  ssmem_term(alloc);
+  free(alloc);
 
 #if !defined(COMPUTE_THROUGHPUT)
   putting_succ[ID] += my_putting_succ;
@@ -370,32 +412,28 @@ main(int argc, char **argv)
 {
   set_cpu(the_cores[0]);
     
-  printf("** sizeof(bucket_t) = %zu\n", sizeof(bucket_t));
-
   assert(sizeof(hashtable_t) == 2*CACHE_LINE_SIZE);
 
   struct option long_options[] = {
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},
     {"duration",                  required_argument, NULL, 'd'},
-    {"initial-size",              required_argument, NULL, 'i'},
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
-    {"update-rate",               required_argument, NULL, 'u'},
+    {"correctness",               no_argument, NULL, 'c'},
     {"num-buckets",               required_argument, NULL, 'b'},
     {"print-vals",                required_argument, NULL, 'v'},
     {"vals-pf",                   required_argument, NULL, 'f'},
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0, put = 10;
-  int put_explicit = 0;
+  size_t range = 2048, num_buckets_param = 0, correctness = 0;
 
   int i, c;
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:c", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -420,16 +458,12 @@ main(int argc, char **argv)
 		 "        Print this message\n"
 		 "  -d, --duration <int>\n"
 		 "        Test duration in milliseconds\n"
-		 "  -i, --initial-size <int>\n"
-		 "        Number of elements to insert before test\n"
 		 "  -n, --num-threads <int>\n"
 		 "        Number of threads\n"
 		 "  -r, --range <int>\n"
 		 "        Range of integer values inserted in set\n"
-		 "  -u, --update-rate <int>\n"
-		 "        Percentage of update transactions\n"
-		 "  -p, --put-rate <int>\n"
-		 "        Percentage of put update transactions (should be less than percentage of updates)\n"
+		 "  -c, --correctnes\n"
+		 "        Always compute and check the math for correctness\n"
 		 "  -b, --num-buckets <int>\n"
 		 "        Number of initial buckets (stronger than -l)\n"
 		 "  -v, --print-vals <int>\n"
@@ -441,24 +475,14 @@ main(int argc, char **argv)
 	case 'd':
 	  duration = atoi(optarg);
 	  break;
-	case 'i':
-	  initial = atoi(optarg);
+	case 'c':
+	  correctness = 1;
 	  break;
 	case 'n':
 	  num_threads = atoi(optarg);
 	  break;
 	case 'r':
 	  range = atol(optarg);
-	  break;
-	case 'u':
-	  update = atoi(optarg);
-	  break;
-	case 'p':
-	  put_explicit = 1;
-	  put = atoi(optarg);
-	  break;
-	case 'l':
-	  load_factor = atoi(optarg);
 	  break;
 	case 'b':
 	  num_buckets_param = atoi(optarg);
@@ -477,17 +501,7 @@ main(int argc, char **argv)
     }
 
 
-  if (!is_power_of_two(initial))
-    {
-      size_t initial_pow2 = pow2roundup(initial);
-      printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
-      initial = initial_pow2;
-    }
-
-  if (range < initial)
-    {
-      range = 2 * initial;
-    }
+  run_correctness = correctness;
 
   if (num_buckets_param)
     {
@@ -495,22 +509,18 @@ main(int argc, char **argv)
     }
   else
     {
-      num_buckets = initial / load_factor;
+      num_buckets = 1;
     }
+
+  printf("#buckets: %d\n", num_buckets);
 
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
       printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %zu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
-      initial = pow2roundup(initial);
     }
 
-  printf("## Initial: %zu / Range: %zu\n", initial, range);
-
-  double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
-  double mb = kb / 1024.0;
-  printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
 
   if (!is_power_of_two(range))
     {
@@ -519,30 +529,7 @@ main(int argc, char **argv)
       range = range_pow2;
     }
 
-  if (put > update)
-    {
-      put = update;
-    }
-
   num_elements = range;
-  filling_rate = (double) initial / range;
-  update_rate = update / 100.0;
-  if (put_explicit)
-    {
-      put_rate = put / 100.0;
-    }
-  else
-    {
-      put_rate = update_rate / 2;
-    }
-  get_rate = 1 - update_rate;
-
-  /* printf("num_threads = %u\n", num_threads); */
-  /* printf("cap: = %u\n", num_buckets); */
-  /* printf("num elem = %u\n", num_elements); */
-  /* printf("filing rate= %f\n", filling_rate); */
-  /* printf("update = %f (putting = %f)\n", update_rate, put_rate); */
-
 
   rand_max = num_elements - 1;
     
@@ -551,6 +538,8 @@ main(int argc, char **argv)
   timeout.tv_sec = duration / 1000;
   timeout.tv_nsec = (duration % 1000) * 1000000;
     
+  printf("//duration: sec: %lu, ns: %lu\n", timeout.tv_sec, timeout.tv_nsec);
+
   stop = 0;
     
   /* Initialize the hashtable */
@@ -623,18 +612,18 @@ main(int argc, char **argv)
 
   free(tds);
     
-  volatile ticks putting_suc_total = 0;
-  volatile ticks putting_fal_total = 0;
-  volatile ticks getting_suc_total = 0;
-  volatile ticks getting_fal_total = 0;
-  volatile ticks removing_suc_total = 0;
-  volatile ticks removing_fal_total = 0;
-  volatile uint64_t putting_count_total = 0;
-  volatile uint64_t putting_count_total_succ = 0;
-  volatile uint64_t getting_count_total = 0;
-  volatile uint64_t getting_count_total_succ = 0;
-  volatile uint64_t removing_count_total = 0;
-  volatile uint64_t removing_count_total_succ = 0;
+  volatile ticks putting_suc_total = 1;
+  volatile ticks putting_fal_total = 1;
+  volatile ticks getting_suc_total = 1;
+  volatile ticks getting_fal_total = 1;
+  volatile ticks removing_suc_total = 1;
+  volatile ticks removing_fal_total = 1;
+  volatile uint64_t putting_count_total = 1;
+  volatile uint64_t putting_count_total_succ = 1;
+  volatile uint64_t getting_count_total = 1;
+  volatile uint64_t getting_count_total_succ = 1;
+  volatile uint64_t removing_count_total = 1;
+  volatile uint64_t removing_count_total_succ = 1;
     
   for(t=0; t < num_threads; t++) 
     {
@@ -652,19 +641,43 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
+  if(putting_count_total == 0) 
+    {
+      putting_suc_total = 0;
+      putting_fal_total = 0;
+      putting_count_total = 1;
+      putting_count_total_succ = 2;
+    }
+    
+  if(getting_count_total == 0) 
+    {
+      getting_suc_total = 0;
+      getting_fal_total = 0;
+      getting_count_total = 1;
+      getting_count_total_succ = 2;
+    }
+    
+  if(removing_count_total == 0) 
+    {
+      removing_suc_total = 0;
+      removing_fal_total = 0;
+      removing_count_total = 1;
+      removing_count_total_succ = 2;
+    }
+    
 #if !defined(COMPUTE_THROUGHPUT)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
-
-  long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
-  long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
-  long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
-  long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
-  long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
-  long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
   printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-	 num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
+	 num_threads,
+	 getting_suc_total / getting_count_total_succ,
+	 getting_fal_total / (getting_count_total - getting_count_total_succ),
+	 putting_suc_total / putting_count_total_succ,
+	 putting_fal_total / (putting_count_total - putting_count_total_succ),
+	 removing_suc_total / removing_count_total_succ,
+	 removing_fal_total / (removing_count_total - removing_count_total_succ)
+	 );
 #endif
 
     
@@ -675,7 +688,7 @@ main(int argc, char **argv)
 #if defined(DEBUG)
   printf("puts - rems  : %d\n", pr);
 #endif
-  assert(size_after == (initial + pr));
+  assert(size_after == (pr));
 
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
@@ -695,14 +708,15 @@ main(int argc, char **argv)
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
 
-  kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
-  mb = kb / 1024.0;
-  printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
+#if !defined(LOCKFREE)
+  ht_status(hashtable, 0, 1);
 
-  double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
-  printf("#Mops %.3f\n", throughput / 1e6);
-  /* ht_destroy( hashtable ); */
+  ht_gc_destroy(hashtable);
+#endif
+
+  float throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
+  printf("#txs %d\t(%f\n", num_threads, throughput);
+    
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");

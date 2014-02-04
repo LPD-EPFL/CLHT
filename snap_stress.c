@@ -24,15 +24,13 @@
 #  include <sys/procset.h>
 #endif
 
-#if defined(USE_SSPFD)
-#   include "sspfd.h"
-#endif
-
+#include "sspfd.h"
 #if defined(LOCKFREE)
 #  include "lfht.h"
 #else
 #  include "dht_res.h"
 #endif
+#include "ssmem.h"
 
 /* #define DETAILED_THROUGHPUT */
 
@@ -44,19 +42,17 @@
 hashtable_t** hashtable;
 int num_buckets = 256;
 int num_threads = 1;
-int num_elements = 2048;
+int num_elements = KEY_BUCKT;
 int duration = 1000;
-double filling_rate = 0.5;
-double update_rate = 0.1;
-double put_rate = 0.1;
-double get_rate = 0.9;
+int run_correctness = 0;
 int print_vals_num = 0;
-size_t  pf_vals_num = 8191;
+size_t pf_vals_num = 8191;
+size_t obj_size = 4;
 
 int seed = 0;
 __thread unsigned long * seeds;
 uint32_t rand_max;
-#define rand_min 1
+#define rand_min 2
 
 static volatile int stop;
 __thread uint32_t phys_id;
@@ -167,15 +163,51 @@ typedef struct thread_data
   hyht_wrapper_t* ht;
 } thread_data_t;
 
+
+size_t 
+math_pow(size_t n, size_t pow)
+{
+  size_t base = n;
+  int r;
+  for (r = 0; r < pow; r++)
+    {
+      base *= n;
+    }
+  return base;
+}
+
+size_t 
+hash_rep(size_t key, size_t times)
+{
+  int r;
+  for (r = 0; r < times; r++)
+    {
+      key = __ac_Jenkins_hash_64(key);
+    }
+  return key;
+}
+
+
+volatile lfht_snapshot_t* snap;
+volatile size_t key[KEY_BUCKT] = {0};
+volatile uintptr_t val[KEY_BUCKT] = {0};
+#define GET_VAL(v) (*(size_t*) (v))
+
+
 void*
 test(void* thread) 
 {
+  size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0 , num_retry_cas4 = 0, num_retry_cas5 = 0;
   thread_data_t* td = (thread_data_t*) thread;
   uint8_t ID = td->id;
-  phys_id = the_cores[ID];
+  phys_id = the_cores[ID % (NUMBER_OF_SOCKETS * CORES_PER_SOCKET)];
   set_cpu(phys_id);
 
-  hyht_wrapper_t* hashtable = td->ht;
+  ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
+  assert(alloc != NULL);
+  ssmem_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+
+  ssmem_gc_init(alloc);
 
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -202,109 +234,156 @@ test(void* thread)
     
   seeds = seed_rand();
     
-  uint64_t key;
-  int c = 0;
-  uint32_t scale_update = (uint32_t) (update_rate * UINT_MAX);
-  uint32_t scale_put = (uint32_t)(put_rate * UINT_MAX);
-  uint8_t putting = 1;
-    
-  int i;
-  uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
-  int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
-  if (ID < missing)
-    {
-      num_elems_thread++;
-    }
-    
-  for(i = 0; i < num_elems_thread; i++) 
-    {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
-      
-      if(!ht_put(hashtable, key, key*key))
-	{
-	  i--;
-	}
-    }
   MEM_BARRIER;
 
   barrier_cross(&barrier);
 
-#if defined(DEBUG)
-  if (!ID)
-    {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-      /* ht_print(hashtable, num_buckets); */
-    }
-#else
-  if (!ID)
-    {
-      if(ht_size(hashtable->ht) == 3321445)
-	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-	}
-    }  
-#endif
-
   barrier_cross(&barrier_global);
 
-  uint8_t update = false;
+  size_t obj_size_bytes = obj_size * sizeof(size_t);
+  volatile size_t* dat = (size_t*) malloc(obj_size_bytes);
+  assert(dat != NULL);
+
+  size_t* obj = NULL;
+
   while (stop == 0) 
     {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
-        
-      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
-      update = (c <= scale_update);
-      putting = (c <= scale_put);
+      size_t rand = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])));
+      size_t k = (rand & 1) + 2;
+      rand &= 1023;
 
-      if(update) 
+      /* search baby! */
+
+      int i;
+      for (i = 0; i < KEY_BUCKT; i++)
 	{
-	  if(putting) 
+	  volatile uintptr_t v = val[i];
+	  if (snap->map[i] == MAP_VALID && key[i] == k)
 	    {
-	      int res;
-	      START_TS(1);
-	      res = ht_put(hashtable, key, c + 1);
-	      END_TS(1, my_putting_count);
-	      if(res)
+	      if (val[i] == v)
 		{
-		  ADD_DUR(my_putting_succ);
-		  my_putting_count_succ++;
+		  if (GET_VAL(v) != k)
+		    {
+		      printf("[%02d] :get: key != val for %zu\n", ID, k);
+		    }
+		  break;
 		}
-	      ADD_DUR_FAIL(my_putting_fail);
-	      my_putting_count++;
-	    } 
-	  else 
-	    {
-	      hyht_val_t removed;
-	      START_TS(2);
-	      removed = ht_remove(hashtable, key);
-	      END_TS(2, my_removing_count);
-	      if(removed != 0) 
-		{
-		  ADD_DUR(my_removing_succ);
-		  my_removing_count_succ++;
-		}
-	      ADD_DUR_FAIL(my_removing_fail);
-	      my_removing_count++;
 	    }
-	} 
+	}
+
+      if (rand > 513)
+	{
+	  my_putting_count++;
+
+	  if (obj != NULL)
+	    {
+	      ssmem_free(alloc, (void*) obj);
+	    }
+	  obj = ssmem_alloc(alloc, 8);
+	  *obj = k;
+
+
+	  int empty_index = -2;
+	  lfht_snapshot_t s;
+
+	retry:
+	  s.snapshot = snap->snapshot;
+
+	  int i;
+	  for (i = 0; i < KEY_BUCKT; i++)
+	    {
+	      volatile uintptr_t v = val[i];
+	      if (snap->map[i] == MAP_VALID && key[i] == k)
+		{
+		  if (val[i] == v)
+		    {
+		      if (empty_index > 0)
+			{
+			  snap->map[empty_index] = MAP_INVLD;
+			}
+		      goto end;
+		    }
+		}
+	    }
+
+	  lfht_snapshot_all_t s1;
+	  if (empty_index < 0)
+	    {
+	      empty_index = snap_get_empty_index(s.snapshot);
+	      if (empty_index < 0)
+		{
+		  num_retry_cas1++;
+		  goto end;
+		}
+
+	      s1 = snap_set_map(s.snapshot, empty_index, MAP_INSRT);
+	      if (CAS_U64(&snap->snapshot, s.snapshot, s1) != s.snapshot)
+		{
+		  empty_index = -2;
+		  num_retry_cas2++;
+		  goto retry;
+		}
+
+	      val[empty_index] = (uintptr_t) obj;
+	      key[empty_index] = k;
+	    }
+	  else
+	    {
+	      s1 = snap_set_map(s.snapshot, empty_index, MAP_INSRT);
+	    }
+
+	  lfht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
+	  if (CAS_U64(&snap->snapshot, s1, s2) != s1)
+	    {
+	      num_retry_cas3++;
+	      /* key[empty_index] = 0; */
+	      /* val[empty_index] = 0; */
+	      goto retry;
+	    }
+
+	  obj = NULL;
+	  my_putting_count_succ++;
+	end:
+	  ;
+	}
       else
-	{ 
-	  hyht_val_t res;
-	  START_TS(0);
-	  res= ht_get(hashtable->ht, key);
-	  END_TS(0, my_getting_count);
-	  if(res != 0) 
+	{
+	  my_removing_count++;
+	  lfht_snapshot_t s;
+
+	retry_rem:
+	  s.snapshot = snap->snapshot;
+
+	  volatile uintptr_t v; 
+	  int i, removed = 0;
+	  for (i = 0; i < KEY_BUCKT && !removed; i++)
 	    {
-	      ADD_DUR(my_getting_succ);
-	      my_getting_count_succ++;
+	      if (key[i] == k && s.map[i] == MAP_VALID)
+		{
+		  v = val[i];
+		  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
+		  if (CAS_U64(&snap->snapshot, s.snapshot, s1) == s.snapshot)
+		    {
+		      /* snap->map[i] = MAP_INVLD; */
+		      removed = 1;
+		    }
+		  else
+		    {
+		      num_retry_cas4++;
+		      goto retry_rem;
+		    }
+		}
 	    }
-	  ADD_DUR_FAIL(my_getting_fail);
-	  my_getting_count++;
+	  if (removed)
+	    {
+	      ssmem_free(alloc, (void*) v);
+	      my_removing_count_succ++;
+	    }
 	}
     }
 
-  /* ht_print_retry_stats(); */
-        
+  free((void*) dat);
+   
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
@@ -312,24 +391,16 @@ test(void* thread)
       /* 	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new); */
     }
 #endif
-    
+
+  if (ID < 2)
+    {
+      printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu / #cas4: %-8zu / #cas5: %-8zu\n", 
+	     num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4, num_retry_cas5);
+    }
+
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
   /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
   barrier_cross(&barrier);
-#if defined(DEBUG)
-  if (!ID)
-    {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-    }
-#else
-  if (!ID)
-    {
-      if(ht_size(hashtable->ht) == 3321445)
-	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-	}
-    }  
-#endif
 
 #if !defined(COMPUTE_THROUGHPUT)
   putting_succ[ID] += my_putting_succ;
@@ -370,32 +441,27 @@ main(int argc, char **argv)
 {
   set_cpu(the_cores[0]);
     
-  printf("** sizeof(bucket_t) = %zu\n", sizeof(bucket_t));
-
   assert(sizeof(hashtable_t) == 2*CACHE_LINE_SIZE);
 
   struct option long_options[] = {
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},
     {"duration",                  required_argument, NULL, 'd'},
-    {"initial-size",              required_argument, NULL, 'i'},
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
-    {"update-rate",               required_argument, NULL, 'u'},
+    {"correctness",               no_argument, NULL, 'c'},
     {"num-buckets",               required_argument, NULL, 'b'},
     {"print-vals",                required_argument, NULL, 'v'},
     {"vals-pf",                   required_argument, NULL, 'f'},
+    {"obj-size",                  required_argument, NULL, 's'},
     {NULL, 0, NULL, 0}
   };
-
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0, put = 10;
-  int put_explicit = 0;
 
   int i, c;
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:c", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -420,16 +486,12 @@ main(int argc, char **argv)
 		 "        Print this message\n"
 		 "  -d, --duration <int>\n"
 		 "        Test duration in milliseconds\n"
-		 "  -i, --initial-size <int>\n"
-		 "        Number of elements to insert before test\n"
 		 "  -n, --num-threads <int>\n"
 		 "        Number of threads\n"
 		 "  -r, --range <int>\n"
 		 "        Range of integer values inserted in set\n"
-		 "  -u, --update-rate <int>\n"
-		 "        Percentage of update transactions\n"
-		 "  -p, --put-rate <int>\n"
-		 "        Percentage of put update transactions (should be less than percentage of updates)\n"
+		 "  -s, --obj-size <int>\n"
+		 "        Size of the objects stored in the hash table\n"
 		 "  -b, --num-buckets <int>\n"
 		 "        Number of initial buckets (stronger than -l)\n"
 		 "  -v, --print-vals <int>\n"
@@ -441,27 +503,11 @@ main(int argc, char **argv)
 	case 'd':
 	  duration = atoi(optarg);
 	  break;
-	case 'i':
-	  initial = atoi(optarg);
-	  break;
 	case 'n':
 	  num_threads = atoi(optarg);
 	  break;
-	case 'r':
-	  range = atol(optarg);
-	  break;
-	case 'u':
-	  update = atoi(optarg);
-	  break;
-	case 'p':
-	  put_explicit = 1;
-	  put = atoi(optarg);
-	  break;
-	case 'l':
-	  load_factor = atoi(optarg);
-	  break;
-	case 'b':
-	  num_buckets_param = atoi(optarg);
+	case 's':
+	  obj_size = atol(optarg);
 	  break;
 	case 'v':
 	  print_vals_num = atoi(optarg);
@@ -477,86 +523,20 @@ main(int argc, char **argv)
     }
 
 
-  if (!is_power_of_two(initial))
-    {
-      size_t initial_pow2 = pow2roundup(initial);
-      printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
-      initial = initial_pow2;
-    }
-
-  if (range < initial)
-    {
-      range = 2 * initial;
-    }
-
-  if (num_buckets_param)
-    {
-      num_buckets = num_buckets_param;
-    }
-  else
-    {
-      num_buckets = initial / load_factor;
-    }
-
-  if (!is_power_of_two(num_buckets))
-    {
-      size_t num_buckets_pow2 = pow2roundup(num_buckets);
-      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %zu\n", num_buckets, num_buckets_pow2);
-      num_buckets = num_buckets_pow2;
-      initial = pow2roundup(initial);
-    }
-
-  printf("## Initial: %zu / Range: %zu\n", initial, range);
-
-  double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
-  double mb = kb / 1024.0;
-  printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
-
-  if (!is_power_of_two(range))
-    {
-      size_t range_pow2 = pow2roundup(range);
-      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
-      range = range_pow2;
-    }
-
-  if (put > update)
-    {
-      put = update;
-    }
-
-  num_elements = range;
-  filling_rate = (double) initial / range;
-  update_rate = update / 100.0;
-  if (put_explicit)
-    {
-      put_rate = put / 100.0;
-    }
-  else
-    {
-      put_rate = update_rate / 2;
-    }
-  get_rate = 1 - update_rate;
-
-  /* printf("num_threads = %u\n", num_threads); */
-  /* printf("cap: = %u\n", num_buckets); */
-  /* printf("num elem = %u\n", num_elements); */
-  /* printf("filing rate= %f\n", filling_rate); */
-  /* printf("update = %f (putting = %f)\n", update_rate, put_rate); */
-
-
-  rand_max = num_elements - 1;
+  rand_max = num_elements;
     
   struct timeval start, end;
   struct timespec timeout;
   timeout.tv_sec = duration / 1000;
   timeout.tv_nsec = (duration % 1000) * 1000000;
     
+  printf("//duration: sec: %lu, ns: %lu\n", timeout.tv_sec, timeout.tv_nsec);
   stop = 0;
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
-  assert(hashtable != NULL);
+  snap = (lfht_snapshot_t*) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
+  assert(snap != NULL);
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -590,7 +570,6 @@ main(int argc, char **argv)
   for(t = 0; t < num_threads; t++)
     {
       tds[t].id = t;
-      tds[t].ht = hashtable;
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
 	{
@@ -623,18 +602,18 @@ main(int argc, char **argv)
 
   free(tds);
     
-  volatile ticks putting_suc_total = 0;
-  volatile ticks putting_fal_total = 0;
-  volatile ticks getting_suc_total = 0;
-  volatile ticks getting_fal_total = 0;
-  volatile ticks removing_suc_total = 0;
-  volatile ticks removing_fal_total = 0;
-  volatile uint64_t putting_count_total = 0;
-  volatile uint64_t putting_count_total_succ = 0;
-  volatile uint64_t getting_count_total = 0;
-  volatile uint64_t getting_count_total_succ = 0;
-  volatile uint64_t removing_count_total = 0;
-  volatile uint64_t removing_count_total_succ = 0;
+  volatile ticks putting_suc_total = 1;
+  volatile ticks putting_fal_total = 1;
+  volatile ticks getting_suc_total = 1;
+  volatile ticks getting_fal_total = 1;
+  volatile ticks removing_suc_total = 1;
+  volatile ticks removing_fal_total = 1;
+  volatile uint64_t putting_count_total = 1;
+  volatile uint64_t putting_count_total_succ = 1;
+  volatile uint64_t getting_count_total = 1;
+  volatile uint64_t getting_count_total_succ = 1;
+  volatile uint64_t removing_count_total = 1;
+  volatile uint64_t removing_count_total_succ = 1;
     
   for(t=0; t < num_threads; t++) 
     {
@@ -652,57 +631,104 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
+  if(putting_count_total == 0) 
+    {
+      putting_suc_total = 0;
+      putting_fal_total = 0;
+      putting_count_total = 1;
+      putting_count_total_succ = 2;
+    }
+    
+  if(getting_count_total == 0) 
+    {
+      getting_suc_total = 0;
+      getting_fal_total = 0;
+      getting_count_total = 1;
+      getting_count_total_succ = 2;
+    }
+    
+  if(removing_count_total == 0) 
+    {
+      removing_suc_total = 0;
+      removing_fal_total = 0;
+      removing_count_total = 1;
+      removing_count_total_succ = 2;
+    }
+    
 #if !defined(COMPUTE_THROUGHPUT)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
-
-  long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
-  long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
-  long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
-  long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
-  long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
-  long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
   printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-	 num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
+	 num_threads,
+	 getting_suc_total / getting_count_total_succ,
+	 getting_fal_total / (getting_count_total - getting_count_total_succ),
+	 putting_suc_total / putting_count_total_succ,
+	 putting_fal_total / (putting_count_total - putting_count_total_succ),
+	 removing_suc_total / removing_count_total_succ,
+	 removing_fal_total / (removing_count_total - removing_count_total_succ)
+	 );
 #endif
 
     
 #define LLU long long unsigned int
 
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  int size_after = ht_size(hashtable->ht);
+  int size_after = 0;
+
+  for (i = 0; i < rand_max; i++)
+    {
+      size_after += (snap->map[i] == MAP_VALID);
+    }
+  printf("\n");
+  printf("#Maps     | ");
+  for (i = 0; i < rand_max; i++)
+    {
+      printf("#%d = %-5d | ", i, snap->map[i]);
+    }
+  printf("\n");
+  printf("#Keys     | ");
+  for (i = 0; i < rand_max; i++)
+    {
+      printf("#%d = %-5jd | ", i, key[i]);
+    }
+  printf("\n");
+  printf("#Vals     | ");
+  for (i = 0; i < rand_max; i++)
+    {
+      printf("#%d = %-5jd | ", i, (val[i]) ? *(size_t*) val[i] : -1);
+    }
+  printf("\n");
+
 #if defined(DEBUG)
   printf("puts - rems  : %d\n", pr);
 #endif
-  assert(size_after == (initial + pr));
+  /* assert(size_after == (pr)); */
+  if (size_after != pr)
+    {
+      printf("######                                                                                      SIZE missmatch\n");
+    }
+
 
   printf("    : %-10s | %-10s | %-11s | %s\n", "total", "success", "succ %", "total %");
   uint64_t total = putting_count_total + getting_count_total + removing_count_total;
   double putting_perc = 100.0 * (1 - ((double)(total - putting_count_total) / total));
-  double getting_perc = 100.0 * (1 - ((double)(total - getting_count_total) / total));
   double removing_perc = 100.0 * (1 - ((double)(total - removing_count_total) / total));
   printf("puts: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) putting_count_total, 
 	 (LLU) putting_count_total_succ,
 	 (1 - (double) (putting_count_total - putting_count_total_succ) / putting_count_total) * 100,
 	 putting_perc);
-  printf("gets: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) getting_count_total, 
-	 (LLU) getting_count_total_succ,
-	 (1 - (double) (getting_count_total - getting_count_total_succ) / getting_count_total) * 100,
-	 getting_perc);
   printf("rems: %-10llu | %-10llu | %10.1f%% | %.1f%%\n", (LLU) removing_count_total, 
 	 (LLU) removing_count_total_succ,
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
 
-  kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
-  mb = kb / 1024.0;
-  printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
 
-  double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
-  printf("#Mops %.3f\n", throughput / 1e6);
-  /* ht_destroy( hashtable ); */
+  size_t all_total = putting_count_total + getting_count_total + removing_count_total;
+  double throughput = (all_total) * 1000.0 / duration;
+  printf("#txs tot (%zu\n", all_total);
+  printf("#txs %-4d(%-10.0f = %.3f M\n", num_threads, throughput, throughput / 1e6);
+    
     
   /* Last thing that main() should do */
   //printf("Main: program completed. Exiting.\n");

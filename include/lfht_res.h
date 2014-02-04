@@ -27,6 +27,13 @@
 #define KEY_BUCKT 3
 #define ENTRIES_PER_BUCKET KEY_BUCKT
 
+#define LFHT_DO_GC               1
+#define LFHT_PERC_FULL_HALVE     2
+#define LFHT_PERC_FULL_DOUBLE    15
+#define LFHT_INC_EMERGENCY       2
+#define LFHT_NO_EMPTY_SLOT_TRIES 3
+#define LFHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
+
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -115,7 +122,35 @@ typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 _Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 #endif
 
-typedef struct ALIGNED(CACHE_LINE_SIZE) lfht_wrapper
+#if defined(__tile__)
+typedef volatile uint32_t hyht_lock_t;
+#else
+typedef volatile uint8_t hyht_lock_t;
+#endif
+/* typedef volatile uint64_t lfht_lock_t; */
+#define LFHT_LOCK_FREE 0
+#define LFHT_LOCK_ACQR 1
+
+#define LFHT_CHECK_RESIZE(w)				\
+  while (unlikely(w->resize_lock == LFHT_LOCK_ACQR))	\
+    {							\
+      LFHT_GC_HT_VERSION_USED(w->ht);			\
+    }
+
+#define LFHT_LOCK_RESIZE(w)						\
+  (CAS_U64(&w->resize_lock, LFHT_LOCK_FREE, LFHT_LOCK_ACQR) == LFHT_LOCK_FREE)
+
+#define LFHT_RLS_RESIZE(w)			\
+  w->resize_lock = LFHT_LOCK_FREE
+
+#define TRYLOCK_ACQ(lock)			\
+  TAS_U8(lock)
+
+#define TRYLOCK_RLS(lock)			\
+  lock = LFHT_LOCK_FREE
+
+
+typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
 {
   union
   {
@@ -123,6 +158,12 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) lfht_wrapper
     {
       struct hashtable_s* ht;
       uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
+      struct hashtable_s* ht_oldest;
+      struct ht_ts* version_list;
+      size_t version_min;
+      volatile hyht_lock_t resize_lock;
+      volatile hyht_lock_t gc_lock;
+      volatile hyht_lock_t status_lock;
     };
     uint8_t padding[2 * CACHE_LINE_SIZE];
   };
@@ -137,6 +178,20 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
       size_t num_buckets;
       bucket_t* table;
       size_t hash;
+      size_t version;
+      uint8_t next_cache_line[CACHE_LINE_SIZE - (3 * sizeof(size_t)) - (sizeof(void*))];
+      struct hashtable_s* table_tmp;
+      struct hashtable_s* table_prev;
+      struct hashtable_s* table_new;
+      volatile uint32_t num_expands;
+      union
+      {
+	volatile uint32_t num_expands_threshold;
+	uint32_t num_buckets_prev;
+      };
+      volatile int32_t is_helper;
+      volatile int32_t helper_done;
+      size_t version_min;
     };
     uint8_t padding[2*CACHE_LINE_SIZE];
   };
@@ -262,14 +317,15 @@ size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
 void ht_gc_thread_init(hyht_wrapper_t* hashtable, int id);
 inline void ht_gc_thread_version(hashtable_t* h);
-inline int lfht_gc_get_id();
+inline int hyht_gc_get_id();
 int ht_gc_collect(hyht_wrapper_t* h);
 int ht_gc_collect_all(hyht_wrapper_t* h);
 int ht_gc_free(hashtable_t* hashtable);
 void ht_gc_destroy(hyht_wrapper_t* hashtable);
+size_t ht_gc_min_version_used(hyht_wrapper_t* h);
 
 void ht_print(hashtable_t* hashtable);
-size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
+size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
 
 bucket_t* create_bucket();
 int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);

@@ -77,7 +77,7 @@ ht_gc_collect_all(hyht_wrapper_t* hashtable)
  * version that is currently used. In other words, all versions, less
  * than the returned value, can be GCed
  */
-static inline size_t
+size_t
 ht_gc_min_version_used(hyht_wrapper_t* h)
 {
   volatile ht_ts_t* cur = h->version_list;
@@ -167,6 +167,8 @@ ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
 int
 ht_gc_free(hashtable_t* hashtable)
 {
+  /* the HYHT_LINKED version does not allocate any extra buckets! */
+#if !defined(HYHT_LINKED) && !defined(LOCKFREE_RES)
   uint32_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
 
@@ -182,6 +184,7 @@ ht_gc_free(hashtable_t* hashtable)
 	  free((void*) cur);
 	}
     }
+#endif
 
   free(hashtable->table);
   free(hashtable);

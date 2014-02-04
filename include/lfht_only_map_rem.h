@@ -21,8 +21,9 @@
 #define CACHE_LINE_SIZE    64
 
 #define MAP_INVLD 0
-#define MAP_VALID 1
-#define MAP_INSRT 2
+#define MAP_INSRT 1
+#define MAP_VALID 2
+#define MAP_REMOV 3
 
 #define KEY_BUCKT 3
 #define ENTRIES_PER_BUCKET KEY_BUCKT
@@ -87,13 +88,14 @@ typedef union
 
 #if !defined(__tile__)
 _Static_assert (sizeof(lfht_snapshot_t) == 8, "sizeof(lfht_snapshot_t) == 8");
-#endif
+#endif 
 
 typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
   union
   {
     volatile uint64_t snapshot;
+    volatile uint32_t ints[2];
     struct
     {
 #if KEY_BUCKT == 4

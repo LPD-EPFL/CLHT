@@ -109,6 +109,7 @@ void ssmem_ts_set_print(size_t* set);
 void ssmem_free_list_print(ssmem_allocator_t* a);
 void ssmem_collected_list_print(ssmem_allocator_t* a);
 void ssmem_available_list_print(ssmem_allocator_t* a);
+void ssmem_all_list_print(ssmem_allocator_t* a, int id);
 
 
 #endif /* _SSMEM_H_ */

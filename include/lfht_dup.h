@@ -23,7 +23,7 @@
 #define KEY_NULL 0
 #define KEY_BLCK -1
 
-#define KEY_BUCKT 8
+#define KEY_BUCKT 4
 #define ENTRIES_PER_BUCKET KEY_BUCKT
 
 #ifndef ALIGNED
@@ -63,7 +63,7 @@
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
 inline int is_power_of_two(unsigned int x);
 
-typedef volatile uintptr_t hyht_addr_t;
+typedef uintptr_t hyht_addr_t;
 typedef volatile uintptr_t hyht_val_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
