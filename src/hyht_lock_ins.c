@@ -214,7 +214,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   hyht_lock_t* lock = &bucket->lock;
   LOCK_ACQ(lock, hashtable);
 
-  hyht_addr_t* empty = NULL;
+  volatile hyht_addr_t* empty = NULL;
   hyht_val_t* empty_v = NULL;
 
   uint32_t j;

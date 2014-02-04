@@ -200,7 +200,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   	}
     }
 
-  int empty_index = keys_get_empty_index(bucket->key);
+  int empty_index = keys_get_empty_index((uintptr_t*) bucket->key);
   if (empty_index < 0)
     {
       /* printf("** no space in the bucket\n"); */
