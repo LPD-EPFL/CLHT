@@ -386,23 +386,14 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
     }
 
 #if defined(DEBUG)
-  if (ht_size(ht_old) != ht_size(ht_new))
-    {
-      printf("**ht_size(ht_old) = %zu != ht_size(ht_new) = %zu\n", ht_size(ht_old), ht_size(ht_new));
-    }
+  /* if (ht_size(ht_old) != ht_size(ht_new)) */
+  /*   { */
+  /*     printf("**ht_size(ht_old) = %zu != ht_size(ht_new) = %zu\n", ht_size(ht_old), ht_size(ht_new)); */
+  /*   } */
 #endif
 
   ht_new->table_prev = ht_old;
 
-  /* int ht_resize_again = 0; */
-  /* if (ht_new->num_expands >= ht_new->num_expands_threshold) */
-  /*   { */
-  /*     /\* printf("--problem: have already %u expands\n", ht_new->num_expands); *\/ */
-  /*     ht_resize_again = 1; */
-  /*     /\* ht_new->num_expands_threshold = ht_new->num_expands + 1; *\/ */
-  /*   } */
-
-  
   SWAP_U64((uint64_t*) h, (uint64_t) ht_new);
   ht_old->table_new = ht_new;
 
@@ -412,12 +403,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   printf("[RESIZE-%02d] to #bu %7zu    | took: %13llu ti = %8.6f s\n", 
 	 0, ht_new->num_buckets, (unsigned long long) e, e / 2.1e9);
 
-  /* ht_gc_collect(h); */
-
-  /* if (ht_resize_again) */
-  /*   { */
-  /*     ht_status(h, 1, 0); */
-  /*   } */
+  ht_gc_collect(h);
 
   return 1;
 }
