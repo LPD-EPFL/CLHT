@@ -122,8 +122,9 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   volatile struct bucket_s* next;
 } bucket_t;
 
+#if __GNUC__ > 4 && __GNUC_MINOR__ > 4
 _Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
-
+#endif
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
 {

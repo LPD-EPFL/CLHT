@@ -86,7 +86,7 @@ typedef union
   };
 } lfht_snapshot_t;
 
-#if !defined(__tile__)
+#if __GNUC__ > 4 && __GNUC_MINOR__ > 4
 _Static_assert (sizeof(lfht_snapshot_t) == 8, "sizeof(lfht_snapshot_t) == 8");
 #endif 
 
@@ -113,7 +113,7 @@ typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   hyht_val_t val[KEY_BUCKT];
 } bucket_t;
 
-#if !defined(__tile__)
+#if __GNUC__ > 4 && __GNUC_MINOR__ > 4
 _Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 #endif
 
