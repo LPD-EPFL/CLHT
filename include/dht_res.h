@@ -13,7 +13,7 @@
 /* #define DEBUG */
 
 #define HYHT_READ_ONLY_FAIL   1
-#define HYHT_HELP_RESIZE      1
+#define HYHT_HELP_RESIZE      0
 #define HYHT_PERC_EXPANSIONS  0.05
 #define HYHT_MAX_EXPANSIONS   2
 #define HYHT_PERC_FULL_DOUBLE 80	   /* % */
@@ -30,6 +30,11 @@
 #else
 #define HYHT_USE_RTM          0
 #endif
+
+#define HYHT_LINKED_PERC_FULL_DOUBLE  75
+#define HYHT_LINKED_MAX_AVG_EXPANSION 1
+#define HYHT_LINKED_MAX_EXPANSIONS    8
+
 
 #if HYHT_DO_CHECK_STATUS == 1
 #  define HYHT_CHECK_STATUS(h)				\
@@ -263,10 +268,12 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
       ht_resize_help(h);
 #endif
 
+#if !defined(HYHT_LINKED)
       while (h->table_new == NULL)
 	{
 	  _mm_mfence();
 	}
+#endif
 
       return 0;
     }
