@@ -40,7 +40,6 @@ test(void* d)
 	    }
 	  k++;
 	}
-
     }
 }
 
@@ -48,6 +47,8 @@ test(void* d)
 int
 main(int a, char** v)
 {
+  printf("//Usage: ./noise [NUM_THREADS] [THREADS_PER_CORE] [DIRECT]\n"
+	 "//        where DIRECT selects whether to start with set_cpu(0), or set_cpu(the_cores[0])\n");
   int num_threads = 1;
   int per_core = 1;
 
