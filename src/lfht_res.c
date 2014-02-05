@@ -405,8 +405,6 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   printf("[RESIZE-%02d] to #bu %7zu    | took: %13llu ti = %8.6f s\n", 
 	 0, ht_new->num_buckets, (unsigned long long) e, e / 2.1e9);
 
-  ht_gc_collect(h);
-
   return 1;
 }
 
