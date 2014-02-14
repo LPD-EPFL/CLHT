@@ -37,6 +37,7 @@
 
 
 /* #define DETAILED_THROUGHPUT */
+#define RANGE_EXACT 1
 
 /* ################################################################### *
  * GLOBALS
@@ -267,8 +268,11 @@ test(void* thread)
   uint8_t update = false;
   while (stop == 0) 
     {
+#if RANGE_EXACT == 1
+      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
+#else
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
-        
+#endif	/* RANGE_EXACT */
       c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
       update = (c <= scale_update);
       putting = (c <= scale_put);
@@ -490,12 +494,14 @@ main(int argc, char **argv)
     }
 
 
+#if RANGE_EXACT != 1
   if (!is_power_of_two(initial))
     {
       size_t initial_pow2 = pow2roundup(initial);
       printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
       initial = initial_pow2;
     }
+#endif
 
   if (range < initial)
     {
@@ -511,14 +517,20 @@ main(int argc, char **argv)
       num_buckets = initial / load_factor;
     }
 
-  range = pow2roundup(range);
+#if RANGE_EXACT != 1
+  if (!is_power_of_two(range))
+    {
+      size_t range_pow2 = pow2roundup(range);
+      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
+      range = range_pow2;
+    }
+#endif
 
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
       printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %zu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
-      initial = pow2roundup(initial);
     }
 
   printf("## Initial: %zu / Range: %zu\n", initial, range);
@@ -526,13 +538,6 @@ main(int argc, char **argv)
   double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
   printf("Sizeof initial: %.2f KB = %.2f MB\n", kb, mb);
-
-  if (!is_power_of_two(range))
-    {
-      size_t range_pow2 = pow2roundup(range);
-      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
-      range = range_pow2;
-    }
 
   if (put > update)
     {
@@ -559,7 +564,11 @@ main(int argc, char **argv)
   /* printf("update = %f (putting = %f)\n", update_rate, put_rate); */
 
 
+#if RANGE_EXACT == 1
+  rand_max = num_elements;
+#else
   rand_max = num_elements - 1;
+#endif
     
   struct timeval start, end;
   struct timespec timeout;
