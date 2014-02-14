@@ -14,9 +14,9 @@
 
 #define HYHT_READ_ONLY_FAIL   1
 #define HYHT_HELP_RESIZE      0
-#define HYHT_PERC_EXPANSIONS  0.05
-#define HYHT_MAX_EXPANSIONS   2
-#define HYHT_PERC_FULL_DOUBLE 80	   /* % */
+#define HYHT_PERC_EXPANSIONS  3
+#define HYHT_MAX_EXPANSIONS   24
+#define HYHT_PERC_FULL_DOUBLE 95	   /* % */
 #define HYHT_RATIO_DOUBLE     2		  
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
 #define HYHT_RATIO_HALVE      8		  
