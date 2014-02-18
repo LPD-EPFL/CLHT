@@ -1,12 +1,12 @@
 ifeq ($(DEBUG),1)
-  DEBUG_FLAGS=-Wall -ggdb -DDEBUG
+  DEBUG_FLAGS=-Wall -ggdb -g -DDEBUG
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
 else ifeq ($(DEBUG),2)
   DEBUG_FLAGS=-Wall
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
 else
   DEBUG_FLAGS=-Wall
-  COMPILE_FLAGS=-O3 -DADD_PADDING -DDEBUG
+  COMPILE_FLAGS=-O4 -DADD_PADDING -DDEBUG
 endif
 
 ifeq ($(M),1)
@@ -145,13 +145,17 @@ hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 hyht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_res.c src/hyht_gc.c -o hyht $(LIBS)
 
+hyht_ro: $(BMARKS)/test_ro.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/test_ro.c src/dht_res.c src/hyht_gc.c -o hyht_ro $(LIBS)
+
+
 hyht_linked: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_linked.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DHYHT_LINKED  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_linked.c src/hyht_gc.c -o hyht_linked $(LIBS)
 
 hyht_linked_lat: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_linked.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE -DHYHT_LINKED  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_linked.c src/hyht_gc.c -o hyht_linked_lat $(LIBS)
 
-lfht: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h
+lfht: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h include/prand.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/lfht.c -o lfht $(LIBS)
 
 lfht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/lfht_res.c include/lfht_res.h src/hyht_gc.c
