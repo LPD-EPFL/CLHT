@@ -6,7 +6,7 @@ else ifeq ($(DEBUG),2)
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
 else
   DEBUG_FLAGS=-Wall
-  COMPILE_FLAGS=-O4 -DADD_PADDING -DDEBUG
+  COMPILE_FLAGS=-O3 -DADD_PADDING -DDEBUG
 endif
 
 ifeq ($(M),1)
@@ -145,8 +145,11 @@ hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 hyht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_res.c src/hyht_gc.c -o hyht $(LIBS)
 
-hyht_ro: $(BMARKS)/test_ro.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
+hyht_ro: $(BMARKS)/test_ro.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h include/prand.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/test_ro.c src/dht_res.c src/hyht_gc.c -o hyht_ro $(LIBS)
+
+hyht_simple: $(BMARKS)/test_simple.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h include/prand.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/test_simple.c src/dht_res.c src/hyht_gc.c -o hyht_simple $(LIBS)
 
 
 hyht_linked: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_linked.c src/hyht_gc.c include/dht_res.h
