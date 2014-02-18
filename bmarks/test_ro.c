@@ -267,11 +267,12 @@ test(void* thread)
       /* 	  ht_get(ht, key); */
       /* 	} */
 
-      PRAND_FOR(g, key)
+      int i;
+      PRAND_FOR(g, i, key)
 	{
       	  my_getting_count_succ += (ht_get(ht, key) != 0);
 	}
-      my_getting_count += key;
+      my_getting_count += i;
       /* my_getting_count += (rand_max - rand_min); */
       if (unlikely(stop))
 	{

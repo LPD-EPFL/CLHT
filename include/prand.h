@@ -4,8 +4,9 @@
 #include <assert.h>
 #include "utils.h"
 
+#define PRAND_LEN 8192
 /* #define PRAND_LEN 65536 */
-#define PRAND_LEN 2097152
+/* #define PRAND_LEN 2097152 */
 
 typedef uint32_t prand_gen_t;
 
@@ -51,8 +52,8 @@ prand_nxt(const prand_gen_t* g, int* idx)
   return g[*idx++ & (PRAND_LEN - 1)];
 }
 
-#define PRAND_FOR(g, i)			\
-  for (i = 0; i < PRAND_LEN; i++)
+#define PRAND_FOR(g, i, key)			\
+  for (i = 0; i < PRAND_LEN; key = g[i], i++)
 
 
 
