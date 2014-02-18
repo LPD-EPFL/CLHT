@@ -34,7 +34,7 @@
 #  include "dht_res.h"
 #endif
 #include "mcore_malloc.h"
-
+#include "prand.h"
 
 /* #define DETAILED_THROUGHPUT */
 #define RANGE_EXACT 0
@@ -202,7 +202,7 @@ test(void* thread)
     
   seeds = seed_rand();
     
-  volatile uint64_t key;
+  volatile uint32_t key;
   int i;
   uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
   int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
@@ -256,16 +256,23 @@ test(void* thread)
 #endif
 
   hashtable_t* ht = hashtable->ht;
+  prand_gen_t* g = prand_new_range(rand_min, rand_max);
+
   barrier_cross(&barrier_global);
-
-
   while (1)
     {
-      for (key = 1; key < rand_max; key++)
+      /* for (key = 1; key < rand_max; key++) */
+      /* 	{ */
+      /* 	  key = prand_nxt(g, &ix); */
+      /* 	  ht_get(ht, key); */
+      /* 	} */
+
+      PRAND_FOR(g, key)
 	{
-	  ht_get(ht, key);
+      	  my_getting_count_succ += (ht_get(ht, key) != 0);
 	}
-      my_getting_count += (rand_max - rand_min);
+      my_getting_count += key;
+      /* my_getting_count += (rand_max - rand_min); */
       if (unlikely(stop))
 	{
 	  break;
@@ -280,8 +287,7 @@ test(void* thread)
     }
 #endif
     
-  /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
-  /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
+  free(g);
   barrier_cross(&barrier);
 #if defined(DEBUG)
   if (!ID)
@@ -425,16 +431,6 @@ main(int argc, char **argv)
 	}
     }
 
-
-#if RANGE_EXACT != 1
-  if (!is_power_of_two(initial))
-    {
-      size_t initial_pow2 = pow2roundup(initial);
-      printf("** rounding up initial (to make it power of 2): old: %zu / new: %zu\n", initial, initial_pow2);
-      initial = initial_pow2;
-    }
-#endif
-
   if (range < initial)
     {
       range = 2 * initial;
@@ -448,15 +444,6 @@ main(int argc, char **argv)
     {
       num_buckets = initial / load_factor;
     }
-
-#if RANGE_EXACT != 1
-  if (!is_power_of_two(range))
-    {
-      size_t range_pow2 = pow2roundup(range);
-      printf("** rounding up range (to make it power of 2): old: %zu / new: %zu\n", range, range_pow2);
-      range = range_pow2;
-    }
-#endif
 
   if (!is_power_of_two(num_buckets))
     {
