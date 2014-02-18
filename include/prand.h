@@ -46,11 +46,38 @@ prand_new_range(size_t min, size_t max)
   return g;
 }
 
+static inline prand_gen_t*
+prand_new_range_len(size_t len, size_t min, size_t max)
+{
+  prand_gen_t* g = (prand_gen_t*) malloc(sizeof(prand_gen_t) * (len + 1));
+  assert(g != NULL);
+
+  unsigned long* s = seed_rand();
+
+  int i;
+  for (i = 0; i <= len; i++)
+    {
+      g[i] = (uint32_t) ((xorshf96(s, s+1, s+2) % max) + min);
+      assert(g[i] != 0);
+    }
+
+  free(s);
+  return g;
+}
+
+
 static inline prand_gen_t
 prand_nxt(const prand_gen_t* g, int* idx)
 {
   return g[*idx++ & (PRAND_LEN - 1)];
 }
+
+#define PRAND_GET_NXT(g, idx)			\
+  g[idx++ & (PRAND_LEN - 1)]
+
+#define PRAND_GET_NXT_L(g, idx, len)		\
+  g[idx++ & (len)]
+
 
 #define PRAND_FOR(g, i, key)			\
   for (i = 0; i < PRAND_LEN; key = g[i], i++)
