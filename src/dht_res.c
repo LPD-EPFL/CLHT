@@ -206,7 +206,8 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 	}
 
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (unlikely(bucket != NULL));
   return 0;
 }
 
@@ -224,7 +225,8 @@ bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
       	    }
       	}
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (unlikely(bucket != NULL));
   return false;
 }
 
@@ -276,9 +278,9 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	}
         
       int resize = 0;
-      if (bucket->next == NULL)
+      if (likely(bucket->next == NULL))
 	{
-	  if (empty == NULL)
+	  if (unlikely(empty == NULL))
 	    {
 	      DPP(put_num_failed_expand);
 	      bucket->next = create_bucket_stats(hashtable, &resize);
@@ -292,7 +294,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    }
 
 	  LOCK_RLS(lock);
-	  if (resize)
+	  if (unlikely(resize))
 	    {
 	      /* ht_resize_pes(h, 1); */
 	      ht_status(h, 1, 0);
@@ -348,7 +350,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	}
       bucket = bucket->next;
     } 
-  while (bucket != NULL);
+  while (unlikely(bucket != NULL));
   LOCK_RLS(lock);
   return false;
 }
