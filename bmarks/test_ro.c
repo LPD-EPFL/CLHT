@@ -202,7 +202,7 @@ test(void* thread)
     
   seeds = seed_rand();
     
-  volatile uint32_t key;
+  uint32_t key = 1;
   int i;
   uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
   int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
@@ -270,44 +270,26 @@ test(void* thread)
       int i;
       PRAND_FOR(g, i, key)
 	{
+	  START_TS(0);
+#if MEASURE_SUCC == 1
       	  my_getting_count_succ += (ht_get(ht, key) != 0);
+#else
+	  ht_get(ht, key);
+#endif
+	  END_TS(0, my_getting_succ);
 	}
       my_getting_count += i;
-      /* my_getting_count += (rand_max - rand_min); */
       if (unlikely(stop))
 	{
 	  break;
 	}
     }
         
-#if defined(DEBUG)
-  if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
-    {
-      /* printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", */
-      /* 	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new); */
-    }
-#endif
-    
   free(g);
   barrier_cross(&barrier);
-#if defined(DEBUG)
-  if (!ID)
-    {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-    }
-#else
-  if (!ID)
-    {
-      if(ht_size(hashtable->ht) == 3321445)
-	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-	}
-    }  
-#endif
 
 #if !defined(COMPUTE_THROUGHPUT)
   getting_succ[ID] += my_getting_succ;
-  getting_fail[ID] += my_getting_fail;
 #endif
   getting_count[ID] += my_getting_count;
   getting_count_succ[ID] += my_getting_count_succ;
