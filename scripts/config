@@ -65,6 +65,9 @@ then
     elif [ $unm = "lpdpc34" ];
     then
 	cores=$(seq 2 1 8);
+    elif [ $unm = "lpdxeon2680" ];
+    then
+	cores="$(seq 2 1 9) $(seq 10 10 40)";
     else
 	cores="2 3 4 5 $(seq 6 6 48)";
     fi;
