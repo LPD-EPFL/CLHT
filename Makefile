@@ -134,12 +134,12 @@ default: all
 
 all: $(ALL)
 
-normal: hyht_res hyht_res_lat hyht_linked hyht_linked_lat lfht_res lfht_res_lat 
+normal: hyht_res hyht_res_lat hyht_linked hyht_linked_lat lfht_res lfht_res_lat hyht_simple
 
 dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
 
-hyht: main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
+hyht: $(BMARKS)/main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/dht.c -o hyht $(LIBS)
 
 hyht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
