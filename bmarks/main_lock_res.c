@@ -37,7 +37,7 @@
 
 
 /* #define DETAILED_THROUGHPUT */
-#define RANGE_EXACT 1
+#define RANGE_EXACT 0
 
 /* ################################################################### *
  * GLOBALS
