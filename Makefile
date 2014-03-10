@@ -145,6 +145,9 @@ hyht: $(BMARKS)/main_lock.c $(OBJ_FILES) src/dht.c include/dht.h
 hyht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_res.c src/hyht_gc.c -o hyht $(LIBS)
 
+hyht_res_no_next: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_res_no_next.c src/hyht_gc.c include/dht_res_no_next.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_res_no_next.c src/hyht_gc.c -o hyht_nn $(LIBS)
+
 hyht_ro: $(BMARKS)/test_ro.c $(OBJ_FILES) src/dht_res.c src/hyht_gc.c include/dht_res.h include/prand.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT  $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/test_ro.c src/dht_res.c src/hyht_gc.c -o hyht_ro $(LIBS)
 
