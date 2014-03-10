@@ -7,6 +7,10 @@
 #include "atomic_ops.h"
 #include "utils.h"
 
+#include "ssmem.h"
+
+extern __thread ssmem_allocator_t* hyht_alloc;
+
 #define true 1
 #define false 0
 
@@ -22,7 +26,7 @@
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8
 #define HYHT_DO_CHECK_STATUS  0
-#define HYHT_DO_GC            1
+#define HYHT_DO_GC            0
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
 #if defined(RTM)	       /* only for processors that have RTM */
@@ -383,6 +387,7 @@ void ht_gc_thread_init(hyht_wrapper_t* hashtable, int id);
 inline void ht_gc_thread_version(hashtable_t* h);
 inline int hyht_gc_get_id();
 int ht_gc_collect(hyht_wrapper_t* h);
+int ht_gc_release(hashtable_t* h);
 int ht_gc_collect_all(hyht_wrapper_t* h);
 int ht_gc_free(hashtable_t* hashtable);
 void ht_gc_destroy(hyht_wrapper_t* hashtable);

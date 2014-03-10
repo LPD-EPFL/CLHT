@@ -185,6 +185,9 @@ test(void* thread)
   hyht_wrapper_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
+  hyht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(hyht_alloc != NULL);
+  ssmem_alloc_init(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 

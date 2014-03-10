@@ -5,6 +5,8 @@
 
 #include "dht_res.h"
 
+__thread ssmem_allocator_t* hyht_alloc;
+
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
 __thread uint32_t put_num_failed_expand = 0;
@@ -257,8 +259,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
   HYHT_GC_HT_VERSION_USED(hashtable);
   HYHT_CHECK_STATUS(h);
-  volatile hyht_addr_t* empty = NULL;
-  volatile hyht_val_t* empty_v = NULL;
+  hyht_addr_t* empty = NULL;
+  hyht_val_t* empty_v = NULL;
 
   uint32_t j;
   do 
@@ -272,7 +274,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    }
 	  else if (empty == NULL && bucket->key[j] == 0)
 	    {
-	      empty = &bucket->key[j];
+	      empty = (hyht_addr_t*) &bucket->key[j];
 	      empty_v = &bucket->val[j];
 	    }
 	}
@@ -283,9 +285,11 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	  if (unlikely(empty == NULL))
 	    {
 	      DPP(put_num_failed_expand);
-	      bucket->next = create_bucket_stats(hashtable, &resize);
-	      bucket->next->val[0] = val;
-	      bucket->next->key[0] = key;
+
+	      bucket_t* b = create_bucket_stats(hashtable, &resize);
+	      b->val[0] = val;
+	      b->key[0] = key;
+	      bucket->next = b;
 	    }
 	  else 
 	    {
@@ -531,7 +535,12 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   printf("[RESIZE-%02d] to #bu %7zu = MB: %7.2f    | took: %13llu ti = %8.6f s\n", 
 	 hyht_gc_get_id(), ht_new->num_buckets, mba, (unsigned long long) e, e / 2.1e9);
 
+
+#if HYHT_DO_GC == 1
   ht_gc_collect(h);
+#else
+  ht_gc_release(ht_old);
+#endif
 
   if (ht_resize_again)
     {
