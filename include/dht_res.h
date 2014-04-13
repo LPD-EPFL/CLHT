@@ -18,10 +18,11 @@ extern __thread ssmem_allocator_t* hyht_alloc;
 
 #define HYHT_READ_ONLY_FAIL   1
 #define HYHT_HELP_RESIZE      0
-#define HYHT_PERC_EXPANSIONS  3
+#define HYHT_PERC_EXPANSIONS  1
 #define HYHT_MAX_EXPANSIONS   24
-#define HYHT_PERC_FULL_DOUBLE 95	   /* % */
+#define HYHT_PERC_FULL_DOUBLE 50	   /* % */
 #define HYHT_RATIO_DOUBLE     2		  
+#define HYHT_OCCUP_AFTER_RES  40
 #define HYHT_PERC_FULL_HALVE  5		   /* % */
 #define HYHT_RATIO_HALVE      8		  
 #define HYHT_MIN_HT_SIZE      8

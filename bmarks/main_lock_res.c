@@ -46,7 +46,7 @@
 
 hashtable_t** hashtable;
 int num_buckets = 256;
-int num_threads = 1;
+size_t num_threads = 1;
 int num_elements = 2048;
 int duration = 1000;
 double filling_rate = 0.5;
@@ -124,45 +124,22 @@ void barrier_cross(barrier_t *b)
   }
   pthread_mutex_unlock(&b->mutex);
 }
+
+#define EXEC_IN_DEC_ID_ORDER(id, nthr)		\
+  { int __i;					\
+  for (__i = nthr - 1; __i >= 0; __i--)		\
+    {						\
+  if (id == __i)				\
+    {
+
+#define EXEC_IN_DEC_ID_ORDER_END(barrier)	\
+  }						\
+    barrier_cross(barrier);			\
+    }}
+
 barrier_t barrier, barrier_global;
 
-
-#define PFD_TYPE 0
-
-#if defined(COMPUTE_THROUGHPUT)
-#  define START_TS(s)
-#  define END_TS(s, i)
-#  define ADD_DUR(tar)
-#  define ADD_DUR_FAIL(tar)
-#  define PF_INIT(s, e, id)
-#elif PFD_TYPE == 0
-#  define START_TS(s)				\
-  {						\
-    asm volatile ("");				\
-    start_acq = getticks();			\
-    asm volatile ("");
-#  define END_TS(s, i)				\
-    asm volatile ("");				\
-    end_acq = getticks();			\
-    asm volatile ("");				\
-    }
-
-#  define ADD_DUR(tar) tar += (end_acq - start_acq - correction)
-#  define ADD_DUR_FAIL(tar)					\
-  else								\
-    {								\
-      ADD_DUR(tar);						\
-    }
-#  define PF_INIT(s, e, id)
-#else
-#  define SSPFD_NUM_ENTRIES  pf_vals_num
-#  define START_TS(s)      SSPFDI(s)
-#  define END_TS(s, i)     SSPFDO(s, i & SSPFD_NUM_ENTRIES)
-
-#  define ADD_DUR(tar) 
-#  define ADD_DUR_FAIL(tar)
-#  define PF_INIT(s, e, id) SSPFDINIT(s, e, id)
-#endif
+#include "latency.h"
 
 typedef struct thread_data
 {
@@ -189,7 +166,21 @@ test(void* thread)
   assert(hyht_alloc != NULL);
   ssmem_alloc_init(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
     
+#if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
+  volatile ticks start_acq, end_acq;
+  volatile ticks correction = getticks_correction_calc();
+#endif
+
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
+
+#if defined(COMPUTE_LATENCY)
+  volatile ticks my_putting_succ = 0;
+  volatile ticks my_putting_fail = 0;
+  volatile ticks my_getting_succ = 0;
+  volatile ticks my_getting_fail = 0;
+  volatile ticks my_removing_succ = 0;
+  volatile ticks my_removing_fail = 0;
+#endif
 
 #if !defined(COMPUTE_THROUGHPUT)
   volatile ticks my_putting_succ = 0;
@@ -216,9 +207,8 @@ test(void* thread)
     
   uint64_t key;
   int c = 0;
-  uint32_t scale_update = (uint32_t) (update_rate * UINT_MAX);
-  uint32_t scale_put = (uint32_t)(put_rate * UINT_MAX);
-  uint8_t putting = 1;
+  uint32_t scale_rem = (uint32_t) (update_rate * UINT_MAX);
+  uint32_t scale_put = (uint32_t) (put_rate * UINT_MAX);
     
   int i;
   uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
@@ -268,65 +258,58 @@ test(void* thread)
 
   barrier_cross(&barrier_global);
 
-  uint8_t update = false;
   while (stop == 0) 
     {
-#if RANGE_EXACT == 1
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % rand_max) + rand_min;
-#else
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
-#endif	/* RANGE_EXACT */
-      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
-      update = (c <= scale_update);
-      putting = (c <= scale_put);
-
-      if(update) 
-	{
-	  if(putting) 
-	    {
-	      int res;
-	      START_TS(1);
-	      res = ht_put(hashtable, key, c + 1);
-	      END_TS(1, my_putting_count);
-	      if(res)
-		{
-		  ADD_DUR(my_putting_succ);
-		  my_putting_count_succ++;
-		}
-	      ADD_DUR_FAIL(my_putting_fail);
-	      my_putting_count++;
-	    } 
-	  else 
-	    {
-	      hyht_val_t removed;
-	      START_TS(2);
-	      removed = ht_remove(hashtable, key);
-	      END_TS(2, my_removing_count);
-	      if(removed != 0) 
-		{
-		  ADD_DUR(my_removing_succ);
-		  my_removing_count_succ++;
-		}
-	      ADD_DUR_FAIL(my_removing_fail);
-	      my_removing_count++;
-	    }
-	} 
-      else
-	{ 
-	  hyht_val_t res;
-	  START_TS(0);
-	  res= ht_get(hashtable->ht, key);
-	  END_TS(0, my_getting_count);
-	  if(res != 0) 
-	    {
-	      ADD_DUR(my_getting_succ);
-	      my_getting_count_succ++;
-	    }
-	  ADD_DUR_FAIL(my_getting_fail);
-	  my_getting_count++;
+      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));	
+      key = (c & rand_max) + rand_min;					
+									
+      if (unlikely(c <= scale_put))						
+	{									
+	  int res;								
+	  START_TS(1);							
+	  res = ht_put(hashtable, key, c + 1);
+	  if(res)								
+	    {								
+	      END_TS(1, my_putting_count_succ);				
+	      ADD_DUR(my_putting_succ);					
+	      my_putting_count_succ++;					
+	    }								
+	  END_TS_ELSE(4, my_putting_count - my_putting_count_succ,		
+		      my_putting_fail);					
+	  my_putting_count++;						
+	}									
+      else if(unlikely(c <= scale_rem))					
+	{									
+	  int removed;							
+	  START_TS(2);							
+	  removed = ht_remove(hashtable, key);
+	  if(removed != 0)							
+	    {								
+	      END_TS(2, my_removing_count_succ);				
+	      ADD_DUR(my_removing_succ);					
+	      my_removing_count_succ++;					
+	    }								
+	  END_TS_ELSE(5, my_removing_count - my_removing_count_succ,	
+		      my_removing_fail);					
+	  my_removing_count++;						
+	}									
+      else									
+	{									
+	  hyht_val_t res;								
+	  START_TS(0);							
+	  res = ht_get(hashtable->ht, key);
+	  if(res != 0)							
+	    {								
+	      END_TS(0, my_getting_count_succ);				
+	      ADD_DUR(my_getting_succ);					
+	      my_getting_count_succ++;					
+	    }								
+	  END_TS_ELSE(3, my_getting_count - my_getting_count_succ,
+		      my_getting_fail);					
+	  my_getting_count++;						
 	}
     }
-        
+
 #if defined(DEBUG)
   if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
     {
@@ -353,7 +336,7 @@ test(void* thread)
     }  
 #endif
 
-#if !defined(COMPUTE_THROUGHPUT)
+#if defined(COMPUTE_LATENCY)
   putting_succ[ID] += my_putting_succ;
   putting_fail[ID] += my_putting_fail;
   getting_succ[ID] += my_getting_succ;
@@ -369,18 +352,12 @@ test(void* thread)
   getting_count_succ[ID] += my_getting_count_succ;
   removing_count_succ[ID]+= my_removing_count_succ;
 
-#if (PFD_TYPE == 1) && !defined(COMPUTE_THROUGHPUT)
-  if (ID == 0)
+  EXEC_IN_DEC_ID_ORDER(ID, num_threads)
     {
-      printf("get ----------------------------------------------------\n");
-      SSPFDPN(0, SSPFD_NUM_ENTRIES, print_vals_num);
-      printf("put ----------------------------------------------------\n");
-      SSPFDPN(1, SSPFD_NUM_ENTRIES, print_vals_num);
-      printf("rem ----------------------------------------------------\n");
-      SSPFDPN(2, SSPFD_NUM_ENTRIES, print_vals_num);
-
+      print_latency_stats(ID, SSPFD_NUM_ENTRIES, print_vals_num);
+      RETRY_STATS_SHARE();
     }
-#endif
+  EXEC_IN_DEC_ID_ORDER_END(&barrier);
 
   /* SSPFDTERM(); */
 
@@ -679,22 +656,17 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
-#if !defined(COMPUTE_THROUGHPUT)
-#  if defined(DEBUG)
-  printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
-#  endif
-
+#if defined(COMPUTE_LATENCY)
+  printf("#thread srch_suc srch_fal insr_suc insr_fal remv_suc remv_fal   ## latency (in cycles) \n"); fflush(stdout);
   long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
   long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
   long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
   long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
   long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
   long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
-  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
-	 num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
+  printf("%-7zu %-8lu %-8lu %-8lu %-8lu %-8lu %-8lu\n", num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
 
-    
 #define LLU long long unsigned int
 
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
@@ -737,7 +709,7 @@ main(int argc, char **argv)
   ht_gc_destroy(hashtable);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
+  printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);
   printf("#Mops %.3f\n", throughput / 1e6);
     
   /* Last thing that main() should do */

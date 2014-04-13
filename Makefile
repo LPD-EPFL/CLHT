@@ -1,3 +1,48 @@
+#################################
+# Architecture dependent settings
+#################################
+
+ifndef ARCH
+    ARCH_NAME = $(shell uname -m)
+endif
+
+ifeq ($(ARCH_NAME), i386)
+    ARCH = x86
+    CFLAGS += -m32
+    LDFLAGS += -m32
+    SSPFD = -lsspfd_x86
+    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_x86
+endif
+
+ifeq ($(ARCH_NAME), i686)
+    ARCH = x86
+    CFLAGS += -m32
+    LDFLAGS += -m32
+    SSPFD = -lsspfd_x86
+    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_x86
+endif
+
+ifeq ($(ARCH_NAME), x86_64)
+    ARCH = x86_64
+    CFLAGS += -m64
+    LDFLAGS += -m64
+    SSPFD = -lsspfd_x86_64
+    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_x86_64
+endif
+
+ifeq ($(ARCH_NAME), sun4v)
+    ARCH = sparc64
+    CFLAGS += -DSPARC=1 -DINLINED=1 -m64
+    LDFLAGS += -lrt -m64
+    SSPFD = -lsspfd_sparc64
+    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_sparc64
+endif
+
+ifeq ($(ARCH_NAME), tile)
+    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_tile
+    SSPFD = -lsspfd_tile
+endif
+
 ifeq ($(DEBUG),1)
   DEBUG_FLAGS=-Wall -ggdb -g -DDEBUG
   COMPILE_FLAGS=-O0 -DADD_PADDING -fno-inline
@@ -7,6 +52,32 @@ else ifeq ($(DEBUG),2)
 else
   DEBUG_FLAGS=-Wall
   COMPILE_FLAGS=-O3 -DADD_PADDING
+endif
+
+
+
+ifeq ($(LATENCY),1)
+	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS
+endif
+
+ifeq ($(LATENCY),2)
+	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_ALL_CORES=0
+	LIBS += $(SSPFD) -lm
+endif
+
+ifeq ($(LATENCY),3)
+	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_ALL_CORES=1
+	LIBS += $(SSPFD) -lm
+endif
+
+ifeq ($(LATENCY),4)
+	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_PARSING=1
+	LIBS += $(SSPFD) -lm
+endif
+
+ifeq ($(LATENCY),5)
+	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_PARSING=1 -DLATENCY_ALL_CORES=1
+	LIBS += $(SSPFD) -lm
 endif
 
 TOP := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
@@ -39,7 +110,7 @@ UNAME := $(shell uname -n)
 
 ifeq ($(UNAME), lpd48core)
 PLATFORM=-DOPTERON
-GCC=gcc
+GCC=gcc-4.8
 PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
 LIBS+= -lrt -lpthread -lm -lnuma
