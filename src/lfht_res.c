@@ -480,7 +480,7 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int emergency_increase, int ju
       	}
       else if ((full_ratio > 0 && full_ratio > LFHT_PERC_FULL_DOUBLE) || emergency_increase || resize_increase)
       	{
-      	  int inc_by = (full_ratio / 10);
+      	  int inc_by = (full_ratio / LFHT_OCCUP_AFTER_RES);
       	  int inc_by_pow2 = pow2roundup(inc_by);
 
       	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%%\n",
