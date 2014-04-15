@@ -203,3 +203,35 @@ ht_gc_destroy(hyht_wrapper_t* hashtable)
   free(hashtable);
 }
 
+/* 
+ * uses the ssmem_release function to return some memory
+ * to the OS (free), when it is safe (nobody is using it
+ * anymore)
+ */
+inline int
+ht_gc_release(hashtable_t* hashtable)
+{
+  /* the HYHT_LINKED version does not allocate any extra buckets! */
+#if !defined(HYHT_LINKED) && !defined(LOCKFREE_RES)
+  uint32_t num_buckets = hashtable->num_buckets;
+  volatile bucket_t* bucket = NULL;
+
+  uint32_t bin;
+  for (bin = 0; bin < num_buckets; bin++)
+    {
+      bucket = hashtable->table + bin;
+      bucket = bucket->next;
+      while (bucket != NULL)
+	{
+	  volatile bucket_t* cur = bucket;
+	  bucket = bucket->next;
+	  ssmem_release(hyht_alloc, (void*) cur);
+	}
+    }
+#endif
+
+  ssmem_release(hyht_alloc, hashtable->table);
+  ssmem_release(hyht_alloc, hashtable);
+
+  return 1;
+}

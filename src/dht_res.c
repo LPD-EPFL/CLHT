@@ -5,6 +5,8 @@
 
 #include "dht_res.h"
 
+__thread ssmem_allocator_t* hyht_alloc;
+
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
 __thread uint32_t put_num_failed_expand = 0;
@@ -206,7 +208,8 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 	}
 
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (unlikely(bucket != NULL));
   return 0;
 }
 
@@ -224,7 +227,8 @@ bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
       	    }
       	}
       bucket = bucket->next;
-    } while (bucket != NULL);
+    } 
+  while (unlikely(bucket != NULL));
   return false;
 }
 
@@ -255,8 +259,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
   HYHT_GC_HT_VERSION_USED(hashtable);
   HYHT_CHECK_STATUS(h);
-  volatile hyht_addr_t* empty = NULL;
-  volatile hyht_val_t* empty_v = NULL;
+  hyht_addr_t* empty = NULL;
+  hyht_val_t* empty_v = NULL;
 
   uint32_t j;
   do 
@@ -270,20 +274,22 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    }
 	  else if (empty == NULL && bucket->key[j] == 0)
 	    {
-	      empty = &bucket->key[j];
+	      empty = (hyht_addr_t*) &bucket->key[j];
 	      empty_v = &bucket->val[j];
 	    }
 	}
         
       int resize = 0;
-      if (bucket->next == NULL)
+      if (likely(bucket->next == NULL))
 	{
-	  if (empty == NULL)
+	  if (unlikely(empty == NULL))
 	    {
 	      DPP(put_num_failed_expand);
-	      bucket->next = create_bucket_stats(hashtable, &resize);
-	      bucket->next->val[0] = val;
-	      bucket->next->key[0] = key;
+
+	      bucket_t* b = create_bucket_stats(hashtable, &resize);
+	      b->val[0] = val;
+	      b->key[0] = key;
+	      bucket->next = b;
 	    }
 	  else 
 	    {
@@ -292,7 +298,7 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	    }
 
 	  LOCK_RLS(lock);
-	  if (resize)
+	  if (unlikely(resize))
 	    {
 	      /* ht_resize_pes(h, 1); */
 	      ht_status(h, 1, 0);
@@ -348,7 +354,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	}
       bucket = bucket->next;
     } 
-  while (bucket != NULL);
+  while (unlikely(bucket != NULL));
   LOCK_RLS(lock);
   return false;
 }
@@ -529,7 +535,12 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   printf("[RESIZE-%02d] to #bu %7zu = MB: %7.2f    | took: %13llu ti = %8.6f s\n", 
 	 hyht_gc_get_id(), ht_new->num_buckets, mba, (unsigned long long) e, e / 2.1e9);
 
+
+#if HYHT_DO_GC == 1
   ht_gc_collect(h);
+#else
+  ht_gc_release(ht_old);
+#endif
 
   if (ht_resize_again)
     {
@@ -632,7 +643,7 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
       else if ((full_ratio > 0 && full_ratio > HYHT_PERC_FULL_DOUBLE) || expands_max > HYHT_MAX_EXPANSIONS ||
 	       resize_increase)
 	{
-	  int inc_by = (full_ratio / 20);
+	  int inc_by = (full_ratio / HYHT_OCCUP_AFTER_RES);
 	  int inc_by_pow2 = pow2roundup(inc_by);
 
 	  printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",

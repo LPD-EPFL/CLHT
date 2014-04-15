@@ -203,7 +203,7 @@ test(void* thread)
 
   ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
   assert(alloc != NULL);
-  ssmem_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -235,8 +235,6 @@ test(void* thread)
   MEM_BARRIER;
 
   barrier_cross(&barrier);
-
-  ssmem_gc_init(alloc);
 
 #if defined(DEBUG)
   if (!ID)

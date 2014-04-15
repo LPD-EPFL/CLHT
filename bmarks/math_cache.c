@@ -200,11 +200,12 @@ test(void* thread)
   hyht_wrapper_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
-
-
-  ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
-  assert(alloc != NULL);
-  ssmem_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  hyht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(hyht_alloc != NULL);
+  ssmem_alloc_init(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  /* ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t)); */
+  /* assert(alloc != NULL); */
+  /* ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID); */
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -236,8 +237,6 @@ test(void* thread)
   MEM_BARRIER;
 
   barrier_cross(&barrier);
-
-  ssmem_gc_init(alloc);
 
 #if defined(DEBUG)
   if (!ID)
@@ -301,7 +300,7 @@ test(void* thread)
 	  /* cache the computation if not already there */
 	  int res;
 	  START_TS(1);
-	  obj = (size_t*) ssmem_alloc(alloc, obj_size_bytes);
+	  obj = (size_t*) ssmem_alloc(hyht_alloc, obj_size_bytes);
 	  obj[0] = key;
 	  size_t v = key * key;
 	  int i;
@@ -322,7 +321,7 @@ test(void* thread)
 	    }
 	  else
 	    {
-	      ssmem_free(alloc, (void*) obj);
+	      ssmem_free(hyht_alloc, (void*) obj);
 	    }
 	  ADD_DUR_FAIL(my_putting_fail);
 	  my_putting_count++;
@@ -356,7 +355,7 @@ test(void* thread)
 
 	    }
 
-	  ssmem_free(alloc, (void*) removed);
+	  ssmem_free(hyht_alloc, (void*) removed);
 	  ADD_DUR(my_removing_succ);
 	  my_removing_count_succ++;
 	}
@@ -414,8 +413,8 @@ test(void* thread)
 #endif
 
   barrier_cross(&barrier);
-  ssmem_term(alloc);
-  free(alloc);
+  ssmem_term();
+  free(hyht_alloc);
 
 #if !defined(COMPUTE_THROUGHPUT)
   putting_succ[ID] += my_putting_succ;
@@ -764,7 +763,7 @@ main(int argc, char **argv)
 
 #if !defined(LOCKFREE) && !defined(LOCK_INS)
   ht_status(hashtable, 0, 1);
-  ht_gc_destroy(hashtable);
+  /* ht_gc_destroy(hashtable); */
 #endif
 
   size_t all_total = putting_count_total + getting_count_total + removing_count_total;
