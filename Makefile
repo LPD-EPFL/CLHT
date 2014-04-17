@@ -202,11 +202,11 @@ OBJ_FILES_MP :=
 
 BMARKS := bmarks
 
-default: all
+default: normal
 
 all: $(ALL)
 
-normal: hyht_res hyht_res_lat hyht_linked hyht_linked_lat lfht_res lfht_res_lat hyht_simple
+normal: clean hyht_res lfht_res hyht_mem lfht_mem
 
 dht.o: src/mcore_malloc.c include/mcore_malloc.h include/dht.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE)  $(DEBUG_FLAGS) $(INCLUDES) -c src/mcore_malloc.c $(LIBS)
