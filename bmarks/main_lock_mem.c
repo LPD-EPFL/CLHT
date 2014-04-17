@@ -222,8 +222,12 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
-      if(!ht_put(hashtable, key, key*key))
+      uint64_t* obj = (uint64_t*) ssmem_alloc(hyht_alloc, 8);
+      *obj = key;
+      
+      if(!ht_put(hashtable, key, (hyht_val_t) obj))
 	{
+	  ssmem_free(hyht_alloc, obj);
 	  i--;
 	}
     }
@@ -246,7 +250,7 @@ test(void* thread)
       /* ht_print(hashtable, num_buckets); */
     }
 
-  hyht_val_t obj = 0;
+  uint64_t* obj = NULL;
   
   barrier_cross(&barrier_global);
 
@@ -257,18 +261,19 @@ test(void* thread)
 									
       if (unlikely(c <= scale_put))						
 	{									
-	  if (obj == 0)
+	  if (obj == NULL)
 	    {
-	      obj = (hyht_val_t) ssmem_alloc(hyht_alloc, 8);
+	      obj = (uint64_t*) ssmem_alloc(hyht_alloc, 8);
+	      *obj = c;
 	    }
 	  int res;								
 	  START_TS(1);							
-	  res = ht_put(hashtable, key, obj);
+	  res = ht_put(hashtable, key, (hyht_val_t) obj);
 	  if(res)								
 	    {								
 	      END_TS(1, my_putting_count_succ);				
 	      ADD_DUR(my_putting_succ);					
-	      obj = 0;
+	      obj = NULL;
 	      my_putting_count_succ++;					
 	    }								
 	  END_TS_ELSE(4, my_putting_count - my_putting_count_succ,		
