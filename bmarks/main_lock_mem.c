@@ -35,6 +35,7 @@
 #endif
 #include "mcore_malloc.h"
 
+#define MEM_SIZE 8
 
 /* #define DETAILED_THROUGHPUT */
 #define RANGE_EXACT 0
@@ -222,9 +223,9 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
-      uint64_t* obj = (uint64_t*) ssmem_alloc(hyht_alloc, 8);
-      *obj = key;
-      
+      char* obj = (char*) ssmem_alloc(hyht_alloc, MEM_SIZE);
+      *obj = (char) key;
+
       if(!ht_put(hashtable, key, (hyht_val_t) obj))
 	{
 	  ssmem_free(hyht_alloc, obj);
@@ -250,7 +251,7 @@ test(void* thread)
       /* ht_print(hashtable, num_buckets); */
     }
 
-  uint64_t* obj = NULL;
+  char* obj = NULL;
   
   barrier_cross(&barrier_global);
 
@@ -263,8 +264,9 @@ test(void* thread)
 	{									
 	  if (obj == NULL)
 	    {
-	      obj = (uint64_t*) ssmem_alloc(hyht_alloc, 8);
-	      *obj = c;
+	      obj = (uint64_t*) ssmem_alloc(hyht_alloc, MEM_SIZE);
+	      *obj = (char) c;
+	      MEM_BARRIER;
 	    }
 	  int res;								
 	  START_TS(1);							
@@ -303,6 +305,7 @@ test(void* thread)
 	  res = ht_get(hashtable->ht, key);
 	  if(res != 0)							
 	    {								
+	      volatile char value = *(char*) res;
 	      END_TS(0, my_getting_count_succ);				
 	      ADD_DUR(my_getting_succ);					
 	      my_getting_count_succ++;					
