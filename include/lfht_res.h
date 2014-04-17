@@ -138,11 +138,12 @@ typedef volatile uint8_t hyht_lock_t;
 #define LFHT_CHECK_RESIZE(w)				\
   while (unlikely(w->resize_lock == LFHT_LOCK_ACQR))	\
     {							\
+      _mm_pause();					\
       LFHT_GC_HT_VERSION_USED(w->ht);			\
     }
 
 #define LFHT_LOCK_RESIZE(w)						\
-  (CAS_U64(&w->resize_lock, LFHT_LOCK_FREE, LFHT_LOCK_ACQR) == LFHT_LOCK_FREE)
+  (CAS_U8(&w->resize_lock, LFHT_LOCK_FREE, LFHT_LOCK_ACQR) == LFHT_LOCK_FREE)
 
 #define LFHT_RLS_RESIZE(w)			\
   w->resize_lock = LFHT_LOCK_FREE

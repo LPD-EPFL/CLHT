@@ -164,7 +164,7 @@ test(void* thread)
   ht_gc_thread_init(hashtable, ID);    
   hyht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
   assert(hyht_alloc != NULL);
-  ssmem_alloc_init(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  ssmem_alloc_init_fs_size(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
     
 #if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;

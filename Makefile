@@ -191,6 +191,14 @@ LIBS+= -lrt -lpthread -lm -ltmc
 LIBS_MP+= -lrt -lm -ltmc
 endif
 
+ifeq ($(UNAME), ol-collab1)
+PLATFORM=-DT44
+GCC=/usr/sfw/bin/gcc
+COMPILE_FLAGS += -m64
+LIBS+= -lrt -lpthread -lm
+LIBS_MP+= -lrt -lm 
+endif
+
 COMPILE_FLAGS += $(PLATFORM)
 COMPILE_FLAGS += $(OPTIMIZE)
 

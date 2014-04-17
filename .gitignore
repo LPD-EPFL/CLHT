@@ -1,6 +1,8 @@
 *~
+/#*eshell*#
 /#main_lock.c#
 /#main_lock_res.c#
+/*eshell*
 /.#main_lock.c
 /.#main_lock_res.c
 /.gitignore~

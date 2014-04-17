@@ -285,6 +285,7 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 #if !defined(HYHT_LINKED)
       while (h->table_new == NULL)
 	{
+	  _mm_pause();
 	  _mm_mfence();
 	}
 #endif
