@@ -196,7 +196,7 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 	  hyht_val_t val = bucket->val[j];
 	  if (bucket->key[j] == key) 
 	    {
-	      if (bucket->val[j] == val)
+	      if (likely(bucket->val[j] == val))
 		{
 		  return val;
 		}
@@ -241,10 +241,10 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   volatile bucket_t* bucket = hashtable->table + bin;
 
 #if HYHT_READ_ONLY_FAIL == 1
-      if (bucket_exists(bucket, key))
-	{
-	  return false;
-	}
+  if (bucket_exists(bucket, key))
+    {
+      return false;
+    }
 #endif
 
   hyht_lock_t* lock = &bucket->lock;
