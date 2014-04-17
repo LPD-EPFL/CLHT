@@ -385,7 +385,7 @@ main(int argc, char **argv)
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0, put = 10;
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 1, num_buckets_param = 0, put = 10;
   int put_explicit = 0;
 
   int i, c;

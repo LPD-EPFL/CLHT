@@ -35,7 +35,8 @@
 #endif
 #include "mcore_malloc.h"
 
-#define MEM_SIZE 8
+#define MEM_SIZE     8
+#define RW_SSMEM_MEM 0
 
 /* #define DETAILED_THROUGHPUT */
 #define RANGE_EXACT 0
@@ -144,7 +145,7 @@ barrier_t barrier, barrier_global;
 
 typedef struct thread_data
 {
-  uint8_t id;
+  uint32_t id;
   hyht_wrapper_t* ht;
 } thread_data_t;
 
@@ -156,7 +157,7 @@ void*
 test(void* thread) 
 {
   thread_data_t* td = (thread_data_t*) thread;
-  uint8_t ID = td->id;
+  uint32_t ID = td->id;
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
@@ -264,8 +265,10 @@ test(void* thread)
 	{									
 	  if (obj == NULL)
 	    {
-	      obj = (uint64_t*) ssmem_alloc(hyht_alloc, MEM_SIZE);
+	      obj = (char*) ssmem_alloc(hyht_alloc, MEM_SIZE);
+#if RW_SSMEM_MEM == 1
 	      *obj = (char) c;
+#endif
 	      MEM_BARRIER;
 	    }
 	  int res;								
@@ -305,7 +308,9 @@ test(void* thread)
 	  res = ht_get(hashtable->ht, key);
 	  if(res != 0)							
 	    {								
-	      volatile char value = *(char*) res;
+#if RW_SSMEM_MEM == 1
+	      __attribute__ ((unused)) volatile char value = *(char*) res;
+#endif
 	      END_TS(0, my_getting_count_succ);				
 	      ADD_DUR(my_getting_succ);					
 	      my_getting_count_succ++;					
@@ -391,7 +396,7 @@ main(int argc, char **argv)
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 2, num_buckets_param = 0, put = 10;
+  size_t initial = 1024, range = 2048, update = 20, load_factor = 1, num_buckets_param = 0, put = 10;
   int put_explicit = 0;
 
   int i, c;
