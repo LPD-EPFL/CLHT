@@ -203,6 +203,8 @@ test(void* thread)
   volatile ticks correction = getticks_correction_calc();
 #endif
     
+  barrier_cross(&barrier);
+
   seeds = seed_rand();
     
   uint64_t key;

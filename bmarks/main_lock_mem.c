@@ -207,6 +207,8 @@ test(void* thread)
     
   seeds = seed_rand();
     
+  barrier_cross(&barrier);
+
   uint64_t key;
   int c = 0;
   uint32_t scale_rem = (uint32_t) (update_rate * UINT_MAX);
