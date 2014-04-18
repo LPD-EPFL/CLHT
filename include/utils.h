@@ -15,18 +15,17 @@
 #include <inttypes.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <malloc.h>
 #ifdef __sparc__
 #  include <sys/types.h>
 #  include <sys/processor.h>
 #  include <sys/procset.h>
 #elif defined(__tile__)
-#  include <arch/atomic.h>
-#  include <arch/cycle.h>
-#  include <tmc/cpus.h>
-#  include <tmc/task.h>
-#  include <tmc/spin.h>
-#  include <sched.h>
+#include <arch/atomic.h>
+#include <arch/cycle.h>
+#include <tmc/cpus.h>
+#include <tmc/task.h>
+#include <tmc/spin.h>
+#include <sched.h>
 #else
 #  include <emmintrin.h>
 #  include <xmmintrin.h>
@@ -47,9 +46,9 @@ extern "C" {
 				::: "memory")
 
 #elif defined(__tile__)
-#  define PAUSE cycle_relax()
+#define PAUSE cycle_relax()
 #else
-#  define PAUSE _mm_pause()
+#define PAUSE _mm_pause()
 #endif
   static inline void
   pause_rep(uint32_t num_reps)
@@ -79,10 +78,10 @@ extern "C" {
 #  define NUMBER_OF_SOCKETS 8
 #  define CORES_PER_SOCKET 8
 #  define CACHE_LINE_SIZE 64
-#  define NOP_DURATION 9
+# define NOP_DURATION 9
   //mapping from threads to cores on the niagara
-#  define ALTERNATE_SOCKETS
-#  ifdef ALTERNATE_SOCKETS
+#define ALTERNATE_SOCKETS
+#ifdef ALTERNATE_SOCKETS
   static uint8_t __attribute__ ((unused)) the_cores[] = {
     0, 8, 16, 24, 32, 40, 48, 56, 
     1, 9, 17, 25, 33, 41, 49, 57, 
@@ -116,7 +115,7 @@ extern "C" {
   //    0, 1, 2, 3, 4, 5, 6, 7 
   //};
 
-#  else
+#else
   static uint8_t __attribute__ ((unused)) the_cores[] = {
     0, 1, 2, 3, 4, 5, 6, 7, 
     8, 9, 10, 11, 12, 13, 14, 15, 
@@ -138,12 +137,12 @@ extern "C" {
     7, 7, 7, 7, 7, 7, 7, 7 
   };
 
-#  endif
+#endif
 #elif defined __tile__
-#  define NUMBER_OF_SOCKETS 1
-#  define CORES_PER_SOCKET 36
-#  define CACHE_LINE_SIZE 64
-#  define NOP_DURATION 4
+#define NUMBER_OF_SOCKETS 1
+#define CORES_PER_SOCKET 36
+#define CACHE_LINE_SIZE 64
+# define NOP_DURATION 4
   static uint8_t __attribute__ ((unused)) the_cores[] = {
     0, 1, 2, 3, 4, 5, 6, 7, 
     8, 9, 10, 11, 12, 13, 14, 15, 
@@ -156,8 +155,8 @@ extern "C" {
 #  define NUMBER_OF_SOCKETS 8
 #  define CORES_PER_SOCKET 6
 #  define CACHE_LINE_SIZE 64
-#  define NOP_DURATION 2
-  static uint8_t  __attribute__ ((unused)) the_cores[] = {
+# define NOP_DURATION 2
+  static uint8_t  the_cores[] = {
     0, 1, 2, 3, 4, 5, 6, 7, 
     8, 9, 10, 11, 12, 13, 14, 15, 
     16, 17, 18, 19, 20, 21, 22, 23, 
@@ -166,64 +165,72 @@ extern "C" {
     40, 41, 42, 43, 44, 45, 46, 47  
   };
 
-#elif defined(COREi7)
-#  define NUMBER_OF_SOCKETS 1
-#  define CORES_PER_SOCKET 8
-#  define CACHE_LINE_SIZE 64
-#  define NOP_DURATION 2
-  static uint8_t __attribute__ ((unused)) the_cores[] = {
-    0, 1, 2, 3, 4, 5, 6, 7
-  };
-
-#elif defined(XEON2)
-#  define NUMBER_OF_SOCKETS 2
-#  define CORES_PER_SOCKET 20
-#  define CACHE_LINE_SIZE 64
-#  define NOP_DURATION 2
-
-#  define USE_HYPERTRHEADS 1
-
-#  if USE_HYPERTRHEADS == 0
-  static uint8_t  __attribute__ ((unused)) the_cores[] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
-    20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 
-    10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 
-    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 
-  };
-#  else
-  static uint8_t  __attribute__ ((unused)) the_cores[] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
-    10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 
-    20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 
-    30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 
-  };
-#  endif
-
 #elif defined(XEON)
 #  define NUMBER_OF_SOCKETS 8
 #  define CORES_PER_SOCKET 10
 #  define CACHE_LINE_SIZE 64
-#  define NOP_DURATION 1
+# define NOP_DURATION 1
   static uint8_t __attribute__ ((unused)) the_cores[] = {
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-    11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 
-    31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    0, 41, 42, 43, 44, 45, 46, 47, 48, 49,
-    50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
-    60, 61, 62, 63, 64, 65, 66, 67, 68, 69,
-    70, 71, 72, 73, 74, 75, 76, 77, 78, 79 
+    1,2,3,4,5,6,7,8,9,10,	/* 0 */
+    11,12,13,14,15,16,17,18,19,20, /* 1 */
+    21,22,23,24,25,26,27,28,29,30, /* 2 */
+    31,32,33,34,35,36,37,38,39,40, /* 3 */
+
+    41,42,43,44,45,46,47,48,49,50, /* 0 */
+    51,52,53,54,55,56,57,58,59,60, /* 1 */
+    61,62,63,64,65,66,67,68,69,70,  /* 2 */
+    71,72,73,74,75,76,77,78,79,80, /* 3 */
+
+    0,81,82,83,84,85,86,87,88,89,  /* 4 */
+    90,91,92,93,94,95,96,97,98,99, /* 5 */
+    100,101,102,103,104,105,106,107,108,109, /* 6 */
+    110,111,112,113,114,115,116,117,118,119, /* 7 */
+
+
+    120,121,122,123,124,125,126,127,128,129, /* 4 */
+    130,131,132,133,134,135,136,137,138,139, /* 5 */
+    140,141,142,143,144,145,146,147,148,149, /* 6 */
+    150,151,152,153,154,155,156,157,158,159,  /* 7 */
+
+
+
+    /* 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, */
+    /* 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, */
+    /* 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,  */
+    /* 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, */
+    /* 0, 41, 42, 43, 44, 45, 46, 47, 48, 49, */
+    /* 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, */
+    /* 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, */
+    /* 70, 71, 72, 73, 74, 75, 76, 77, 78, 79  */
   };
   static uint8_t __attribute__ ((unused)) the_sockets[] = 
   {
-    4, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    2, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-    3, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 
-    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+
+
+    /* 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, */
+    /* 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, */
+    /* 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, */
+    /* 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, */
+    /* 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, */
+    /* 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,  */
+    /* 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,  */
+    /* 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, */
   };
 
 #endif
@@ -235,7 +242,7 @@ extern "C" {
 #elif defined(__sparc__)
 #  define PREFETCHW(x)		
 #elif defined(XEON)
-#  define PREFETCHW(x)		
+#  define PREFETCHW(x)		asm volatile("prefetchw %0" :: "m" (*(unsigned long *)x))
 #else
 #  define PREFETCHW(x)		
 #endif
@@ -273,8 +280,6 @@ extern "C" {
 #endif
   }
 
-  typedef uint64_t ticks;
-
   static inline double wtime(void)
   {
     struct timeval t;
@@ -282,56 +287,57 @@ extern "C" {
     return (double)t.tv_sec + ((double)t.tv_usec)/1000000.0;
   }
 
-  static inline void set_cpu(int cpu) {
-#if !defined(NO_SET_CPU)
-#  ifdef __sparc__
+  static inline void set_cpu(int cpu) 
+{
+#ifdef __sparc__
     processor_bind(P_LWPID,P_MYID, cpu, NULL);
-#  elif defined(__tile__)
+#elif defined(__tile__)
     if (cpu>=tmc_cpus_grid_total()) {
       perror("Thread id too high");
     }
     // cput_set_t cpus;
     if (tmc_cpus_set_my_cpu(cpu)<0) {
-      tmc_task_die("tmc_cpus_set_my_cpu() failed."); 
-    }    
-#  else
+      tmc_task_die("tmc_cpus_set_my_cpu() failed.");
+    }
+#else
     cpu_set_t mask;
     CPU_ZERO(&mask);
     CPU_SET(cpu, &mask);
-    /* numa_set_preferred(get_cluster(cpu)); */
+#if defined(OPTERON)
+    numa_set_preferred(get_cluster(cpu));
+#endif
     pthread_t thread = pthread_self();
     if (pthread_setaffinity_np(thread, sizeof(cpu_set_t), &mask) != 0) {
       fprintf(stderr, "Error setting thread affinity\n");
     }
-#  endif
 #endif
   }
 
-  /* #if defined(__i386__) */
-  /*   static inline ticks getticks(void) { */
-  /*     ticks ret; */
+/* #if defined(__i386__) */
+/*   static inline ticks getticks(void) { */
+/*     ticks ret; */
 
-  /*     __asm__ __volatile__("rdtsc" : "=A" (ret)); */
-  /*     return ret; */
-  /*   } */
-  /* #elif defined(__x86_64__) */
-  /*   static inline ticks getticks(void) */
-  /*   { */
-  /*     unsigned hi, lo; */
-  /*     __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi)); */
-  /*     return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 ); */
-  /*   } */
-  /* #elif defined(__sparc__) */
-  /*   static inline ticks getticks(){ */
-  /*     ticks ret; */
-  /*     __asm__ __volatile__ ("rd %%tick, %0" : "=r" (ret) : "0" (ret));  */
-  /*     return ret; */
-  /*   } */
-  /* #elif defined(__tile__) */
-  /*   static inline ticks getticks(){ */
-  /*     return get_cycle_count(); */
-  /*   } */
-  /* #endif */
+/*     __asm__ __volatile__("rdtsc" : "=A" (ret)); */
+/*     return ret; */
+/*   } */
+/* #elif defined(__x86_64__) */
+/*   static inline ticks getticks(void) */
+/*   { */
+/*     unsigned hi, lo; */
+/*     __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi)); */
+/*     return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 ); */
+/*   } */
+/* #elif defined(__sparc__) */
+/*   static inline ticks getticks(){ */
+/*     ticks ret; */
+/*     __asm__ __volatile__ ("rd %%tick, %0" : "=r" (ret) : "0" (ret));  */
+/*     return ret; */
+/*   } */
+/* #elif defined(__tile__) */
+/*   static inline ticks getticks(){ */
+/*     return get_cycle_count(); */
+/*   } */
+/* #endif */
 
   static inline void cdelay(ticks cycles){
     ticks __ts_end = getticks() + (ticks) cycles;
@@ -341,15 +347,15 @@ extern "C" {
   static inline void cpause(ticks cycles){
 #if defined(XEON)
     cycles >>= 3;
-    ticks i;
-    for (i=0;i<cycles;i++) {
-      _mm_pause();
-    }
+	ticks i;
+	for (i=0;i<cycles;i++) {
+	  _mm_pause();
+	}
 #else
-    ticks i;
-    for (i=0;i<cycles;i++) {
-      __asm__ __volatile__("nop");
-    }
+	ticks i;
+	for (i=0;i<cycles;i++) {
+	  __asm__ __volatile__("nop");
+	}
 #endif
   }
 
@@ -431,7 +437,7 @@ extern "C" {
 
   static inline unsigned long* seed_rand() {
     unsigned long* seeds;
-    seeds = (unsigned long*) memalign(64, 64);
+    seeds = (unsigned long*) malloc(3 * sizeof(unsigned long));
     seeds[0] = getticks() % 123456789;
     seeds[1] = getticks() % 362436069;
     seeds[2] = getticks() % 521288629;
