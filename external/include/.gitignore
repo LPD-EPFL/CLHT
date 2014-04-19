@@ -1,0 +1,15 @@
+/alock.h
+/atomic_ops.h
+/clh.h
+/gl_lock.h
+/hclh.h
+/htlock.h
+/lock_if.h
+/mcs.h
+/rw_ttas.h
+/spinlock.h
+/ssmem.h
+/ssmp.h
+/sspfd.h
+/ticket.h
+/ttas.h
