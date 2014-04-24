@@ -30,6 +30,8 @@ extern __thread ssmem_allocator_t* hyht_alloc;
 #define HYHT_DO_GC            0
 #define HYHT_STATUS_INVOK     500000
 #define HYHT_STATUS_INVOK_IN  500000
+#define LOAD_FACTOR           2
+
 #if defined(RTM)	       /* only for processors that have RTM */
 #define HYHT_USE_RTM          1
 #else

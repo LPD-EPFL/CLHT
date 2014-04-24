@@ -37,7 +37,7 @@ extern __thread ssmem_allocator_t* hyht_alloc;
 #define LFHT_INC_EMERGENCY       2
 #define LFHT_NO_EMPTY_SLOT_TRIES 3
 #define LFHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
-
+#define LOAD_FACTOR              1
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
