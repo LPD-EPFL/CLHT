@@ -469,7 +469,7 @@ main(int argc, char **argv)
 	  put = atoi(optarg);
 	  break;
 	case 'l':
-	  load_factor = atoi(optarg);
+	  load_factor = atof(optarg);
 	  break;
 	case 'b':
 	  num_buckets_param = atoi(optarg);
@@ -528,6 +528,7 @@ main(int argc, char **argv)
     }
 
   printf("## Initial: %zu / Range: %zu\n", initial, range);
+  printf("## Num buckets: %d \n", num_buckets);
 
   double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
