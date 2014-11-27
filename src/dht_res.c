@@ -194,6 +194,9 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
 	  hyht_val_t val = bucket->val[j];
+#ifdef __tile__
+	  _mm_lfence();
+#endif
 	  if (bucket->key[j] == key) 
 	    {
 	      if (likely(bucket->val[j] == val))
@@ -288,12 +291,24 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
 	      bucket_t* b = create_bucket_stats(hashtable, &resize);
 	      b->val[0] = val;
+#ifdef __tile__
+	      /* keep the writes in order */
+	      _mm_sfence();
+#endif
 	      b->key[0] = key;
+#ifdef __tile__
+	      /* make sure they are visible */
+	      _mm_sfence();
+#endif
 	      bucket->next = b;
 	    }
 	  else 
 	    {
 	      *empty_v = val;
+#ifdef __tile__
+	      /* keep the writes in order */
+	      _mm_sfence();
+#endif
 	      *empty = key;
 	    }
 
