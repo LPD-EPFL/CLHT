@@ -7,6 +7,10 @@
 #include "atomic_ops.h"
 #include "utils.h"
 
+#include "ssmem.h"
+
+extern __thread ssmem_allocator_t* hyht_alloc;
+
 #define true 1
 #define false 0
 

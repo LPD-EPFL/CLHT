@@ -5,6 +5,8 @@
 
 #include "lfht_dup.h"
 
+__thread ssmem_allocator_t* hyht_alloc;
+
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
 __thread uint32_t put_num_failed_expand = 0;

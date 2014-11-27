@@ -5,6 +5,8 @@
 
 #include "lfht.h"
 
+__thread ssmem_allocator_t* hyht_alloc;
+
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
 __thread uint32_t put_num_failed_expand = 0;
@@ -145,15 +147,21 @@ lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];
-      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
+#ifdef __tile__
+      _mm_lfence();
+#endif
+      if (bucket->map[i] == MAP_VALID)
       	{
-	  if (likely(bucket->val[i] == val))
+	  if (bucket->key[i] == key)
 	    {
-	      return val;
-	    }
-	  else
-	    {
-	      return 0;
+	      if (likely(bucket->val[i] == val))
+		{
+		  return val;
+		}
+	      else
+		{
+		  return 0;
+		}
 	    }
 	}
     }
@@ -204,6 +212,9 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
  retry:
   s = bucket->snapshot;
+#ifdef __tile__
+  _mm_lfence();
+#endif
 
   if (lfht_bucket_search(bucket, key) != 0)
     {
@@ -230,7 +241,13 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	}
   
       bucket->val[empty_index] = val;
+#ifdef __tile__
+      _mm_sfence();
+#endif
       bucket->key[empty_index] = key;
+#ifdef __tile__
+      _mm_sfence();
+#endif
     }
   else
     {
@@ -261,11 +278,18 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   int i;
  retry:
   s.snapshot = bucket->snapshot;
+#ifdef __tile__
+  _mm_lfence();
+#endif
+
   for (i = 0; i < KEY_BUCKT; i++)
     {
       if (bucket->key[i] == key && s.map[i] == MAP_VALID)
 	{
 	  hyht_val_t removed = bucket->val[i];
+#ifdef __tile__
+	  _mm_mfence();
+#endif
 	  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
 	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
 	    {
