@@ -3,9 +3,9 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "dht_res.h"
+#include "clht_lb_res.h"
 
-__thread ssmem_allocator_t* hyht_alloc;
+__thread ssmem_allocator_t* clht_alloc;
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -13,7 +13,7 @@ __thread uint32_t put_num_failed_expand = 0;
 __thread uint32_t put_num_failed_on_new = 0;
 #endif
 
-__thread size_t check_ht_status_steps = HYHT_STATUS_INVOK_IN;
+__thread size_t check_ht_status_steps = CLHT_STATUS_INVOK_IN;
 
 #include "stdlib.h"
 #include "assert.h"
@@ -81,10 +81,10 @@ create_bucket_stats(hashtable_t* h, int* resize)
 
 hashtable_t* ht_create(uint32_t num_buckets);
 
-hyht_wrapper_t* 
-hyht_wrapper_create(uint32_t num_buckets)
+clht_wrapper_t* 
+clht_wrapper_create(uint32_t num_buckets)
 {
-  hyht_wrapper_t* w = (hyht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(hyht_wrapper_t));
+  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
@@ -154,7 +154,7 @@ ht_create(uint32_t num_buckets)
   hashtable->table_new = NULL;
   hashtable->table_prev = NULL;
   hashtable->num_expands = 0;
-  hashtable->num_expands_threshold = (HYHT_PERC_EXPANSIONS * num_buckets);
+  hashtable->num_expands_threshold = (CLHT_PERC_EXPANSIONS * num_buckets);
   if (hashtable->num_expands_threshold == 0)
     {
       hashtable->num_expands_threshold = 1;
@@ -168,7 +168,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, hyht_addr_t key) 
+ht_hash(hashtable_t* hashtable, clht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
@@ -180,17 +180,20 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 
 
 /* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
+clht_val_t
+ht_get(hashtable_t* hashtable, clht_addr_t key)
 {
   size_t bin = ht_hash(hashtable, key);
-  HYHT_GC_HT_VERSION_USED(hashtable);
+  CLHT_GC_HT_VERSION_USED(hashtable);
   volatile bucket_t* bucket = hashtable->table + bin;
 
   uint32_t j;
   for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
     {
-      hyht_val_t val = bucket->val[j];
+      clht_val_t val = bucket->val[j];
+#ifdef __tile__
+	  _mm_lfence();
+#endif
       if (bucket->key[j] == key) 
 	{
 	  if (bucket->val[j] == val)
@@ -208,7 +211,7 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 static inline int
-bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
+bucket_exists(volatile bucket_t* bucket, clht_addr_t key)
 {
   uint32_t j;
   for (j = 0; j < ENTRIES_PER_BUCKET; j++)
@@ -223,7 +226,7 @@ bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
+ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
 {
  again:
   ;
@@ -231,14 +234,14 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   size_t bin = ht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
 
-#if HYHT_READ_ONLY_FAIL == 1
+#if CLHT_READ_ONLY_FAIL == 1
   if (bucket_exists(bucket, key))
     {
       return false;
     }
 #endif
 
-  hyht_lock_t* lock = &bucket->lock;
+  clht_lock_t* lock = &bucket->lock;
   while (!LOCK_ACQ(lock, hashtable))
     {
       hashtable = h->ht;
@@ -248,14 +251,14 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
       lock = &bucket->lock;
     }
 
-  HYHT_GC_HT_VERSION_USED(hashtable);
-  HYHT_CHECK_STATUS(h);
+  CLHT_GC_HT_VERSION_USED(hashtable);
+  CLHT_CHECK_STATUS(h);
 
   int empty = -1;
   uint32_t j;
   for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
     {
-      hyht_addr_t k = bucket->key[j];
+      clht_addr_t k = bucket->key[j];
       if (k == key) 
 	{
 	  LOCK_RLS(lock);
@@ -278,6 +281,10 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
   else 
     {
       bucket->val[empty] = val;
+#ifdef __tile__
+	      /* keep the writes in order */
+	      _mm_sfence();
+#endif
       bucket->key[empty] = key;
     }
 
@@ -291,21 +298,21 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
 
 /* Remove a key-value entry from a hash table. */
-hyht_val_t
-ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
+clht_val_t
+ht_remove(clht_wrapper_t* h, clht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
 
-#if HYHT_READ_ONLY_FAIL == 1
+#if CLHT_READ_ONLY_FAIL == 1
   if (!bucket_exists(bucket, key))
     {
       return false;
     }
 #endif
 
-  hyht_lock_t* lock = &bucket->lock;
+  clht_lock_t* lock = &bucket->lock;
   while (!LOCK_ACQ(lock, hashtable))
     {
       hashtable = h->ht;
@@ -315,15 +322,15 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
       lock = &bucket->lock;
     }
 
-  HYHT_GC_HT_VERSION_USED(hashtable);
-  HYHT_CHECK_STATUS(h);
+  CLHT_GC_HT_VERSION_USED(hashtable);
+  CLHT_CHECK_STATUS(h);
 
   uint32_t j;
   for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
     {
       if (bucket->key[j] == key) 
 	{
-	  hyht_val_t val = bucket->val[j];
+	  clht_val_t val = bucket->val[j];
 	  bucket->key[j] = 0;
 	  LOCK_RLS(lock);
 	  return val;
@@ -335,7 +342,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 }
 
 static uint32_t
-ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin) 
+ht_put_seq(hashtable_t* hashtable, clht_addr_t key, clht_val_t val, uint32_t bin) 
 {
   volatile bucket_t* bucket = hashtable->table + bin;
   uint32_t j;
@@ -364,7 +371,7 @@ bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
   uint32_t j;
   for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
     {
-      hyht_addr_t key = bucket->key[j];
+      clht_addr_t key = bucket->key[j];
       if (key != 0) 
 	{
 	  uint32_t bin = ht_hash(ht_new, key);
@@ -392,7 +399,7 @@ ht_resize_help(hashtable_t* h)
       if (!bucket_cpy(bu_cur, h->table_tmp))
 	{	    /* reached a point where the resizer is handling */
 	  /* printf("[GC-%02d] helped  #buckets: %10zu = %5.1f%%\n",  */
-	  /* 	 hyht_gc_get_id(), h->num_buckets - b, 100.0 * (h->num_buckets - b) / h->num_buckets); */
+	  /* 	 clht_gc_get_id(), h->num_buckets - b, 100.0 * (h->num_buckets - b) / h->num_buckets); */
 	  break;
 	}
     }
@@ -401,11 +408,11 @@ ht_resize_help(hashtable_t* h)
 }
 
 int 
-ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
+ht_resize_pes(clht_wrapper_t* h, int is_increase, int by)
 {
   ticks s = getticks();
 
-  check_ht_status_steps = HYHT_STATUS_INVOK;
+  check_ht_status_steps = CLHT_STATUS_INVOK;
 
   hashtable_t* ht_old = h->ht;
 
@@ -417,15 +424,15 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   size_t num_buckets_new;
   if (is_increase == true)
     {
-      /* num_buckets_new = HYHT_RATIO_DOUBLE * ht_old->num_buckets; */
+      /* num_buckets_new = CLHT_RATIO_DOUBLE * ht_old->num_buckets; */
       num_buckets_new = by * ht_old->num_buckets;
     }
   else
     {
-#if HYHT_HELP_RESIZE == 1
+#if CLHT_HELP_RESIZE == 1
       ht_old->is_helper = 0;
 #endif
-      num_buckets_new = ht_old->num_buckets / HYHT_RATIO_HALVE;
+      num_buckets_new = ht_old->num_buckets / CLHT_RATIO_HALVE;
     }
 
   /* printf("// resizing: from %8zu to %8zu buckets\n", ht_old->num_buckets, num_buckets_new); */
@@ -433,7 +440,7 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
   hashtable_t* ht_new = ht_create(num_buckets_new);
   ht_new->version = ht_old->version + 1;
 
-#if HYHT_HELP_RESIZE == 1
+#if CLHT_HELP_RESIZE == 1
   ht_old->table_tmp = ht_new; 
 
   int32_t b;
@@ -479,9 +486,9 @@ ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
 
   ticks e = getticks() - s;
   printf("[RESIZE-%02d] to #bu %7zu    | took: %13llu ti = %8.6f s\n", 
-	 hyht_gc_get_id(), ht_new->num_buckets, (unsigned long long) e, e / 2.1e9);
+	 clht_gc_get_id(), ht_new->num_buckets, (unsigned long long) e, e / 2.1e9);
 
-#if HYHT_DO_GC == 1
+#if CLHT_DO_GC == 1
   ht_gc_collect(h);
 #else
   ht_gc_release(ht_old);
@@ -515,7 +522,7 @@ ht_size(hashtable_t* hashtable)
 }
 
 size_t
-ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
+ht_status(clht_wrapper_t* h, int resize_increase, int just_print)
 {
   if (TRYLOCK_ACQ(&h->status_lock))
     {
@@ -559,7 +566,7 @@ ht_status(hyht_wrapper_t* h, int resize_increase, int just_print)
 
       printf("resizing\n");
       printf("[STATUS-%02d] #bu: %7zu / #elems: %7zu / full%%: %8.4f%% / expands: %4d / max expands: %2d\n",
-	     hyht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max);
+	     clht_gc_get_id(), hashtable->num_buckets, size, full_ratio, expands, expands_max);
       if (inc_by_pow2 == 1)
 	{
 	  inc_by_pow2 = 2;

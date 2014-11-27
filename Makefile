@@ -214,8 +214,8 @@ clht_lb: $(BMARKS)/main_lock.c $(OBJ_FILES) src/clht_lb.c include/clht_lb.h
 clht_lb_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lb_res.c src/clht_lb_gc.c include/clht_lb_res.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(INCLUDES) $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/clht_lb_res.c src/clht_lb_gc.c -o clht_lb $(LIBS)
 
-clht_lb_res_no_next: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/dht_res_no_next.c src/clht_lb_gc.c include/clht_lb_res.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/dht_res_no_next.c src/clht_lb_gc.c -o clht_lb_nn $(LIBS)
+clht_lb_res_no_next: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lb_res_no_next.c src/clht_lb_gc.c include/clht_lb_res.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/clht_lb_res_no_next.c src/clht_lb_gc.c -o clht_lb_nn $(LIBS)
 
 clht_lb_ro: $(BMARKS)/test_ro.c $(OBJ_FILES) src/clht_lb_res.c src/clht_lb_gc.c include/clht_lb_res.h include/prand.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/test_ro.c src/clht_lb_res.c src/clht_lb_gc.c -o clht_lb_ro $(LIBS)
