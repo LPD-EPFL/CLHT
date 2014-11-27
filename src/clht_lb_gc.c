@@ -2,13 +2,13 @@
 #include <assert.h>
 #include <malloc.h>
 
-static __thread ht_ts_t* hyht_ts_thread = NULL;
+static __thread ht_ts_t* clht_ts_thread = NULL;
 
 /* 
  * initialize thread metadata for GC
  */
 void
-ht_gc_thread_init(hyht_wrapper_t* h, int id)
+ht_gc_thread_init(clht_wrapper_t* h, int id)
 {
   ht_ts_t* ts = (ht_ts_t*) memalign(CACHE_LINE_SIZE, sizeof(ht_ts_t));
   assert(ts != NULL);
@@ -22,7 +22,7 @@ ht_gc_thread_init(hyht_wrapper_t* h, int id)
     }
   while (CAS_U64((volatile size_t*) &h->version_list, (size_t) ts->next, (size_t) ts) != (size_t) ts->next);
 
-  hyht_ts_thread = ts;
+  clht_ts_thread = ts;
 }
 
 /* 
@@ -31,29 +31,29 @@ ht_gc_thread_init(hyht_wrapper_t* h, int id)
 inline void
 ht_gc_thread_version(hashtable_t* h)
 {
-  hyht_ts_thread->version = h->version;
+  clht_ts_thread->version = h->version;
 }
 
 /* 
  * get the GC id of the current thread
  */
 inline int 
-hyht_gc_get_id()
+clht_gc_get_id()
 {
-  return hyht_ts_thread->id;
+  return clht_ts_thread->id;
 }
 
-static int ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only);
+static int ht_gc_collect_cond(clht_wrapper_t* hashtable, int collect_not_referenced_only);
 
 /* 
  * perform a GC of the versions of the ht that are not currently used by any
  * of the participating threads
  */
 inline int
-ht_gc_collect(hyht_wrapper_t* hashtable)
+ht_gc_collect(clht_wrapper_t* hashtable)
 {
-#if HYHT_DO_GC == 1
-  HYHT_GC_HT_VERSION_USED(hashtable->ht);
+#if CLHT_DO_GC == 1
+  CLHT_GC_HT_VERSION_USED(hashtable->ht);
   return ht_gc_collect_cond(hashtable, 1);
 #else
   return 0;
@@ -65,12 +65,12 @@ ht_gc_collect(hyht_wrapper_t* hashtable)
  * referenced by any of the threads
  */
 int
-ht_gc_collect_all(hyht_wrapper_t* hashtable)
+ht_gc_collect_all(clht_wrapper_t* hashtable)
 {
   return ht_gc_collect_cond(hashtable, 0);
 }
 
-#define GET_ID(x) x ? hyht_gc_get_id() : 99
+#define GET_ID(x) x ? clht_gc_get_id() : 99
 
 /* 
  * go over the version metadata of all threads and return the min ht
@@ -78,7 +78,7 @@ ht_gc_collect_all(hyht_wrapper_t* hashtable)
  * than the returned value, can be GCed
  */
 size_t
-ht_gc_min_version_used(hyht_wrapper_t* h)
+ht_gc_min_version_used(clht_wrapper_t* h)
 {
   volatile ht_ts_t* cur = h->version_list;
 
@@ -101,7 +101,7 @@ ht_gc_min_version_used(hyht_wrapper_t* h)
  * collect_not_referenced_only != 0 -> ht_gc_collect();
  */
 static int
-ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
+ht_gc_collect_cond(clht_wrapper_t* hashtable, int collect_not_referenced_only)
 {
   /* if version_min >= current version there is nothing to collect! */
   if ((hashtable->version_min >= hashtable->ht->version) || TRYLOCK_ACQ(&hashtable->gc_lock))
@@ -167,8 +167,8 @@ ht_gc_collect_cond(hyht_wrapper_t* hashtable, int collect_not_referenced_only)
 int
 ht_gc_free(hashtable_t* hashtable)
 {
-  /* the HYHT_LINKED version does not allocate any extra buckets! */
-#if !defined(HYHT_LINKED) && !defined(LOCKFREE_RES)
+  /* the CLHT_LINKED version does not allocate any extra buckets! */
+#if !defined(CLHT_LINKED) && !defined(LOCKFREE_RES)
   uint32_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
 
@@ -196,7 +196,7 @@ ht_gc_free(hashtable_t* hashtable)
  * free all hashtable version (inluding the latest)
  */
 void
-ht_gc_destroy(hyht_wrapper_t* hashtable)
+ht_gc_destroy(clht_wrapper_t* hashtable)
 {
   ht_gc_collect_all(hashtable);
   ht_gc_free(hashtable->ht);
@@ -211,8 +211,8 @@ ht_gc_destroy(hyht_wrapper_t* hashtable)
 inline int
 ht_gc_release(hashtable_t* hashtable)
 {
-  /* the HYHT_LINKED version does not allocate any extra buckets! */
-#if !defined(HYHT_LINKED) && !defined(LOCKFREE_RES)
+  /* the CLHT_LINKED version does not allocate any extra buckets! */
+#if !defined(CLHT_LINKED) && !defined(LOCKFREE_RES)
   uint32_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
 
@@ -225,13 +225,13 @@ ht_gc_release(hashtable_t* hashtable)
 	{
 	  volatile bucket_t* cur = bucket;
 	  bucket = bucket->next;
-	  ssmem_release(hyht_alloc, (void*) cur);
+	  ssmem_release(clht_alloc, (void*) cur);
 	}
     }
 #endif
 
-  ssmem_release(hyht_alloc, hashtable->table);
-  ssmem_release(hyht_alloc, hashtable);
+  ssmem_release(clht_alloc, hashtable->table);
+  ssmem_release(clht_alloc, hashtable);
 
   return 1;
 }
