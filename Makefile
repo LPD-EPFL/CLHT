@@ -85,7 +85,6 @@ endif
 TOP := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 
 LIBS+=-L$(TOP)/external/lib
-LIBS_MP+=-L$(TOP)/external/lib
 
 SRCPATH := $(TOP)/src
 MAININCLUDE := $(TOP)/include
@@ -98,15 +97,12 @@ endif
 # ALL= hyht hyht_lat hyhtp hyht_lat hyhtp_lat hyht_res hyht_res_lat
 ALL= hyht_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht lfht_only_map_rem lfht_dup hyht_lock_ins lfht_res hyht_linked
 
-LIBS_MP += -lssmp
-
 # default setings
 PLATFORM=-DDEFAULT
 GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
 LIBS+= -lrt -lpthread -lm -lssmem
-LIBS_MP+= -lrt -lm
 
 UNAME := $(shell uname -n)
 
@@ -116,7 +112,6 @@ GCC=gcc-4.8
 PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
 LIBS+= -lrt -lpthread -lm -lnuma
-LIBS_MP+= -lrt -lm -lnuma
 endif
 
 ifeq ($(UNAME), lpdxeon2680)
@@ -125,7 +120,6 @@ GCC=gcc
 PLATFORM_NUMA=1
 OPTIMIZE=
 LIBS+= -lrt -lpthread -lm -lnuma
-LIBS_MP+= -lrt -lm -lnuma
 endif
 
 
@@ -135,7 +129,6 @@ GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
 LIBS+= -lrt -lpthread -lm
-LIBS_MP+= -lrt -lm
 endif
 
 ifeq ($(UNAME), lpdpc34)
@@ -144,14 +137,12 @@ GCC=gcc-4.8
 PLATFORM_NUMA=0
 OPTIMIZE=
 LIBS+= -lrt -lpthread -lm -mrtm
-LIBS_MP+= -lrt -lm
 endif
 
 ifeq ($(UNAME), diascld9)
 PLATFORM=-DOPTERON2
 GCC=gcc
 LIBS+= -lrt -lpthread -lm
-LIBS_MP+= -lrt -lm
 endif
 
 ifeq ($(UNAME), diassrv8)
@@ -159,21 +150,18 @@ PLATFORM=-DXEON
 GCC=gcc
 PLATFORM_NUMA=1
 LIBS+= -lrt -lpthread -lm -lnuma
-LIBS_MP+= -lrt -lm -lnuma
 endif
 
 ifeq ($(UNAME), diascld19)
 PLATFORM=-DXEON2
 GCC=gcc
 LIBS+= -lrt -lpthread -lm
-LIBS_MP+= -lrt -lm
 endif
 
 ifeq ($(UNAME), maglite)
 PLATFORM=-DSPARC
 GCC:=/opt/csw/bin/gcc
 LIBS+= -lrt -lpthread -lm
-LIBS_MP+= -lrt -lm
 COMPILE_FLAGS+= -m64 -mcpu=v9 -mtune=v9
 endif
 
@@ -181,14 +169,12 @@ ifeq ($(UNAME), parsasrv1.epfl.ch)
 PLATFORM=-DTILERA
 GCC=tile-gcc
 LIBS+= -lrt -lpthread -lm -ltmc
-LIBS_MP+= -lrt -lm -ltmc
 endif
 
 ifeq ($(UNAME), smal1.sics.se)
 PLATFORM=-DTILERA
 GCC=tile-gcc
 LIBS+= -lrt -lpthread -lm -ltmc
-LIBS_MP+= -lrt -lm -ltmc
 endif
 
 ifeq ($(UNAME), ol-collab1)
@@ -196,7 +182,6 @@ PLATFORM=-DT44
 GCC=/usr/sfw/bin/gcc
 COMPILE_FLAGS += -m64
 LIBS+= -lrt -lpthread -lm
-LIBS_MP+= -lrt -lm 
 endif
 
 COMPILE_FLAGS += $(PLATFORM)
@@ -206,7 +191,6 @@ PRIMITIVE=-DLOCKS
 
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 OBJ_FILES := 
-OBJ_FILES_MP :=
 
 BMARKS := bmarks
 
