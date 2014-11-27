@@ -9,7 +9,7 @@
 
 #include "ssmem.h"
 
-extern __thread ssmem_allocator_t* hyht_alloc;
+extern __thread ssmem_allocator_t* clht_alloc;
 
 #define true 1
 #define false 0
@@ -69,8 +69,8 @@ extern __thread ssmem_allocator_t* hyht_alloc;
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
 inline int is_power_of_two(unsigned int x);
 
-typedef uintptr_t hyht_addr_t;
-typedef volatile uintptr_t hyht_val_t;
+typedef uintptr_t clht_addr_t;
+typedef volatile uintptr_t clht_val_t;
 typedef uint64_t lfht_snapshot_all_t;
 
 typedef union
@@ -111,8 +111,8 @@ typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
       uint8_t map[KEY_BUCKT];
     };
   };
-  hyht_addr_t key[KEY_BUCKT];
-  hyht_val_t val[KEY_BUCKT];
+  clht_addr_t key[KEY_BUCKT];
+  clht_val_t val[KEY_BUCKT];
 } bucket_t;
 
 #if __GNUC__ > 4 && __GNUC_MINOR__ > 4
@@ -130,7 +130,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) lfht_wrapper
     };
     uint8_t padding[2 * CACHE_LINE_SIZE];
   };
-} hyht_wrapper_t;
+} clht_wrapper_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
 {
@@ -149,7 +149,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
 inline uint64_t __ac_Jenkins_hash_64(uint64_t key);
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash(hashtable_t* hashtable, hyht_addr_t key );
+uint32_t ht_hash(hashtable_t* hashtable, clht_addr_t key );
 
 
 static inline int
@@ -168,7 +168,7 @@ snap_get_empty_index(uint64_t snap)
 }
 
 static inline int
-keys_get_empty_index(hyht_addr_t* keys)
+keys_get_empty_index(clht_addr_t* keys)
 {
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
@@ -199,7 +199,7 @@ buck_get_empty_index(bucket_t* b, uint64_t snap)
 
 
 static inline int
-vals_get_empty_index(hyht_val_t* vals, lfht_snapshot_all_t snap)
+vals_get_empty_index(clht_val_t* vals, lfht_snapshot_all_t snap)
 {
   lfht_snapshot_t s = { .snapshot = snap };
 
@@ -249,34 +249,34 @@ _mm_pause_rep(uint64_t w)
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets);
-hyht_wrapper_t* hyht_wrapper_create(uint32_t num_buckets);
+clht_wrapper_t* clht_wrapper_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
-int ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);
+int ht_put(clht_wrapper_t* hashtable, clht_addr_t key, clht_val_t val);
 
 /* Retrieve a key-value pair from a hashtable. */
-hyht_val_t ht_get(hashtable_t* hashtable, hyht_addr_t key);
+clht_val_t ht_get(hashtable_t* hashtable, clht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-hyht_val_t ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
+clht_val_t ht_remove(clht_wrapper_t* hashtable, clht_addr_t key);
 
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
-void ht_gc_thread_init(hyht_wrapper_t* hashtable, int id);
+void ht_gc_thread_init(clht_wrapper_t* hashtable, int id);
 inline void ht_gc_thread_version(hashtable_t* h);
 inline int lfht_gc_get_id();
-int ht_gc_collect(hyht_wrapper_t* h);
-int ht_gc_collect_all(hyht_wrapper_t* h);
+int ht_gc_collect(clht_wrapper_t* h);
+int ht_gc_collect_all(clht_wrapper_t* h);
 int ht_gc_free(hashtable_t* hashtable);
-void ht_gc_destroy(hyht_wrapper_t* hashtable);
+void ht_gc_destroy(clht_wrapper_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
-size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
+size_t ht_status(clht_wrapper_t* hashtable, int resize_increase, int just_print);
 
 bucket_t* create_bucket();
-int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);
+int ht_resize_pes(clht_wrapper_t* hashtable, int is_increase, int by);
 void  ht_print_retry_stats();
 
 #endif /* _LFHT_RES_H_ */

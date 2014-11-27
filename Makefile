@@ -190,8 +190,6 @@ endif
 COMPILE_FLAGS += $(PLATFORM)
 COMPILE_FLAGS += $(OPTIMIZE)
 
-PRIMITIVE=-DLOCKS
-
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 OBJ_FILES := 
 
@@ -230,8 +228,8 @@ clht_lb_linked: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lb_linked.c src/
 clht_lb_linked_lat: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lb_linked.c src/clht_lb_gc.c include/clht_lb_res.h
 	$(GCC) -D_GNU_SOURCE -DCLHT_LB_LINKED $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/clht_lb_linked.c src/clht_lb_gc.c -o clht_lb_linked_lat $(LIBS)
 
-lfht: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht.c include/lfht.h include/prand.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/lfht.c -o lfht $(LIBS)
+clht_lf: $(BMARKS)/main_lock.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h include/prand.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/clht_lf.c -o clht_lf $(LIBS)
 
 lfht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/lfht_res.c include/lfht_res.h src/clht_lb_gc.c
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/lfht_res.c src/clht_lb_gc.c -o lfht_res $(LIBS)
@@ -250,8 +248,8 @@ lfht_dup: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht_dup.c include/lfht_dup.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/lfht_dup.c -o lfht_dup $(LIBS)
 
 
-lfht_assembly: src/lfht.c include/lfht.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE -S $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/lfht.c $(LIBS)
+lfht_assembly: src/clht_lf.c include/clht_lf.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE -S $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/clht_lf.c $(LIBS)
 
 lfht_only_map_rem: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht_only_map_rem.c include/lfht_only_map_rem.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/lfht_only_map_rem.c -o lfht_only_map_rem $(LIBS)
@@ -268,20 +266,20 @@ clht_lb_mem_lat: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lb_res.c src/cl
 math_cache: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lb_res.c src/clht_lb_gc.c include/clht_lb_res.h 
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(INCLUDES) $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_res.c src/clht_lb_gc.c -o math_cache $(LIBS)
 
-math_cache_lf: $(BMARKS)/math_cache.c $(OBJ_FILES) src/lfht.c include/lfht.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/lfht.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lf $(LIBS)
+math_cache_lf: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lf.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lf $(LIBS)
 
-snap_stress: $(BMARKS)/snap_stress.c $(OBJ_FILES) src/lfht.c include/lfht.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/snap_stress.c src/lfht.c src/clht_lb_gc.c -o $(BMARKS)/snap_stress $(LIBS)
+snap_stress: $(BMARKS)/snap_stress.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/snap_stress.c src/clht_lf.c src/clht_lb_gc.c -o $(BMARKS)/snap_stress $(LIBS)
 
-full_stress_lf: full_stress.c $(OBJ_FILES) src/lfht.c include/lfht.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) full_stress.c src/lfht.c src/clht_lb_gc.c -o full_stress_lf $(LIBS)
+full_stress_lf: full_stress.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) full_stress.c src/clht_lf.c src/clht_lb_gc.c -o full_stress_lf $(LIBS)
 
-math_cache_lf_s: $(BMARKS)/math_cache.c $(OBJ_FILES) src/lfht.c include/lfht.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/lfht.c src/clht_lb_gc.c $(LIBS) -S
+math_cache_lf_s: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lf.c src/clht_lb_gc.c $(LIBS) -S
 
-lfht_s_annot: src/lfht.c include/lfht.h
-	$(GCC) -c -g -Wa,-a,-ad -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/lfht.c $(LIBS) > lfht.lst
+lfht_s_annot: src/clht_lf.c include/clht_lf.h
+	$(GCC) -c -g -Wa,-a,-ad -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/clht_lf.c $(LIBS) > lfht.lst
 
 math_cache_lf_dup: $(BMARKS)/math_cache.c $(OBJ_FILES) src/lfht_dup.c include/lfht_dup.h 
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/lfht_dup.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lf_dup $(LIBS)
@@ -289,8 +287,8 @@ math_cache_lf_dup: $(BMARKS)/math_cache.c $(OBJ_FILES) src/lfht_dup.c include/lf
 math_cache_lock_ins: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lb_lock_ins.c include/clht_lb_lock_ins.h 
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_lock_ins.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lock_ins $(LIBS)
 
-math_cache_nogc_lf: $(BMARKS)/math_cache_no_gc.c $(OBJ_FILES) src/lfht.c include/lfht.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache_no_gc.c src/lfht.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_nogc_lf $(LIBS)
+math_cache_nogc_lf: $(BMARKS)/math_cache_no_gc.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache_no_gc.c src/clht_lf.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_nogc_lf $(LIBS)
 
 math_cache_lat: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lb_res.c src/clht_lb_gc.c include/clht_lb_res.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_res.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lat $(LIBS)

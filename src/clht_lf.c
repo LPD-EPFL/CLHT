@@ -3,9 +3,9 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "lfht.h"
+#include "clht_lf.h"
 
-__thread ssmem_allocator_t* hyht_alloc;
+__thread ssmem_allocator_t* clht_alloc;
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -66,10 +66,10 @@ create_bucket()
 
 hashtable_t* ht_create(uint32_t num_buckets);
 
-hyht_wrapper_t* 
-hyht_wrapper_create(uint32_t num_buckets)
+clht_wrapper_t* 
+clht_wrapper_create(uint32_t num_buckets)
 {
-  hyht_wrapper_t* w = (hyht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(hyht_wrapper_t));
+  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
@@ -129,7 +129,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, hyht_addr_t key) 
+ht_hash(hashtable_t* hashtable, clht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
@@ -140,13 +140,13 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 
-static inline hyht_val_t
-lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
+static inline clht_val_t
+lfht_bucket_search(bucket_t* bucket, clht_addr_t key)
 {
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      hyht_val_t val = bucket->val[i];
+      clht_val_t val = bucket->val[i];
 #ifdef __tile__
       _mm_lfence();
 #endif
@@ -170,8 +170,8 @@ lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
 
 
 /* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
+clht_val_t
+ht_get(hashtable_t* hashtable, clht_addr_t key)
 {
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
@@ -201,7 +201,7 @@ ht_print_retry_stats()
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
+ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
@@ -266,8 +266,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
 
 /* Remove a key-value entry from a hash table. */
-hyht_val_t
-ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
+clht_val_t
+ht_remove(clht_wrapper_t* h, clht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
@@ -286,7 +286,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
     {
       if (bucket->key[i] == key && s.map[i] == MAP_VALID)
 	{
-	  hyht_val_t removed = bucket->val[i];
+	  clht_val_t removed = bucket->val[i];
 #ifdef __tile__
 	  _mm_mfence();
 #endif
