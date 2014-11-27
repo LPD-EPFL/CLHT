@@ -158,15 +158,21 @@ lfht_bucket_search(bucket_t* bucket, hyht_addr_t key)
   for (i = 0; i < KEY_BUCKT; i++)
     {
       hyht_val_t val = bucket->val[i];
-      if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
+#ifdef __tile__
+      _mm_lfence();
+#endif
+      if (bucket->map[i] == MAP_VALID)
       	{
-	  if (likely(bucket->val[i] == val))
+	  if (bucket->key[i] == key)
 	    {
-	      return val;
-	    }
-	  else
-	    {
-	      return 0;
+	      if (likely(bucket->val[i] == val))
+		{
+		  return val;
+		}
+	      else
+		{
+		  return 0;
+		}
 	    }
 	}
     }
@@ -221,6 +227,9 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
  retry:
   s = bucket->snapshot;
+#ifdef __tile__
+  _mm_lfence();
+#endif
 
   if (lfht_bucket_search(bucket, key) != 0)
     {
@@ -252,7 +261,13 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	}
   
       bucket->val[empty_index] = val;
+#ifdef __tile__
+      _mm_sfence();
+#endif
       bucket->key[empty_index] = key;
+#ifdef __tile__
+      _mm_sfence();
+#endif
     }
   else
     {
@@ -284,11 +299,18 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   int i;
  retry:
   s.snapshot = bucket->snapshot;
+#ifdef __tile__
+  _mm_lfence();
+#endif
+
   for (i = 0; i < KEY_BUCKT; i++)
     {
       if (bucket->key[i] == key && s.map[i] == MAP_VALID)
 	{
 	  hyht_val_t removed = bucket->val[i];
+#ifdef __tile__
+	  _mm_mfence();
+#endif
 	  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
 	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
 	    {
@@ -347,11 +369,28 @@ bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
 int 
 ht_resize_pes(hyht_wrapper_t* h, int is_increase, int by)
 {
+  /* if (!is_increase) */
+  /*   { */
+  /*     return 0; */
+  /*   } */
+  /* is_increase = 1; */
+  /* if (by > 4) */
+  /*   { */
+  /*     by = 4; */
+  /*   } */
+
   if (LFHT_LOCK_RESIZE(h))
     {
-      ht_resize_pes(h, 1, 2);
+      /* printf("[RESPES-%02d] got resize lock\n", hyht_gc_get_id()); */
+      //      ht_resize_pes(h, 1, 2);
+    }
+  else
+    {
+      /* printf("[RESPES-%02d] already locked\n", hyht_gc_get_id()); */
+      return 0;
     }
 
+  /* printf("[RESPES-%02d] inc: %d / by: %d\n", hyht_gc_get_id(), is_increase, by); */
   ticks s = getticks();
 
   hashtable_t* ht_old = h->ht;
