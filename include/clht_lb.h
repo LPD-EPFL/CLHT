@@ -72,21 +72,8 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) clht_wrapper
 {
-  union
-  {
-    struct
-    {
-      struct hashtable_s* ht;
-      uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
-      struct hashtable_s* ht_oldest;
-      struct ht_ts* version_list;
-      size_t version_min;
-      volatile clht_lock_t resize_lock;
-      volatile clht_lock_t gc_lock;
-      volatile clht_lock_t status_lock;
-    };
-    uint8_t padding[2 * CACHE_LINE_SIZE];
-  };
+  struct hashtable_s* ht;
+  uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
 } clht_wrapper_t;
 
 typedef struct ALIGNED(64) hashtable_s
@@ -159,7 +146,6 @@ uint32_t ht_hash(hashtable_t* hashtable, clht_addr_t key );
 
 /* Insert a key-value pair into a hashtable. */
 int ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val);
-
 
 /* Retrieve a key-value pair from a hashtable. */
 clht_val_t ht_get(hashtable_t* hashtable, clht_addr_t key);

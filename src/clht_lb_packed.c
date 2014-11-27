@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "dht_packed.h"
+#include "clht_lb_packed.h"
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -65,6 +65,26 @@ create_bucket()
   return bucket;
 }
 
+clht_wrapper_t* 
+clht_wrapper_create(uint32_t num_buckets)
+{
+  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
+  if (w == NULL)
+    {
+      printf("** malloc @ hatshtalbe\n");
+      return NULL;
+    }
+
+  w->ht = ht_create(num_buckets);
+  if (w->ht == NULL)
+    {
+      free(w);
+      return NULL;
+    }
+
+  return w;
+}
+
 hashtable_t* 
 ht_create(uint32_t num_buckets) 
 {
@@ -113,7 +133,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash( hashtable_t* hashtable, ssht_addr_t key ) 
+ht_hash(hashtable_t* hashtable, clht_addr_t key) 
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
@@ -124,10 +144,11 @@ ht_hash( hashtable_t* hashtable, ssht_addr_t key )
 
 
   /* Retrieve a key-value entry from a hash table. */
-void*
-ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
+clht_val_t
+ht_get(hashtable_t* hashtable, clht_addr_t key)
 {
-  bucket_t* bucket = hashtable->table + bin;
+  size_t bin = ht_hash(hashtable, key);
+  volatile bucket_t* bucket = hashtable->table + bin;
     
   int32_t j;
   do 
@@ -135,8 +156,11 @@ ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
       int32_t bu_last = bucket->last - 1;
       for(j = bu_last; j >= 0; j--) 
 	{
-	  void* val = bucket->val[j];
-	  if(bucket->key[j] == key) 
+	  clht_val_t val = bucket->val[j];
+#ifdef __tile__
+	  _mm_lfence();
+#endif
+	  if (bucket->key[j] == key) 
 	    {
 	      if (bucket->val[j] == val)
 		{
@@ -144,7 +168,7 @@ ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 		}
 	      else
 		{
-		  return NULL;
+		  return 0;
 		}
 	    }
 	}
@@ -155,11 +179,11 @@ ht_get(hashtable_t *hashtable, ssht_addr_t key, uint32_t bin)
 	}
       bucket = bucket->next;
     } while (bucket != NULL);
-  return NULL;
+  return 0;
 }
 
-inline ssht_addr_t
-bucket_exists(bucket_t* bucket, ssht_addr_t key)
+inline clht_addr_t
+bucket_exists(bucket_t* bucket, clht_addr_t key)
 {
   int32_t j;
   do 
@@ -184,9 +208,11 @@ bucket_exists(bucket_t* bucket, ssht_addr_t key)
 
 
 /* Insert a key-value entry into a hash table. */
-uint32_t
-ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin) 
+int
+ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
 {
+  hashtable_t* hashtable = h->ht;
+  size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 #if defined(READ_ONLY_FAIL)
   if (bucket_exists(bucket, key))
@@ -212,7 +238,10 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
         
       if (bu_last < ENTRIES_PER_BUCKET)
 	{
-	  bucket->val[bu_last] = (void*) bucket;
+	  bucket->val[bu_last] = val;
+#ifdef __tile__
+	      _mm_sfence();
+#endif
 	  bucket->key[bu_last] = key;
 	  bucket->last++;
 	  LOCK_RLS(lock);
@@ -223,7 +252,13 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 	  DPP(put_num_failed_expand);
 	  bucket->next = create_bucket();
 	  bucket->next->key[0] = key;
-	  bucket->next->val[0] = (void*) bucket;
+#ifdef __tile__
+	      _mm_sfence();
+#endif	 
+	      bucket->next->val[0] = val;
+#ifdef __tile__
+	      _mm_sfence();
+#endif
 	  bucket->next->last++;
 	  LOCK_RLS(lock);
 	  return true;
@@ -234,10 +269,13 @@ ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin)
 }
 
 
+
 /* Remove a key-value entry from a hash table. */
-ssht_addr_t
-ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
+clht_val_t
+ht_remove(clht_wrapper_t* h, clht_addr_t key)
 {
+  hashtable_t* hashtable = h->ht;
+  size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 #if defined(READ_ONLY_FAIL)
   if (!bucket_exists(bucket, key))
@@ -257,6 +295,7 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 	{
 	  if(bucket->key[j] == key) 
 	    {
+	      clht_val_t val = bucket->val[j];
 	      bucket_t* blast = bucket;
 	      while (blast->next != NULL && blast->next->last)
 		{
@@ -267,10 +306,16 @@ ht_remove( hashtable_t *hashtable, ssht_addr_t key, int bin )
 	      uint32_t blast_last = blast->last;
 	      assert(blast_last != 0);
 	      bucket->val[j] = blast->val[blast_last - 1];
+#ifdef __tile__
+	      _mm_sfence();
+#endif
 	      bucket->key[j] = blast->key[blast_last - 1];
+#ifdef __tile__
+	      _mm_sfence();
+#endif
 	      blast->last--;
 	      LOCK_RLS(lock);
-	      return key;
+	      return val;
 	    }
 	}
 
@@ -323,13 +368,13 @@ ht_destroy( hashtable_t *hashtable)
 
 
 uint32_t
-ht_size(hashtable_t *hashtable, uint32_t num_buckets)
+ht_size(hashtable_t *hashtable)
 {
   bucket_t *bucket = NULL;
   size_t size = 0;
 
   uint32_t bin;
-  for (bin = 0; bin < num_buckets; bin++)
+  for (bin = 0; bin < hashtable->num_buckets; bin++)
     {
       bucket = hashtable->table + bin;
        

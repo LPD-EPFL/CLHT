@@ -24,6 +24,7 @@
 /alock.o
 /clht_lb
 /clht_lb_linked
+/clht_lbp
 /core
 /cscope.files
 /cscope.out

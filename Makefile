@@ -98,7 +98,7 @@ COMPILE_FLAGS += -DUSE_SSPFD
 endif
 
 # ALL= clht clht_lat clhtp clht_lat clhtp_lat clht_res clht_res_lat
-ALL= clht_lb_res math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht lfht_only_map_rem lfht_dup clht_lb_lock_ins lfht_res clht_lb_linked
+ALL= clht_lb_res clht_lbp math_cache lfht math_cache_lf math_cache_nogc_lf math_cache_lf_dup lfht lfht_only_map_rem lfht_dup clht_lb_lock_ins lfht_res clht_lb_linked
 
 # default setings
 PLATFORM=-DDEFAULT
@@ -201,7 +201,7 @@ default: normal
 
 all: $(ALL)
 
-.PHONY: clht_lb
+.PHONY: $(ALL)
 
 normal: clean clht_lb_res lfht_res clht_lb_mem lfht_mem
 
@@ -296,11 +296,11 @@ math_cache_lat: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lb_res.c src/clht_l
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_res.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lat $(LIBS)
 
 
-clht_lbp: $(BMARKS)/main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/dht_packed.c -o clht_lbp $(LIBS)
+clht_lbp: $(BMARKS)/main_lock.c $(OBJ_FILES) src/clht_lb_packed.c include/clht_lb_packed.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/clht_lb_packed.c -o clht_lbp $(LIBS)
 
-clht_lbp_lat: $(BMARKS)/main_lock.c $(OBJ_FILES) src/dht_packed.c include/dht_packed.h
-	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/dht_packed.c -o clht_lbp_lat $(LIBS)
+clht_lbp_lat: $(BMARKS)/main_lock.c $(OBJ_FILES) src/clht_lb_packed.c include/clht_lb_packed.h
+	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/clht_lb_packed.c -o clht_lbp_lat $(LIBS)
 
 
 clht_lb_lat: $(BMARKS)/main_lock.c $(OBJ_FILES) src/clht_lb.c include/clht_lb.h
