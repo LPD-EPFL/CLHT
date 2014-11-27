@@ -29,7 +29,7 @@
 #endif
 
 #if defined(LOCKFREE)
-#  include "lfht.h"
+#  include "clht_lf.h"
 #else
 #  if defined(NO_RESIZE)
 #    include "clht_lb.h"

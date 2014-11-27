@@ -161,7 +161,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  hyht_wrapper_t* ht;
+  clht_wrapper_t* ht;
 } thread_data_t;
 
 
@@ -196,7 +196,7 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  hyht_wrapper_t* hashtable = td->ht;
+  clht_wrapper_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
 
@@ -290,7 +290,7 @@ test(void* thread)
 	  /* cache the computation if not already there */
 	  int res;
 	  START_TS(1);
-	  res = ht_put(hashtable, key, (hyht_val_t) key);
+	  res = ht_put(hashtable, key, (clht_val_t) key);
 	  END_TS(1, my_putting_count);
 	  if(res)
 	    {
@@ -304,7 +304,7 @@ test(void* thread)
       my_getting_count++;
 
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
-      hyht_val_t removed;
+      clht_val_t removed;
       START_TS(2);
       removed = ht_remove(hashtable, key);
       END_TS(2, my_removing_count);
@@ -530,7 +530,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
+  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */
