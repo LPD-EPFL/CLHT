@@ -31,7 +31,7 @@
 #if defined(LOCKFREE_RES)
 #  include "lfht_res.h"
 #else
-#  include "dht_res.h"
+#  include "clht_lb_res.h"
 #endif
 #include "mcore_malloc.h"
 
