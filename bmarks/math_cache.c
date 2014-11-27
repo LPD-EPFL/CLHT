@@ -30,7 +30,7 @@
 #if defined(LOCKFREE)
 #  include "lfht.h"
 #else
-#  include "dht_res.h"
+#  include "clht_lb_res.h"
 #endif
 #include "ssmem.h"
 
@@ -162,7 +162,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  hyht_wrapper_t* ht;
+  clht_wrapper_t* ht;
 } thread_data_t;
 
 
@@ -197,12 +197,12 @@ test(void* thread)
   phys_id = the_cores[ID % (NUMBER_OF_SOCKETS * CORES_PER_SOCKET)];
   set_cpu(phys_id);
 
-  hyht_wrapper_t* hashtable = td->ht;
+  clht_wrapper_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
-  hyht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(hyht_alloc != NULL);
-  ssmem_alloc_init(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(clht_alloc != NULL);
+  ssmem_alloc_init(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
   /* ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t)); */
   /* assert(alloc != NULL); */
   /* ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID); */
@@ -300,7 +300,7 @@ test(void* thread)
 	  /* cache the computation if not already there */
 	  int res;
 	  START_TS(1);
-	  obj = (size_t*) ssmem_alloc(hyht_alloc, obj_size_bytes);
+	  obj = (size_t*) ssmem_alloc(clht_alloc, obj_size_bytes);
 	  obj[0] = key;
 	  size_t v = key * key;
 	  int i;
@@ -312,7 +312,7 @@ test(void* thread)
 #if defined(__tile__)
 	  _mm_sfence();
 #endif
-	  res = ht_put(hashtable, key, (hyht_val_t) obj);
+	  res = ht_put(hashtable, key, (clht_val_t) obj);
 	  END_TS(1, my_putting_count);
 	  if(res)
 	    {
@@ -321,7 +321,7 @@ test(void* thread)
 	    }
 	  else
 	    {
-	      ssmem_free(hyht_alloc, (void*) obj);
+	      ssmem_free(clht_alloc, (void*) obj);
 	    }
 	  ADD_DUR_FAIL(my_putting_fail);
 	  my_putting_count++;
@@ -355,7 +355,7 @@ test(void* thread)
 
 	    }
 
-	  ssmem_free(hyht_alloc, (void*) removed);
+	  ssmem_free(clht_alloc, (void*) removed);
 	  ADD_DUR(my_removing_succ);
 	  my_removing_count_succ++;
 	}
@@ -414,7 +414,7 @@ test(void* thread)
 
   barrier_cross(&barrier);
   ssmem_term();
-  free(hyht_alloc);
+  free(clht_alloc);
 
 #if !defined(COMPUTE_THROUGHPUT)
   putting_succ[ID] += my_putting_succ;
@@ -592,7 +592,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
+  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */
