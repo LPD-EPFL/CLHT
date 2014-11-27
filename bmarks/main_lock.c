@@ -25,13 +25,17 @@
 #endif
 
 #if defined(USE_SSPFD)
-#   include "sspfd.h"
+#  include "sspfd.h"
 #endif
 
 #if defined(LOCKFREE)
 #  include "lfht.h"
 #else
-#  include "dht_res.h"
+#  if defined(NO_RESIZE)
+#    include "clht_lb.h"
+#  else
+#    include "clht_lb_res.h"
+#  endif
 #endif
 
 /* #define DETAILED_THROUGHPUT */
@@ -164,7 +168,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  hyht_wrapper_t* ht;
+  clht_wrapper_t* ht;
 } thread_data_t;
 
 void*
@@ -175,7 +179,7 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  hyht_wrapper_t* hashtable = td->ht;
+  clht_wrapper_t* hashtable = td->ht;
 
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -274,7 +278,7 @@ test(void* thread)
 	    } 
 	  else 
 	    {
-	      hyht_val_t removed;
+	      clht_val_t removed;
 	      START_TS(2);
 	      removed = ht_remove(hashtable, key);
 	      END_TS(2, my_removing_count);
@@ -289,9 +293,9 @@ test(void* thread)
 	} 
       else
 	{ 
-	  hyht_val_t res;
+	  clht_val_t res;
 	  START_TS(0);
-	  res= ht_get(hashtable->ht, key);
+	  res = ht_get(hashtable->ht, key);
 	  END_TS(0, my_getting_count);
 	  if(res != 0) 
 	    {
@@ -555,7 +559,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
+  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */

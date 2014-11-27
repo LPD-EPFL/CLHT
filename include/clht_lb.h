@@ -7,6 +7,8 @@
 #include "atomic_ops.h"
 #include "utils.h"
 
+#include "ssmem.h"
+
 #define true 1
 #define false 0
 
@@ -53,18 +55,39 @@
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
+inline int is_power_of_two(unsigned int x);
 
-typedef uintptr_t ssht_addr_t;
+typedef uintptr_t clht_addr_t;
+typedef volatile uintptr_t clht_val_t;
 
-typedef uint64_t hyht_lock_t;
+typedef uint64_t clht_lock_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  hyht_lock_t lock;
-  ssht_addr_t key[ENTRIES_PER_BUCKET];
-  void* val[ENTRIES_PER_BUCKET];
+  clht_lock_t lock;
+  clht_addr_t key[ENTRIES_PER_BUCKET];
+  clht_val_t  val[ENTRIES_PER_BUCKET];
   struct bucket_s* next;
 } bucket_t;
+
+typedef struct ALIGNED(CACHE_LINE_SIZE) clht_wrapper
+{
+  union
+  {
+    struct
+    {
+      struct hashtable_s* ht;
+      uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
+      struct hashtable_s* ht_oldest;
+      struct ht_ts* version_list;
+      size_t version_min;
+      volatile clht_lock_t resize_lock;
+      volatile clht_lock_t gc_lock;
+      volatile clht_lock_t status_lock;
+    };
+    uint8_t padding[2 * CACHE_LINE_SIZE];
+  };
+} clht_wrapper_t;
 
 typedef struct ALIGNED(64) hashtable_s
 {
@@ -129,18 +152,20 @@ _mm_pause_rep(uint64_t w)
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets );
+clht_wrapper_t* clht_wrapper_create(uint32_t num_buckets);
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash(hashtable_t* hashtable, ssht_addr_t key );
+uint32_t ht_hash(hashtable_t* hashtable, clht_addr_t key );
 
 /* Insert a key-value pair into a hashtable. */
-uint32_t ht_put(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin);
+int ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val);
+
 
 /* Retrieve a key-value pair from a hashtable. */
-void* ht_get(hashtable_t* hashtable, ssht_addr_t key, uint32_t bin);
+clht_val_t ht_get(hashtable_t* hashtable, clht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-ssht_addr_t ht_remove(hashtable_t* hashtable, ssht_addr_t key, int bin);
+clht_val_t ht_remove(clht_wrapper_t* hashtable, clht_addr_t key);
 
 /* Dealloc the hashtable */
 void ht_destroy(hashtable_t* hashtable);
