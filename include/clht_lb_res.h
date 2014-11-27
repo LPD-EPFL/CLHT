@@ -9,60 +9,60 @@
 
 #include "ssmem.h"
 
-extern __thread ssmem_allocator_t* hyht_alloc;
+extern __thread ssmem_allocator_t* clht_alloc;
 
 #define true 1
 #define false 0
 
 /* #define DEBUG */
 
-#define HYHT_READ_ONLY_FAIL   1
-#define HYHT_HELP_RESIZE      0
-#define HYHT_PERC_EXPANSIONS  1
-#define HYHT_MAX_EXPANSIONS   24
-#define HYHT_PERC_FULL_DOUBLE 50	   /* % */
-#define HYHT_RATIO_DOUBLE     2		  
-#define HYHT_OCCUP_AFTER_RES  40
-#define HYHT_PERC_FULL_HALVE  5		   /* % */
-#define HYHT_RATIO_HALVE      8		  
-#define HYHT_MIN_HT_SIZE      8
-#define HYHT_DO_CHECK_STATUS  0
-#define HYHT_DO_GC            0
-#define HYHT_STATUS_INVOK     500000
-#define HYHT_STATUS_INVOK_IN  500000
+#define CLHT_READ_ONLY_FAIL   1
+#define CLHT_HELP_RESIZE      0
+#define CLHT_PERC_EXPANSIONS  1
+#define CLHT_MAX_EXPANSIONS   24
+#define CLHT_PERC_FULL_DOUBLE 50	   /* % */
+#define CLHT_RATIO_DOUBLE     2		  
+#define CLHT_OCCUP_AFTER_RES  40
+#define CLHT_PERC_FULL_HALVE  5		   /* % */
+#define CLHT_RATIO_HALVE      8		  
+#define CLHT_MIN_HT_SIZE      8
+#define CLHT_DO_CHECK_STATUS  0
+#define CLHT_DO_GC            0
+#define CLHT_STATUS_INVOK     500000
+#define CLHT_STATUS_INVOK_IN  500000
 #define LOAD_FACTOR           2
 
 #if defined(RTM)	       /* only for processors that have RTM */
-#define HYHT_USE_RTM          1
+#define CLHT_USE_RTM          1
 #else
-#define HYHT_USE_RTM          0
+#define CLHT_USE_RTM          0
 #endif
 
-#if HYHT_DO_CHECK_STATUS == 1
-#  define HYHT_CHECK_STATUS(h)				\
+#if CLHT_DO_CHECK_STATUS == 1
+#  define CLHT_CHECK_STATUS(h)				\
   if (unlikely((--check_ht_status_steps) == 0))		\
     {							\
       ht_status(h, 0, 0);				\
-      check_ht_status_steps = HYHT_STATUS_INVOK;	\
+      check_ht_status_steps = CLHT_STATUS_INVOK;	\
     }
 
 #else 
-#  define HYHT_CHECK_STATUS(h)
+#  define CLHT_CHECK_STATUS(h)
 #endif
 
-#if HYHT_DO_GC == 1
-#  define HYHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version((hashtable_t*) ht)
+#if CLHT_DO_GC == 1
+#  define CLHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version((hashtable_t*) ht)
 #else
-#  define HYHT_GC_HT_VERSION_USED(ht)
+#  define CLHT_GC_HT_VERSION_USED(ht)
 #endif
 
 
-/* HYHT LINKED version specific parameters */
-#define HYHT_LINKED_PERC_FULL_DOUBLE       75
-#define HYHT_LINKED_MAX_AVG_EXPANSION      1
-#define HYHT_LINKED_MAX_EXPANSIONS         7
-#define HYHT_LINKED_MAX_EXPANSIONS_HARD    16
-#define HYHT_LINKED_EMERGENCY_RESIZE       4 /* how many times to increase the size on emergency */
+/* CLHT LINKED version specific parameters */
+#define CLHT_LINKED_PERC_FULL_DOUBLE       75
+#define CLHT_LINKED_MAX_AVG_EXPANSION      1
+#define CLHT_LINKED_MAX_EXPANSIONS         7
+#define CLHT_LINKED_MAX_EXPANSIONS_HARD    16
+#define CLHT_LINKED_EMERGENCY_RESIZE       4 /* how many times to increase the size on emergency */
 /* *************************************** */
 
 #if defined(DEBUG)
@@ -111,21 +111,21 @@ extern __thread ssmem_allocator_t* hyht_alloc;
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
 inline int is_power_of_two(unsigned int x);
 
-typedef uintptr_t hyht_addr_t;
-typedef volatile uintptr_t hyht_val_t;
+typedef uintptr_t clht_addr_t;
+typedef volatile uintptr_t clht_val_t;
 
 #if defined(__tile__)
-typedef volatile uint32_t hyht_lock_t;
+typedef volatile uint32_t clht_lock_t;
 #else
-typedef volatile uint8_t hyht_lock_t;
+typedef volatile uint8_t clht_lock_t;
 #endif
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 {
-  hyht_lock_t lock;
+  clht_lock_t lock;
   volatile uint32_t hops;
-  hyht_addr_t key[ENTRIES_PER_BUCKET];
-  hyht_val_t val[ENTRIES_PER_BUCKET];
+  clht_addr_t key[ENTRIES_PER_BUCKET];
+  clht_val_t val[ENTRIES_PER_BUCKET];
   volatile struct bucket_s* next;
 } bucket_t;
 
@@ -133,7 +133,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 _Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 #endif
 
-typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
+typedef struct ALIGNED(CACHE_LINE_SIZE) clht_wrapper
 {
   union
   {
@@ -144,13 +144,13 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) hyht_wrapper
       struct hashtable_s* ht_oldest;
       struct ht_ts* version_list;
       size_t version_min;
-      volatile hyht_lock_t resize_lock;
-      volatile hyht_lock_t gc_lock;
-      volatile hyht_lock_t status_lock;
+      volatile clht_lock_t resize_lock;
+      volatile clht_lock_t gc_lock;
+      volatile clht_lock_t status_lock;
     };
     uint8_t padding[2 * CACHE_LINE_SIZE];
   };
-} hyht_wrapper_t;
+} clht_wrapper_t;
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) hashtable_s
 {
@@ -199,7 +199,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ht_ts
 inline uint64_t __ac_Jenkins_hash_64(uint64_t key);
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash(hashtable_t* hashtable, hyht_addr_t key );
+uint32_t ht_hash(hashtable_t* hashtable, clht_addr_t key );
 
 static inline void
 _mm_pause_rep(uint64_t w)
@@ -222,7 +222,7 @@ _mm_pause_rep(uint64_t w)
 #define LOCK_UPDATE 1
 #define LOCK_RESIZE 2
 
-#if HYHT_USE_RTM == 1		/* USE RTM */
+#if CLHT_USE_RTM == 1		/* USE RTM */
 #  define LOCK_ACQ(lock, ht)			\
   lock_acq_rtm_chk_resize(lock, ht)
 #  define LOCK_RLS(lock)			\
@@ -263,10 +263,10 @@ extern __thread uint32_t put_num_restarts;
 #endif
 
 static inline int
-lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
+lock_acq_chk_resize(clht_lock_t* lock, hashtable_t* h)
 {
   char once = 1;
-  hyht_lock_t l;
+  clht_lock_t l;
   while ((l = CAS_U8(lock, LOCK_FREE, LOCK_UPDATE)) == LOCK_UPDATE)
     {
       if (once)
@@ -280,11 +280,11 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
   if (l == LOCK_RESIZE)
     {
       /* helping with the resize */
-#if HYHT_HELP_RESIZE == 1
+#if CLHT_HELP_RESIZE == 1
       ht_resize_help(h);
 #endif
 
-#if !defined(HYHT_LINKED)
+#if !defined(CLHT_LINKED)
       while (h->table_new == NULL)
 	{
 	  _mm_pause();
@@ -299,9 +299,9 @@ lock_acq_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 }
 
 static inline int
-lock_acq_resize(hyht_lock_t* lock)
+lock_acq_resize(clht_lock_t* lock)
 {
-  hyht_lock_t l;
+  clht_lock_t l;
   while ((l = CAS_U8(lock, LOCK_FREE, LOCK_RESIZE)) == LOCK_UPDATE)
     {
       _mm_pause();
@@ -317,13 +317,13 @@ lock_acq_resize(hyht_lock_t* lock)
 
 
 /* ******************************************************************************** */
-#if HYHT_USE_RTM == 1  /* use RTM */
+#if CLHT_USE_RTM == 1  /* use RTM */
 /* ******************************************************************************** */
 
 #include <immintrin.h>		/*  */
 
 static inline int
-lock_acq_rtm_chk_resize(hyht_lock_t* lock, hashtable_t* h)
+lock_acq_rtm_chk_resize(clht_lock_t* lock, hashtable_t* h)
 {
 
   int rtm_retries = 1;
@@ -336,7 +336,7 @@ lock_acq_rtm_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 
       if (likely(_xbegin() == _XBEGIN_STARTED))
 	{
-	  hyht_lock_t lv = *lock;
+	  clht_lock_t lv = *lock;
 	  if (likely(lv == LOCK_FREE))
 	    {
 	      return 1;
@@ -344,7 +344,7 @@ lock_acq_rtm_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 	  else if (lv == LOCK_RESIZE)
 	    {
 	      _xend();
-#  if HYHT_HELP_RESIZE == 1
+#  if CLHT_HELP_RESIZE == 1
 	      ht_resize_help(h);
 #  endif
 
@@ -372,39 +372,39 @@ lock_acq_rtm_chk_resize(hyht_lock_t* lock, hashtable_t* h)
 
 /* Create a new hashtable. */
 hashtable_t* ht_create(uint32_t num_buckets);
-hyht_wrapper_t* hyht_wrapper_create(uint32_t num_buckets);
+clht_wrapper_t* clht_wrapper_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
-int ht_put(hyht_wrapper_t* hashtable, hyht_addr_t key, hyht_val_t val);
+int ht_put(clht_wrapper_t* hashtable, clht_addr_t key, clht_val_t val);
 
 /* Retrieve a key-value pair from a hashtable. */
-hyht_val_t ht_get(hashtable_t* hashtable, hyht_addr_t key);
+clht_val_t ht_get(hashtable_t* hashtable, clht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-hyht_val_t ht_remove(hyht_wrapper_t* hashtable, hyht_addr_t key);
+clht_val_t ht_remove(clht_wrapper_t* hashtable, clht_addr_t key);
 
 size_t ht_size(hashtable_t* hashtable);
 size_t ht_size_mem(hashtable_t* hashtable);
 size_t ht_size_mem_garbage(hashtable_t* hashtable);
 
-void ht_gc_thread_init(hyht_wrapper_t* hashtable, int id);
+void ht_gc_thread_init(clht_wrapper_t* hashtable, int id);
 inline void ht_gc_thread_version(hashtable_t* h);
-inline int hyht_gc_get_id();
-int ht_gc_collect(hyht_wrapper_t* h);
+inline int clht_gc_get_id();
+int ht_gc_collect(clht_wrapper_t* h);
 int ht_gc_release(hashtable_t* h);
-int ht_gc_collect_all(hyht_wrapper_t* h);
+int ht_gc_collect_all(clht_wrapper_t* h);
 int ht_gc_free(hashtable_t* hashtable);
-void ht_gc_destroy(hyht_wrapper_t* hashtable);
+void ht_gc_destroy(clht_wrapper_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
-#if defined(HYHT_LINKED)
+#if defined(CLHT_LINKED)
 /* emergency_increase, grabs the lock and forces an increase by *emergency_increase times */
-size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
+size_t ht_status(clht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
 #else
-size_t ht_status(hyht_wrapper_t* hashtable, int resize_increase, int just_print);
+size_t ht_status(clht_wrapper_t* hashtable, int resize_increase, int just_print);
 #endif
 bucket_t* create_bucket();
-int ht_resize_pes(hyht_wrapper_t* hashtable, int is_increase, int by);
+int ht_resize_pes(clht_wrapper_t* hashtable, int is_increase, int by);
 
 
 #endif /* _DHT_RES_H_ */
