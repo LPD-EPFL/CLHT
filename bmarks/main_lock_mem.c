@@ -146,7 +146,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint32_t id;
-  hyht_wrapper_t* ht;
+  clht_wrapper_t* ht;
 } thread_data_t;
 
 #if defined(LOCKFREE_RES)
@@ -161,12 +161,12 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  hyht_wrapper_t* hashtable = td->ht;
+  clht_wrapper_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
-  hyht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(hyht_alloc != NULL);
-  ssmem_alloc_init_fs_size(hyht_alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(clht_alloc != NULL);
+  ssmem_alloc_init_fs_size(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
     
 #if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;
@@ -226,12 +226,12 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
-      char* obj = (char*) ssmem_alloc(hyht_alloc, MEM_SIZE);
+      char* obj = (char*) ssmem_alloc(clht_alloc, MEM_SIZE);
       *obj = (char) key;
 
-      if(!ht_put(hashtable, key, (hyht_val_t) obj))
+      if(!ht_put(hashtable, key, (clht_val_t) obj))
 	{
-	  ssmem_free(hyht_alloc, obj);
+	  ssmem_free(clht_alloc, obj);
 	  i--;
 	}
     }
@@ -267,7 +267,7 @@ test(void* thread)
 	{									
 	  if (obj == NULL)
 	    {
-	      obj = (char*) ssmem_alloc(hyht_alloc, MEM_SIZE);
+	      obj = (char*) ssmem_alloc(clht_alloc, MEM_SIZE);
 #if RW_SSMEM_MEM == 1
 	      *obj = (char) c;
 #endif
@@ -275,7 +275,7 @@ test(void* thread)
 	    }
 	  int res;								
 	  START_TS(1);							
-	  res = ht_put(hashtable, key, (hyht_val_t) obj);
+	  res = ht_put(hashtable, key, (clht_val_t) obj);
 	  if(res)								
 	    {								
 	      END_TS(1, my_putting_count_succ);				
@@ -289,14 +289,14 @@ test(void* thread)
 	}									
       else if(unlikely(c <= scale_rem))					
 	{									
-	  hyht_val_t removed;							
+	  clht_val_t removed;							
 	  START_TS(2);							
 	  removed = ht_remove(hashtable, key);
 	  if(removed != 0)							
 	    {								
 	      END_TS(2, my_removing_count_succ);				
 	      ADD_DUR(my_removing_succ);					
-	      ssmem_free(hyht_alloc, (void*) removed);
+	      ssmem_free(clht_alloc, (void*) removed);
 	      my_removing_count_succ++;					
 	    }								
 	  END_TS_ELSE(5, my_removing_count - my_removing_count_succ,	
@@ -305,7 +305,7 @@ test(void* thread)
 	}									
       else									
 	{									
-	  hyht_val_t res;								
+	  clht_val_t res;								
 	  START_TS(0);							
 	  res = ht_get(hashtable->ht, key);
 	  if(res != 0)							
@@ -574,7 +574,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
+  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */
@@ -716,7 +716,7 @@ main(int argc, char **argv)
 /*   mb = kb / 1024; */
 /*   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb); */
 
-/* #if defined(HYHT_LINKED) || defined(LOCKFREE_RES) */
+/* #if defined(CLHT_LINKED) || defined(LOCKFREE_RES) */
 /*   ht_status(hashtable, 0, 0, 1); */
 /* #else */
 /*   ht_status(hashtable, 0, 1); */

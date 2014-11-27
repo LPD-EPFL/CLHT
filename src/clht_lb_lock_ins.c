@@ -3,7 +3,9 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "hyht_lock_ins.h"
+#include "clht_lb_lock_ins.h"
+
+__thread ssmem_allocator_t* clht_alloc;
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -11,7 +13,7 @@ __thread uint32_t put_num_failed_expand = 0;
 __thread uint32_t put_num_failed_on_new = 0;
 #endif
 
-__thread size_t check_ht_status_steps = HYHT_STATUS_INVOK_IN;
+__thread size_t check_ht_status_steps = CLHT_STATUS_INVOK_IN;
 
 #include "stdlib.h"
 #include "assert.h"
@@ -69,10 +71,10 @@ create_bucket()
 
 hashtable_t* ht_create(uint32_t num_buckets);
 
-hyht_wrapper_t* 
-hyht_wrapper_create(uint32_t num_buckets)
+clht_wrapper_t* 
+clht_wrapper_create(uint32_t num_buckets)
 {
-  hyht_wrapper_t* w = (hyht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(hyht_wrapper_t));
+  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
@@ -136,7 +138,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, hyht_addr_t key) 
+ht_hash(hashtable_t* hashtable, clht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
@@ -148,8 +150,8 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 
 
 /* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
+clht_val_t
+ht_get(hashtable_t* hashtable, clht_addr_t key)
 {
   size_t bin = ht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
@@ -159,7 +161,10 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  hyht_val_t val = bucket->val[j];
+	  clht_val_t val = bucket->val[j];
+#ifdef __tile__
+	  _mm_lfence();
+#endif
 	  if (bucket->key[j] == key) 
 	    {
 	      if (bucket->val[j] == val)
@@ -179,7 +184,7 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 static inline int
-bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
+bucket_exists(volatile bucket_t* bucket, clht_addr_t key)
 {
   uint32_t j;
   do 
@@ -198,24 +203,24 @@ bucket_exists(volatile bucket_t* bucket, hyht_addr_t key)
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
+ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
 
-#if HYHT_READ_ONLY_FAIL == 1
-      if (bucket_exists(bucket, key))
-	{
-	  return false;
-	}
+#if CLHT_READ_ONLY_FAIL == 1
+  if (bucket_exists(bucket, key))
+    {
+      return false;
+    }
 #endif
 
-  hyht_lock_t* lock = &bucket->lock;
+  clht_lock_t* lock = &bucket->lock;
   LOCK_ACQ(lock, hashtable);
 
-  volatile hyht_addr_t* empty = NULL;
-  hyht_val_t* empty_v = NULL;
+  volatile clht_addr_t* empty = NULL;
+  clht_val_t* empty_v = NULL;
 
   uint32_t j;
   do 
@@ -241,11 +246,19 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	      DPP(put_num_failed_expand);
 	      bucket->next = create_bucket(hashtable);
 	      bucket->next->val[0] = val;
+#ifdef __tile__
+	      /* keep the writes in order */
+	      _mm_sfence();
+#endif
 	      bucket->next->key[0] = key;
 	    }
 	  else 
 	    {
 	      *empty_v = val;
+#ifdef __tile__
+	      /* keep the writes in order */
+	      _mm_sfence();
+#endif
 	      *empty = key;
 	    }
 
@@ -259,8 +272,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
 
 /* Remove a key-value entry from a hash table. */
-hyht_val_t
-ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
+clht_val_t
+ht_remove(clht_wrapper_t* h, clht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
@@ -275,7 +288,10 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 	    {
 	      if (CAS_U64(&bucket->key[j], key, KEY_BLCK) == key)
 		{
-		  hyht_val_t val = bucket->val[j];
+		  clht_val_t val = bucket->val[j];
+#ifdef __tile__
+		  _mm_lfence();
+#endif
 		  bucket->key[j] = 0;
 		  return val;
 		}
@@ -292,7 +308,7 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 }
 
 static uint32_t
-ht_put_seq(hashtable_t* hashtable, hyht_addr_t key, hyht_val_t val, uint32_t bin) 
+ht_put_seq(hashtable_t* hashtable, clht_addr_t key, clht_val_t val, uint32_t bin) 
 {
   volatile bucket_t* bucket = hashtable->table + bin;
   uint32_t j;
@@ -336,7 +352,7 @@ bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
     {
       for (j = 0; j < ENTRIES_PER_BUCKET; j++) 
 	{
-	  hyht_addr_t key = bucket->key[j];
+	  clht_addr_t key = bucket->key[j];
 	  if (key != 0) 
 	    {
 	      uint32_t bin = ht_hash(ht_new, key);
@@ -367,7 +383,7 @@ ht_resize_help(hashtable_t* h)
       if (!bucket_cpy(bu_cur, h->table_tmp))
 	{	    /* reached a point where the resizer is handling */
 	  /* printf("[GC-%02d] helped  #buckets: %10zu = %5.1f%%\n",  */
-	  /* 	 hyht_gc_get_id(), h->num_buckets - b, 100.0 * (h->num_buckets - b) / h->num_buckets); */
+	  /* 	 clht_gc_get_id(), h->num_buckets - b, 100.0 * (h->num_buckets - b) / h->num_buckets); */
 	  break;
 	}
     }
