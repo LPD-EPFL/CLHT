@@ -23,6 +23,7 @@
 /Makefile~
 /alock.o
 /clht_lb
+/clht_lb_linked
 /core
 /cscope.files
 /cscope.out

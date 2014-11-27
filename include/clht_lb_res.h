@@ -397,7 +397,7 @@ int ht_gc_free(hashtable_t* hashtable);
 void ht_gc_destroy(clht_wrapper_t* hashtable);
 
 void ht_print(hashtable_t* hashtable);
-#if defined(CLHT_LINKED)
+#if defined(CLHT_LB_LINKED)
 /* emergency_increase, grabs the lock and forces an increase by *emergency_increase times */
 size_t ht_status(clht_wrapper_t* hashtable, int resize_increase, int emergency_increase, int just_print);
 #else

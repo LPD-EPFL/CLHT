@@ -703,7 +703,7 @@ main(int argc, char **argv)
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
-#if defined(CLHT_LINKED) || defined(LOCKFREE_RES)
+#if defined(CLHT_LB_LINKED) || defined(LOCKFREE_RES)
   ht_status(hashtable, 0, 0, 1);
 #else
   ht_status(hashtable, 0, 1);
