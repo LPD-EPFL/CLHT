@@ -182,14 +182,6 @@ test(void* thread)
   volatile ticks my_removing_fail = 0;
 #endif
 
-#if !defined(COMPUTE_THROUGHPUT)
-  volatile ticks my_putting_succ = 0;
-  volatile ticks my_putting_fail = 0;
-  volatile ticks my_getting_succ = 0;
-  volatile ticks my_getting_fail = 0;
-  volatile ticks my_removing_succ = 0;
-  volatile ticks my_removing_fail = 0;
-#endif
   uint64_t my_putting_count = 0;
   uint64_t my_getting_count = 0;
   uint64_t my_removing_count = 0;
@@ -198,7 +190,7 @@ test(void* thread)
   uint64_t my_getting_count_succ = 0;
   uint64_t my_removing_count_succ = 0;
     
-#if !defined(COMPUTE_THROUGHPUT) && PFD_TYPE == 0
+#if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;
   volatile ticks correction = getticks_correction_calc();
 #endif
@@ -658,7 +650,7 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
-#if defined(COMPUTE_LATENCY)
+#if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   printf("#thread srch_suc srch_fal insr_suc insr_fal remv_suc remv_fal   ## latency (in cycles) \n"); fflush(stdout);
   long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
   long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;

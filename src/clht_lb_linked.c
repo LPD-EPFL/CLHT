@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "clht_lb_res.h"
+#include "clht_lb_linked.h"
 
 __thread ssmem_allocator_t* clht_alloc;
 

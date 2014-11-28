@@ -1,6 +1,18 @@
 #ifndef _LATENCY_H_
 #define _LATENCY_H_
 
+#define EXEC_IN_DEC_ID_ORDER(id, nthr)		\
+  { int __i;					\
+  for (__i = nthr - 1; __i >= 0; __i--)		\
+    {						\
+  if (id == __i)				\
+    {
+
+#define EXEC_IN_DEC_ID_ORDER_END(barrier)	\
+  }						\
+    barrier_cross(barrier);			\
+    }}
+
 #if RETRY_STATS == 1
 #  define RETRY_STATS_VARS						\
   __thread size_t __parse_try, __update_try, __cleanup_try, __lock_try, __lock_queue, __lock_try_once

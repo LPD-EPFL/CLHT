@@ -46,7 +46,7 @@
 
 hashtable_t** hashtable;
 int num_buckets = 256;
-int num_threads = 1;
+size_t num_threads = 1;
 int num_elements = 2048;
 int duration = 1000;
 double filling_rate = 0.5;
@@ -124,49 +124,14 @@ void barrier_cross(barrier_t *b)
   }
   pthread_mutex_unlock(&b->mutex);
 }
+
+#include "latency.h"
+
 barrier_t barrier, barrier_global;
-
-
-#define PFD_TYPE 0
-
-#if defined(COMPUTE_THROUGHPUT)
-#  define START_TS(s)
-#  define END_TS(s, i)
-#  define ADD_DUR(tar)
-#  define ADD_DUR_FAIL(tar)
-#  define PF_INIT(s, e, id)
-#elif PFD_TYPE == 0
-#  define START_TS(s)				\
-  {						\
-    asm volatile ("");				\
-    start_acq = getticks();			\
-    asm volatile ("");
-#  define END_TS(s, i)				\
-    asm volatile ("");				\
-    end_acq = getticks();			\
-    asm volatile ("");				\
-    }
-
-#  define ADD_DUR(tar) tar += (end_acq - start_acq - correction)
-#  define ADD_DUR_FAIL(tar)					\
-  else								\
-    {								\
-      ADD_DUR(tar);						\
-    }
-#  define PF_INIT(s, e, id)
-#else
-#  define SSPFD_NUM_ENTRIES  pf_vals_num
-#  define START_TS(s)      SSPFDI(s)
-#  define END_TS(s, i)     SSPFDO(s, i & SSPFD_NUM_ENTRIES)
-
-#  define ADD_DUR(tar) 
-#  define ADD_DUR_FAIL(tar)
-#  define PF_INIT(s, e, id) SSPFDINIT(s, e, id)
-#endif
 
 typedef struct thread_data
 {
-  uint8_t id;
+  size_t id;
   clht_wrapper_t* ht;
 } thread_data_t;
 
@@ -178,7 +143,7 @@ void*
 test(void* thread) 
 {
   thread_data_t* td = (thread_data_t*) thread;
-  uint8_t ID = td->id;
+  uint32_t ID = td->id;
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
@@ -188,14 +153,14 @@ test(void* thread)
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
-#if !defined(COMPUTE_THROUGHPUT)
+#if defined(COMPUTE_LATENCY)
   volatile ticks my_getting_succ = 0;
   volatile ticks my_getting_fail = 0;
 #endif
   uint64_t my_getting_count = 0;
   uint64_t my_getting_count_succ = 0;
     
-#if !defined(COMPUTE_THROUGHPUT) && PFD_TYPE == 0
+#if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;
   volatile ticks correction = getticks_correction_calc();
 #endif
@@ -255,30 +220,30 @@ test(void* thread)
     }  
 #endif
 
-  hashtable_t* ht = hashtable->ht;
   prand_gen_t* g = prand_new_range(rand_min, rand_max);
 
   barrier_cross(&barrier_global);
   while (1)
     {
-      /* for (key = 1; key < rand_max; key++) */
-      /* 	{ */
-      /* 	  key = prand_nxt(g, &ix); */
-      /* 	  ht_get(ht, key); */
-      /* 	} */
-
       int i;
       PRAND_FOR(g, i, key)
 	{
-	  START_TS(0);
-#if MEASURE_SUCC == 1
-      	  my_getting_count_succ += (ht_get(ht, key) != 0);
-#else
-	  ht_get(ht, key);
+	  clht_val_t res;								
+	  START_TS(0);							
+	  res = ht_get(hashtable->ht, key);
+	  if(res != 0)							
+	    {								
+#if RW_SSMEM_MEM == 1
+	      __attribute__ ((unused)) volatile char value = *(char*) res;
 #endif
-	  END_TS(0, my_getting_succ);
+	      END_TS(0, my_getting_count_succ);				
+	      ADD_DUR(my_getting_succ);					
+	      my_getting_count_succ++;					
+	    }								
+	  END_TS_ELSE(3, my_getting_count - my_getting_count_succ,
+		      my_getting_fail);					
+	  my_getting_count++;						
 	}
-      my_getting_count += i;
       if (unlikely(stop))
 	{
 	  break;
@@ -288,18 +253,26 @@ test(void* thread)
   free(g);
   barrier_cross(&barrier);
 
-#if !defined(COMPUTE_THROUGHPUT)
+#if defined(COMPUTE_LATENCY)
   getting_succ[ID] += my_getting_succ;
+  getting_fail[ID] += my_getting_fail;
 #endif
   getting_count[ID] += my_getting_count;
   getting_count_succ[ID] += my_getting_count_succ;
 
-#if (PFD_TYPE == 1) && !defined(COMPUTE_THROUGHPUT)
+#if (PFD_TYPE == 1) && defined(COMPUTE_LATENCY)
   if (ID == 0)
     {
       printf("get ----------------------------------------------------\n");
     }
 #endif
+
+  EXEC_IN_DEC_ID_ORDER(ID, num_threads)
+    {
+      print_latency_stats(ID, SSPFD_NUM_ENTRIES, print_vals_num);
+      RETRY_STATS_SHARE();
+    }
+  EXEC_IN_DEC_ID_ORDER_END(&barrier);
 
   /* SSPFDTERM(); */
 
@@ -578,18 +551,15 @@ main(int argc, char **argv)
       removing_count_total_succ += removing_count_succ[t];
     }
 
-#if !defined(COMPUTE_THROUGHPUT)
-#  if defined(DEBUG)
+#if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
-#  endif
-
   long unsigned get_suc = (getting_count_total_succ) ? getting_suc_total / getting_count_total_succ : 0;
   long unsigned get_fal = (getting_count_total - getting_count_total_succ) ? getting_fal_total / (getting_count_total - getting_count_total_succ) : 0;
   long unsigned put_suc = putting_count_total_succ ? putting_suc_total / putting_count_total_succ : 0;
   long unsigned put_fal = (putting_count_total - putting_count_total_succ) ? putting_fal_total / (putting_count_total - putting_count_total_succ) : 0;
   long unsigned rem_suc = removing_count_total_succ ? removing_suc_total / removing_count_total_succ : 0;
   long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
-  printf("%d\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
+  printf("%zu\t%lu\t%lu\t%lu\t%lu\t%lu\t%lu\n",
 	 num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
 
@@ -626,7 +596,7 @@ main(int argc, char **argv)
   ht_gc_destroy(hashtable);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
-  printf("#txs %d\t(%-10.0f\n", num_threads, throughput);
+  printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);
   printf("#Mops %.3f\n", throughput / 1e6);
     
   /* Last thing that main() should do */
