@@ -25,11 +25,7 @@
 #endif
 
 #include "sspfd.h"
-#if defined(LOCKFREE)
-#  include "lfht.h"
-#else
-#  include "dht_res.h"
-#endif
+#include "clht_lf_res.h"
 #include "ssmem.h"
 
 /* #define DETAILED_THROUGHPUT */
@@ -160,7 +156,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  hyht_wrapper_t* ht;
+  clht_wrapper_t* ht;
 } thread_data_t;
 
 
@@ -188,7 +184,7 @@ hash_rep(size_t key, size_t times)
 }
 
 
-volatile lfht_snapshot_t* snap;
+volatile clht_snapshot_t* snap;
 volatile size_t key[KEY_BUCKT] = {0};
 volatile uintptr_t val[KEY_BUCKT] = {0};
 #define GET_VAL(v) (*(size_t*) (v))
@@ -205,9 +201,9 @@ test(void* thread)
 
   ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t));
   assert(alloc != NULL);
-  ssmem_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
 
-  ssmem_gc_init(alloc);
+  ssmem_gc_thread_init(alloc, ID);
 
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -284,7 +280,7 @@ test(void* thread)
 
 
 	  int empty_index = -2;
-	  lfht_snapshot_t s;
+	  clht_snapshot_t s;
 
 	retry:
 	  s.snapshot = snap->snapshot;
@@ -306,7 +302,7 @@ test(void* thread)
 		}
 	    }
 
-	  lfht_snapshot_all_t s1;
+	  clht_snapshot_all_t s1;
 	  if (empty_index < 0)
 	    {
 	      empty_index = snap_get_empty_index(s.snapshot);
@@ -332,7 +328,7 @@ test(void* thread)
 	      s1 = snap_set_map(s.snapshot, empty_index, MAP_INSRT);
 	    }
 
-	  lfht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
+	  clht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
 	  if (CAS_U64(&snap->snapshot, s1, s2) != s1)
 	    {
 	      num_retry_cas3++;
@@ -349,7 +345,7 @@ test(void* thread)
       else
 	{
 	  my_removing_count++;
-	  lfht_snapshot_t s;
+	  clht_snapshot_t s;
 
 	retry_rem:
 	  s.snapshot = snap->snapshot;
@@ -361,7 +357,7 @@ test(void* thread)
 	      if (key[i] == k && s.map[i] == MAP_VALID)
 		{
 		  v = val[i];
-		  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
+		  clht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
 		  if (CAS_U64(&snap->snapshot, s.snapshot, s1) == s.snapshot)
 		    {
 		      /* snap->map[i] = MAP_INVLD; */
@@ -394,8 +390,9 @@ test(void* thread)
 
   if (ID < 2)
     {
-      printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu / #cas4: %-8zu / #cas5: %-8zu\n", 
-	     num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4, num_retry_cas5);
+      printf("#retry-stats-thread-%d: #cas1: %-8zu / #cas2: %-8zu /"
+	     "#cas3: %-8zu / #cas4: %-8zu / #cas5: %-8zu\n", 
+	     ID, num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4, num_retry_cas5);
     }
 
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
@@ -535,7 +532,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  snap = (lfht_snapshot_t*) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
+  snap = (clht_snapshot_t*) memalign(CACHE_LINE_SIZE, CACHE_LINE_SIZE);
   assert(snap != NULL);
 
   /* Initializes the local data */

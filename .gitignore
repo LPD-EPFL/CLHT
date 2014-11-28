@@ -26,6 +26,7 @@
 /clht_lb_linked
 /clht_lb_lock_ins
 /clht_lb_nn
+/clht_lb_res
 /clht_lb_ro
 /clht_lbp
 /clht_lf
@@ -105,6 +106,7 @@
 /main_lock.c~
 /math_cache
 /math_cache_lat
+/math_cache_lb
 /math_cache_lf
 /math_cache_lf_dup
 /math_cache_lock_ins
@@ -125,6 +127,7 @@
 /run~
 /rw_ttas.o
 /sequential
+/snap_stress
 /throughput_array
 /throughput_clh
 /throughput_hclh

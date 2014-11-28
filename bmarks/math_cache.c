@@ -28,7 +28,7 @@
 #   include "sspfd.h"
 #endif
 #if defined(LOCKFREE)
-#  include "lfht.h"
+#  include "clht_lf_res.h"
 #else
 #  include "clht_lb_res.h"
 #endif
