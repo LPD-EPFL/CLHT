@@ -29,9 +29,9 @@
 #endif
 
 #if defined(LOCKFREE_RES)
-#  include "lfht_res.h"
+#  include "clht_lf_res.h"
 #else
-#  include "dht_res.h"
+#  include "clht_lb_res.h"
 #endif
 #include "mcore_malloc.h"
 #include "prand.h"
@@ -167,7 +167,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  hyht_wrapper_t* ht;
+  clht_wrapper_t* ht;
 } thread_data_t;
 
 #if defined(LOCKFREE_RES)
@@ -182,7 +182,7 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  hyht_wrapper_t* hashtable = td->ht;
+  clht_wrapper_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
     
@@ -481,7 +481,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  hyht_wrapper_t* hashtable = hyht_wrapper_create(num_buckets);
+  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */
@@ -618,7 +618,7 @@ main(int argc, char **argv)
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 
-#if defined(HYHT_LINKED) || defined(LOCKFREE_RES)
+#if defined(CLHT_LINKED) || defined(LOCKFREE_RES)
   ht_status(hashtable, 0, 0, 1);
 #else
   ht_status(hashtable, 0, 1);
