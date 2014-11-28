@@ -3,7 +3,9 @@
 #include <malloc.h>
 #include <string.h>
 
-#include "lfht_only_map_rem.h"
+#include "clht_lf_only_map_rem.h"
+
+__thread ssmem_allocator_t* clht_alloc;
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
@@ -64,10 +66,10 @@ create_bucket()
 
 hashtable_t* ht_create(uint32_t num_buckets);
 
-hyht_wrapper_t* 
-hyht_wrapper_create(uint32_t num_buckets)
+clht_wrapper_t* 
+clht_wrapper_create(uint32_t num_buckets)
 {
-  hyht_wrapper_t* w = (hyht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(hyht_wrapper_t));
+  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
@@ -127,7 +129,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, hyht_addr_t key) 
+ht_hash(hashtable_t* hashtable, clht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
@@ -138,17 +140,16 @@ ht_hash(hashtable_t* hashtable, hyht_addr_t key)
 }
 
 
-/* Retrieve a key-value entry from a hash table. */
-hyht_val_t
-ht_get(hashtable_t* hashtable, hyht_addr_t key)
+static inline clht_val_t
+lfht_bucket_search(bucket_t* bucket, clht_addr_t key)
 {
-  size_t bin = ht_hash(hashtable, key);
-  bucket_t* bucket = hashtable->table + bin;
-
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      hyht_val_t val = bucket->val[i];
+      clht_val_t val = bucket->val[i];
+#ifdef __tile__
+      _mm_lfence();
+#endif
       if (bucket->map[i] >= MAP_VALID && bucket->key[i] == key)
       	{
 	  if (likely(bucket->val[i] == val))
@@ -165,9 +166,19 @@ ht_get(hashtable_t* hashtable, hyht_addr_t key)
   return 0;
 }
 
+/* Retrieve a key-value entry from a hash table. */
+clht_val_t
+ht_get(hashtable_t* hashtable, clht_addr_t key)
+{
+  size_t bin = ht_hash(hashtable, key);
+  bucket_t* bucket = hashtable->table + bin;
+
+  return lfht_bucket_search(bucket, key);
+}
 
 
-__thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, num_retry_cas4 = 0, num_retry_cas5 = 0;
+__thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, 
+  num_retry_cas4 = 0, num_retry_cas5 = 0;
 
 void
 ht_print_retry_stats()
@@ -187,34 +198,30 @@ ht_print_retry_stats()
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val) 
+ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   int empty_index = -2;
-  lfht_snapshot_all_t s, s1, s2;
+  clht_snapshot_all_t s, s1, s2;
 
  retry:
   s = bucket->snapshot;
+#ifdef __tile__
+  _mm_lfence();
+#endif
 
-  int i;
-  for (i = 0; i < KEY_BUCKT; i++)
+  if (lfht_bucket_search(bucket, key) != 0)
     {
-      hyht_val_t val = bucket->val[i];
-      if (bucket->map[i] >= MAP_VALID && bucket->key[i] == key)
+      if (unlikely(empty_index >= 0))
 	{
-	  if (likely(bucket->val[i] == val))
-	    {
-	      if (unlikely(empty_index >= 0))
-		{
-		  bucket->map[empty_index] = MAP_INVLD;
-		}
-	      return false;
-	    }
+	  bucket->map[empty_index] = MAP_INVLD;
 	}
+      return false;
     }
+
 
   if (empty_index < 0)
     {
@@ -232,7 +239,13 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 	}
   
       bucket->val[empty_index] = val;
+#ifdef __tile__
+      _mm_sfence();
+#endif
       bucket->key[empty_index] = key;
+#ifdef __tile__
+      _mm_sfence();
+#endif
     }
   else
     {
@@ -252,8 +265,8 @@ ht_put(hyht_wrapper_t* h, hyht_addr_t key, hyht_val_t val)
 
 
 /* Remove a key-value entry from a hash table. */
-hyht_val_t
-ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
+clht_val_t
+ht_remove(clht_wrapper_t* h, clht_addr_t key)
 {
   hashtable_t* hashtable = h->ht;
   size_t bin = ht_hash(hashtable, key);
@@ -262,7 +275,10 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
-      hyht_val_t val = bucket->val[i];
+      clht_val_t val = bucket->val[i];
+#ifdef __tile__
+  _mm_lfence();
+#endif
       if (bucket->map[i] == MAP_VALID && bucket->key[i] == key)
 	{
 	  if (likely(bucket->val[i] == val))
@@ -276,6 +292,9 @@ ht_remove(hyht_wrapper_t* h, hyht_addr_t key)
 		  if (bucket->key[i] == key)
 		    {
 		      val = bucket->val[i];
+#ifdef __tile__
+		      _mm_mfence();
+#endif
 		      bucket->map[i] = MAP_INVLD;
 		      return val;
 		    }

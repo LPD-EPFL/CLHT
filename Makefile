@@ -251,8 +251,8 @@ lfht_dup: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht_dup.c include/lfht_dup.h
 lfht_assembly: src/clht_lf.c include/clht_lf.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE -S $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/clht_lf.c $(LIBS)
 
-lfht_only_map_rem: $(BMARKS)/main_lock.c $(OBJ_FILES) src/lfht_only_map_rem.c include/lfht_only_map_rem.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/lfht_only_map_rem.c -o lfht_only_map_rem $(LIBS)
+clht_lf_only_map_rem: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lf_only_map_rem.c include/clht_lf_only_map_rem.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/clht_lf_only_map_rem.c src/clht_lb_gc.c -o clht_lf_only_map_rem $(LIBS)
 
 clht_lb_res_lat: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lb_res.c src/clht_lb_gc.c include/clht_lb_res.h
 	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/clht_lb_res.c src/clht_lb_gc.c -o clht_lb_lat $(LIBS)

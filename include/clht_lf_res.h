@@ -30,12 +30,12 @@ extern __thread ssmem_allocator_t* clht_alloc;
 #define KEY_BUCKT 3
 #define ENTRIES_PER_BUCKET KEY_BUCKT
 
-#define CLHT_DO_GC               1
-#define CLHT_PERC_FULL_HALVE     2
-#define CLHT_PERC_FULL_DOUBLE    15
-#define CLHT_OCCUP_AFTER_RES     40
-#define CLHT_INC_EMERGENCY       2
-#define CLHT_NO_EMPTY_SLOT_TRIES 16
+#define CLHT_DO_GC                  1
+#define CLHT_PERC_FULL_HALVE        2
+#define CLHT_PERC_FULL_DOUBLE       15
+#define CLHT_OCCUP_AFTER_RES        40
+#define CLHT_INC_EMERGENCY          2
+#define CLHT_NO_EMPTY_SLOT_TRIES    16
 #define CLHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
 #define LOAD_FACTOR              0.5
 
