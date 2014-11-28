@@ -118,7 +118,7 @@ barrier_t barrier, barrier_global;
 
 #define PFD_TYPE 0
 
-#if defined(COMPUTE_THROUGHPUT)
+#if !defined(COMPUTE_LATENCY)
 #  define START_TS(s)
 #  define END_TS(s, i)
 #  define ADD_DUR(tar)
@@ -207,7 +207,7 @@ test(void* thread)
 
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
-#if !defined(COMPUTE_THROUGHPUT)
+#if defined(COMPUTE_LATENCY)
   volatile ticks my_putting_succ = 0;
   volatile ticks my_putting_fail = 0;
   volatile ticks my_getting_succ = 0;
@@ -223,7 +223,7 @@ test(void* thread)
   uint64_t my_getting_count_succ = 0;
   uint64_t my_removing_count_succ = 0;
     
-#if !defined(COMPUTE_THROUGHPUT) && PFD_TYPE == 0
+#if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;
   volatile ticks correction = getticks_correction_calc();
 #endif
@@ -399,7 +399,7 @@ test(void* thread)
   /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
   barrier_cross(&barrier);
 
-#if !defined(COMPUTE_THROUGHPUT)
+#if defined(COMPUTE_LATENCY)
   putting_succ[ID] += my_putting_succ;
   putting_fail[ID] += my_putting_fail;
   getting_succ[ID] += my_getting_succ;
@@ -415,7 +415,7 @@ test(void* thread)
   getting_count_succ[ID] += my_getting_count_succ;
   removing_count_succ[ID]+= my_removing_count_succ;
 
-#if (PFD_TYPE == 1) && !defined(COMPUTE_THROUGHPUT)
+#if (PFD_TYPE == 1) && defined(COMPUTE_LATENCY)
   if (ID == 0)
     {
       printf("get ----------------------------------------------------\n");
@@ -652,7 +652,7 @@ main(int argc, char **argv)
       removing_count_total_succ = 2;
     }
     
-#if !defined(COMPUTE_THROUGHPUT)
+#if defined(COMPUTE_LATENCY)
 #  if defined(DEBUG)
   printf("#thread get_suc get_fal put_suc put_fal rem_suc rem_fal\n"); fflush(stdout);
 #  endif
