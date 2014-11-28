@@ -45,7 +45,7 @@ __ac_Jenkins_hash_64(uint64_t key)
 
 /* Create a new bucket. */
 bucket_t*
-create_bucket() 
+clht_bucket_create() 
 {
   bucket_t* bucket = NULL;
   bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t));
@@ -64,19 +64,19 @@ create_bucket()
   return bucket;
 }
 
-hashtable_t* ht_create(uint32_t num_buckets);
+clht_hashtable_t* clht_clht_hashtable_create(uint32_t num_buckets);
 
-clht_wrapper_t* 
-clht_wrapper_create(uint32_t num_buckets)
+clht_t* 
+clht_create(uint32_t num_buckets)
 {
-  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
+  clht_t* w = (clht_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
       return NULL;
     }
 
-  w->ht = ht_create(num_buckets);
+  w->ht = clht_clht_hashtable_create(num_buckets);
 
   w->resize_lock = 0;
   w->gc_lock = 0;
@@ -88,10 +88,10 @@ clht_wrapper_create(uint32_t num_buckets)
   return w;
 }
 
-hashtable_t* 
-ht_create(uint32_t num_buckets) 
+clht_hashtable_t* 
+clht_clht_hashtable_create(uint32_t num_buckets) 
 {
-  hashtable_t* hashtable = NULL;
+  clht_hashtable_t* hashtable = NULL;
     
   if (num_buckets == 0)
     {
@@ -99,7 +99,7 @@ ht_create(uint32_t num_buckets)
     }
     
   /* Allocate the table itself. */
-  hashtable = (hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(hashtable_t));
+  hashtable = (clht_hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_hashtable_t));
   if (hashtable == NULL) 
     {
       printf("** malloc @ hatshtalbe\n");
@@ -140,7 +140,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, clht_addr_t key) 
+clht_hash(clht_hashtable_t* hashtable, clht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
@@ -182,10 +182,10 @@ clht_bucket_search(bucket_t* bucket, clht_addr_t key)
 
 /* Retrieve a key-value entry from a hash table. */
 clht_val_t
-ht_get(hashtable_t* hashtable, clht_addr_t key)
+clht_get(clht_hashtable_t* hashtable, clht_addr_t key)
 {
   CLHT_GC_HT_VERSION_USED(hashtable);
-  size_t bin = ht_hash(hashtable, key);
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   return clht_bucket_search(bucket, key);
@@ -196,7 +196,7 @@ ht_get(hashtable_t* hashtable, clht_addr_t key)
 __thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, num_retry_cas4 = 0, num_retry_cas5 = 0;
 
 void
-ht_print_retry_stats()
+clht_print_retry_stats()
 {
   printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu / #cas4: %-8zu\n",
 	 num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4);
@@ -213,13 +213,13 @@ ht_print_retry_stats()
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
+clht_put(clht_t* h, clht_addr_t key, clht_val_t val) 
 {
   int empty_retries = 0;
  retry_all:
   CLHT_CHECK_RESIZE(h);
-  hashtable_t* hashtable = h->ht;
-  size_t bin = ht_hash(hashtable, key);
+  clht_hashtable_t* hashtable = h->ht;
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   int empty_index = -2;
@@ -287,11 +287,11 @@ ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val)
 
 /* Remove a key-value entry from a hash table. */
 clht_val_t
-ht_remove(clht_wrapper_t* h, clht_addr_t key)
+clht_remove(clht_t* h, clht_addr_t key)
 {
   CLHT_CHECK_RESIZE(h);
-  hashtable_t* hashtable = h->ht;
-  size_t bin = ht_hash(hashtable, key);
+  clht_hashtable_t* hashtable = h->ht;
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   clht_snapshot_t s;
@@ -328,7 +328,7 @@ ht_remove(clht_wrapper_t* h, clht_addr_t key)
 
 
 static uint32_t
-ht_put_seq(hashtable_t* hashtable, clht_addr_t key, clht_val_t val, uint32_t bin) 
+clht_put_seq(clht_hashtable_t* hashtable, clht_addr_t key, clht_val_t val, uint32_t bin) 
 {
   volatile bucket_t* bucket = hashtable->table + bin;
   uint32_t j;
@@ -348,7 +348,7 @@ ht_put_seq(hashtable_t* hashtable, clht_addr_t key, clht_val_t val, uint32_t bin
 }
 
 static int
-bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
+bucket_cpy(volatile bucket_t* bucket, clht_hashtable_t* ht_new)
 {
   uint32_t j;
   for (j = 0; j < KEY_BUCKT; j++) 
@@ -356,8 +356,8 @@ bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
       if (bucket->map[j] == MAP_VALID)
 	{
 	  clht_addr_t key = bucket->key[j];
-	  uint32_t bin = ht_hash(ht_new, key);
-	  ht_put_seq(ht_new, key, bucket->val[j], bin);
+	  uint32_t bin = clht_hash(ht_new, key);
+	  clht_put_seq(ht_new, key, bucket->val[j], bin);
 	}
     }
 
@@ -367,7 +367,7 @@ bucket_cpy(volatile bucket_t* bucket, hashtable_t* ht_new)
 
 /* resizing */
 int 
-ht_resize_pes(clht_wrapper_t* h, int is_increase, int by)
+ht_resize_pes(clht_t* h, int is_increase, int by)
 {
   /* if (!is_increase) */
   /*   { */
@@ -393,7 +393,7 @@ ht_resize_pes(clht_wrapper_t* h, int is_increase, int by)
   /* printf("[RESPES-%02d] inc: %d / by: %d\n", clht_gc_get_id(), is_increase, by); */
   ticks s = getticks();
 
-  hashtable_t* ht_old = h->ht;
+  clht_hashtable_t* ht_old = h->ht;
 
   size_t num_buckets_new;
   if (is_increase == true)
@@ -405,7 +405,7 @@ ht_resize_pes(clht_wrapper_t* h, int is_increase, int by)
       num_buckets_new = ht_old->num_buckets / 2;
     }
 
-  hashtable_t* ht_new = ht_create(num_buckets_new);
+  clht_hashtable_t* ht_new = clht_clht_hashtable_create(num_buckets_new);
   
   size_t cur_version = ht_old->version;
   ht_old->version++;
@@ -429,9 +429,9 @@ ht_resize_pes(clht_wrapper_t* h, int is_increase, int by)
     }
 
 #if defined(DEBUG)
-  /* if (ht_size(ht_old) != ht_size(ht_new)) */
+  /* if (clht_size(ht_old) != clht_size(ht_new)) */
   /*   { */
-  /*     printf("**ht_size(ht_old) = %zu != ht_size(ht_new) = %zu\n", ht_size(ht_old), ht_size(ht_new)); */
+  /*     printf("**clht_size(ht_old) = %zu != clht_size(ht_new) = %zu\n", clht_size(ht_old), clht_size(ht_new)); */
   /*   } */
 #endif
 
@@ -452,7 +452,7 @@ ht_resize_pes(clht_wrapper_t* h, int is_increase, int by)
 
 
 size_t
-ht_size(hashtable_t* hashtable)
+clht_size(clht_hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
   bucket_t* bucket = NULL;
@@ -475,14 +475,14 @@ ht_size(hashtable_t* hashtable)
 }
 
 size_t
-ht_status(clht_wrapper_t* h, int resize_increase, int emergency_increase, int just_print)
+ht_status(clht_t* h, int resize_increase, int emergency_increase, int just_print)
 {
   if (TRYLOCK_ACQ(&h->status_lock) && !resize_increase)
     {
       return 0;
     }
 
-  hashtable_t* hashtable = h->ht;
+  clht_hashtable_t* hashtable = h->ht;
   uint32_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
   size_t size = 0;
@@ -542,20 +542,20 @@ ht_status(clht_wrapper_t* h, int resize_increase, int emergency_increase, int ju
 }
 
 size_t
-ht_size_mem(hashtable_t* h) /* in bytes */
+clht_size_mem(clht_hashtable_t* h) /* in bytes */
 {
   if (h == NULL)
     {
       return 0;
     }
 
-  size_t size_tot = sizeof(hashtable_t**);
+  size_t size_tot = sizeof(clht_hashtable_t**);
   size_tot += h->num_buckets * sizeof(bucket_t);
   return size_tot;
 }
 
 size_t
-ht_size_mem_garbage(hashtable_t* h) /* in bytes */
+clht_size_mem_garbage(clht_hashtable_t* h) /* in bytes */
 {
   if (h == NULL)
     {
@@ -563,10 +563,10 @@ ht_size_mem_garbage(hashtable_t* h) /* in bytes */
     }
 
   size_t size_tot = 0;
-  hashtable_t* cur = h->table_prev;
+  clht_hashtable_t* cur = h->table_prev;
   while (cur != NULL)
     {
-      size_tot += ht_size_mem(cur);
+      size_tot += clht_size_mem(cur);
       cur = cur->table_prev;
     }
 
@@ -574,7 +574,7 @@ ht_size_mem_garbage(hashtable_t* h) /* in bytes */
 }
 
 void
-ht_print(hashtable_t* hashtable)
+clht_print(clht_hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
   bucket_t* bucket;

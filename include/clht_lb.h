@@ -70,13 +70,13 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
   struct bucket_s* next;
 } bucket_t;
 
-typedef struct ALIGNED(CACHE_LINE_SIZE) clht_wrapper
+typedef struct ALIGNED(CACHE_LINE_SIZE) clht
 {
-  struct hashtable_s* ht;
+  struct clht_hashtable_s* ht;
   uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
-} clht_wrapper_t;
+} clht_t;
 
-typedef struct ALIGNED(64) hashtable_s
+typedef struct ALIGNED(64) clht_hashtable_s
 {
   union
   {
@@ -87,7 +87,7 @@ typedef struct ALIGNED(64) hashtable_s
     };
     uint8_t padding[CACHE_LINE_SIZE];
   };
-} hashtable_t;
+} clht_hashtable_t;
 
 
 static inline void
@@ -138,28 +138,28 @@ _mm_pause_rep(uint64_t w)
   *lock = 0;	  
 
 /* Create a new hashtable. */
-hashtable_t* ht_create(uint32_t num_buckets );
-clht_wrapper_t* clht_wrapper_create(uint32_t num_buckets);
+clht_hashtable_t* clht_clht_hashtable_create(uint32_t num_buckets );
+clht_t* clht_create(uint32_t num_buckets);
 
 /* Hash a key for a particular hashtable. */
-uint32_t ht_hash(hashtable_t* hashtable, clht_addr_t key );
+uint32_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );
 
 /* Insert a key-value pair into a hashtable. */
-int ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val);
+int clht_put(clht_t* h, clht_addr_t key, clht_val_t val);
 
 /* Retrieve a key-value pair from a hashtable. */
-clht_val_t ht_get(hashtable_t* hashtable, clht_addr_t key);
+clht_val_t clht_get(clht_hashtable_t* hashtable, clht_addr_t key);
 
 /* Remove a key-value pair from a hashtable. */
-clht_val_t ht_remove(clht_wrapper_t* hashtable, clht_addr_t key);
+clht_val_t clht_remove(clht_t* hashtable, clht_addr_t key);
 
 /* Dealloc the hashtable */
-void ht_destroy(hashtable_t* hashtable);
+void clht_destroy(clht_hashtable_t* hashtable);
 
-size_t ht_size(hashtable_t* hashtable);
+size_t clht_size(clht_hashtable_t* hashtable);
 
-void ht_print(hashtable_t* hashtable);
+void clht_print(clht_hashtable_t* hashtable);
 
-bucket_t* create_bucket();
+bucket_t* clht_bucket_create();
 
 #endif /* _CLHT_LB_H_ */

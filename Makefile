@@ -109,7 +109,7 @@ PLATFORM=-DDEFAULT
 GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS+= -lrt -lpthread -lm  -lclht -lssmem
+LIBS += -lrt -lpthread -lm  -lclht -lssmem
 
 UNAME := $(shell uname -n)
 
@@ -118,7 +118,7 @@ PLATFORM=-DOPTERON
 GCC=gcc-4.8
 PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
-LIBS+= -lrt -lpthread -lm -lnuma
+LIBS += -lrt -lpthread -lm -lnuma
 endif
 
 ifeq ($(UNAME), lpdxeon2680)
@@ -126,7 +126,7 @@ PLATFORM=-DXEON2
 GCC=gcc
 PLATFORM_NUMA=1
 OPTIMIZE=
-LIBS+= -lrt -lpthread -lm -lnuma
+LIBS += -lrt -lpthread -lm -lnuma
 endif
 
 ifeq ($(UNAME), lpdpc4)
@@ -134,7 +134,7 @@ PLATFORM=-DCOREi7
 GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS+= -lrt -lpthread -lm
+LIBS += -lrt -lpthread -lm
 endif
 
 ifeq ($(UNAME), lpdpc34)
@@ -142,45 +142,45 @@ PLATFORM=-DCOREi7 -DRTM
 GCC=gcc-4.8
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS+= -lrt -lpthread -lm -mrtm
+LIBS += -lrt -lpthread -lm -mrtm
 endif
 
 ifeq ($(UNAME), diascld9)
 PLATFORM=-DOPTERON2
 GCC=gcc
-LIBS+= -lrt -lpthread -lm
+LIBS += -lrt -lpthread -lm
 endif
 
 ifeq ($(UNAME), diassrv8)
 PLATFORM=-DXEON
 GCC=gcc
 PLATFORM_NUMA=1
-LIBS+= -lrt -lpthread -lm -lnuma
+LIBS += -lrt -lpthread -lm -lnuma
 endif
 
 ifeq ($(UNAME), diascld19)
 PLATFORM=-DXEON2
 GCC=gcc
-LIBS+= -lrt -lpthread -lm
+LIBS += -lrt -lpthread -lm
 endif
 
 ifeq ($(UNAME), maglite)
 PLATFORM=-DSPARC
 GCC:=/opt/csw/bin/gcc
 LIBS+= -lrt -lpthread -lm
-CFLAGS+= -m64 -mcpu=v9 -mtune=v9
+CFLAGS += -m64 -mcpu=v9 -mtune=v9
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)
 PLATFORM=-DTILERA
 GCC=tile-gcc
-LIBS+= -lrt -lpthread -lm -ltmc
+LIBS += -lrt -lpthread -lm -ltmc
 endif
 
 ifeq ($(UNAME), smal1.sics.se)
 PLATFORM=-DTILERA
 GCC=tile-gcc
-LIBS+= -lrt -lpthread -lm -ltmc
+LIBS += -lrt -lpthread -lm -ltmc
 endif
 
 ifeq ($(UNAME), ol-collab1)
@@ -210,7 +210,7 @@ default: normal
 
 all: $(ALL)
 
-.PHONY: $(ALL) clht_gc.o
+.PHONY: $(ALL)
 
 normal: clht_lb_res clht_lf_res 
 

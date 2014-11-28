@@ -45,7 +45,7 @@ __ac_Jenkins_hash_64(uint64_t key)
 
 /* Create a new bucket. */
 bucket_t*
-create_bucket() 
+clht_bucket_create() 
 {
   bucket_t* bucket = NULL;
   bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t ));
@@ -67,17 +67,17 @@ create_bucket()
   return bucket;
 }
 
-clht_wrapper_t* 
-clht_wrapper_create(uint32_t num_buckets)
+clht_t* 
+clht_create(uint32_t num_buckets)
 {
-  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
+  clht_t* w = (clht_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
       return NULL;
     }
 
-  w->ht = ht_create(num_buckets);
+  w->ht = clht_clht_hashtable_create(num_buckets);
   if (w->ht == NULL)
     {
       free(w);
@@ -87,10 +87,10 @@ clht_wrapper_create(uint32_t num_buckets)
   return w;
 }
 
-hashtable_t* 
-ht_create(uint32_t num_buckets) 
+clht_hashtable_t* 
+clht_clht_hashtable_create(uint32_t num_buckets) 
 {
-  hashtable_t* hashtable = NULL;
+  clht_hashtable_t* hashtable = NULL;
     
   if(num_buckets == 0)
     {
@@ -98,7 +98,7 @@ ht_create(uint32_t num_buckets)
     }
     
   /* Allocate the table itself. */
-  hashtable = (hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(hashtable_t));
+  hashtable = (clht_hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_hashtable_t));
   if(hashtable == NULL ) 
     {
       printf("** malloc @ hatshtalbe\n");
@@ -135,7 +135,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, clht_addr_t key) 
+clht_hash(clht_hashtable_t* hashtable, clht_addr_t key) 
 {
 	/* uint64_t hashval; */
 	/* hashval = __ac_Jenkins_hash_64(key); */
@@ -147,9 +147,9 @@ ht_hash(hashtable_t* hashtable, clht_addr_t key)
 
   /* Retrieve a key-value entry from a hash table. */
 clht_val_t
-ht_get(hashtable_t* hashtable, clht_addr_t key)
+clht_get(clht_hashtable_t* hashtable, clht_addr_t key)
 {
-  size_t bin = ht_hash(hashtable, key);
+  size_t bin = clht_hash(hashtable, key);
   volatile bucket_t* bucket = hashtable->table + bin;
     
   int32_t j;
@@ -211,10 +211,10 @@ bucket_exists(bucket_t* bucket, clht_addr_t key)
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
+clht_put(clht_t* h, clht_addr_t key, clht_val_t val) 
 {
-  hashtable_t* hashtable = h->ht;
-  size_t bin = ht_hash(hashtable, key);
+  clht_hashtable_t* hashtable = h->ht;
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 #if defined(READ_ONLY_FAIL)
   if (bucket_exists(bucket, key))
@@ -252,7 +252,7 @@ ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val)
       else if (bucket->next == NULL)
 	{
 	  DPP(put_num_failed_expand);
-	  bucket->next = create_bucket();
+	  bucket->next = clht_bucket_create();
 	  bucket->next->key[0] = key;
 #ifdef __tile__
 	      _mm_sfence();
@@ -274,10 +274,10 @@ ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val)
 
 /* Remove a key-value entry from a hash table. */
 clht_val_t
-ht_remove(clht_wrapper_t* h, clht_addr_t key)
+clht_remove(clht_t* h, clht_addr_t key)
 {
-  hashtable_t* hashtable = h->ht;
-  size_t bin = ht_hash(hashtable, key);
+  clht_hashtable_t* hashtable = h->ht;
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 #if defined(READ_ONLY_FAIL)
   if (!bucket_exists(bucket, key))
@@ -332,7 +332,7 @@ ht_remove(clht_wrapper_t* h, clht_addr_t key)
 }
 
 void
-ht_destroy( hashtable_t *hashtable)
+clht_destroy( clht_hashtable_t *hashtable)
 {
     /* int num_buckets = hashtable->num_buckets; */
     /* bucket_t *bucket_c = NULL, *bucket_p = NULL; */
@@ -370,7 +370,7 @@ ht_destroy( hashtable_t *hashtable)
 
 
 uint32_t
-ht_size(hashtable_t *hashtable)
+clht_size(clht_hashtable_t *hashtable)
 {
   bucket_t *bucket = NULL;
   size_t size = 0;
@@ -401,7 +401,7 @@ ht_size(hashtable_t *hashtable)
 }
 
 void
-ht_print(hashtable_t *hashtable, uint32_t num_buckets)
+clht_print(clht_hashtable_t *hashtable, uint32_t num_buckets)
 {
   bucket_t *bucket;
 

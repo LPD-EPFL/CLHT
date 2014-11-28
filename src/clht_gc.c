@@ -8,7 +8,7 @@ static __thread ht_ts_t* clht_ts_thread = NULL;
  * initialize thread metadata for GC
  */
 void
-ht_gc_thread_init(clht_wrapper_t* h, int id)
+ht_gc_thread_init(clht_t* h, int id)
 {
   ht_ts_t* ts = (ht_ts_t*) memalign(CACHE_LINE_SIZE, sizeof(ht_ts_t));
   assert(ts != NULL);
@@ -29,7 +29,7 @@ ht_gc_thread_init(clht_wrapper_t* h, int id)
  * set the ht version currently used by the current thread
  */
 inline void
-ht_gc_thread_version(hashtable_t* h)
+ht_gc_thread_version(clht_hashtable_t* h)
 {
   clht_ts_thread->version = h->version;
 }
@@ -43,14 +43,14 @@ clht_gc_get_id()
   return clht_ts_thread->id;
 }
 
-static int ht_gc_collect_cond(clht_wrapper_t* hashtable, int collect_not_referenced_only);
+static int ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only);
 
 /* 
  * perform a GC of the versions of the ht that are not currently used by any
  * of the participating threads
  */
 inline int
-ht_gc_collect(clht_wrapper_t* hashtable)
+ht_gc_collect(clht_t* hashtable)
 {
 #if CLHT_DO_GC == 1
   CLHT_GC_HT_VERSION_USED(hashtable->ht);
@@ -65,7 +65,7 @@ ht_gc_collect(clht_wrapper_t* hashtable)
  * referenced by any of the threads
  */
 int
-ht_gc_collect_all(clht_wrapper_t* hashtable)
+ht_gc_collect_all(clht_t* hashtable)
 {
   return ht_gc_collect_cond(hashtable, 0);
 }
@@ -78,7 +78,7 @@ ht_gc_collect_all(clht_wrapper_t* hashtable)
  * than the returned value, can be GCed
  */
 size_t
-ht_gc_min_version_used(clht_wrapper_t* h)
+ht_gc_min_version_used(clht_t* h)
 {
   volatile ht_ts_t* cur = h->version_list;
 
@@ -101,7 +101,7 @@ ht_gc_min_version_used(clht_wrapper_t* h)
  * collect_not_referenced_only != 0 -> ht_gc_collect();
  */
 static int
-ht_gc_collect_cond(clht_wrapper_t* hashtable, int collect_not_referenced_only)
+ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only)
 {
   /* if version_min >= current version there is nothing to collect! */
   if ((hashtable->version_min >= hashtable->ht->version) || TRYLOCK_ACQ(&hashtable->gc_lock))
@@ -134,11 +134,11 @@ ht_gc_collect_cond(clht_wrapper_t* hashtable, int collect_not_referenced_only)
     {
       /* printf("[GCOLLE-%02d] collect from %zu to %zu\n", GET_ID(collect_not_referenced_only), hashtable->version_min, version_min); */
 
-      hashtable_t* cur = hashtable->ht_oldest;
+      clht_hashtable_t* cur = hashtable->ht_oldest;
       while (cur != NULL && cur->version < version_min)
 	{
 	  gced_num++;
-	  hashtable_t* nxt = cur->table_new;
+	  clht_hashtable_t* nxt = cur->table_new;
 	  /* printf("[GCOLLE-%02d] gc_free version: %6zu | current version: %6zu\n", GET_ID(collect_not_referenced_only), */
 	  /* 	 cur->version, hashtable->ht->version); */
 	  nxt->table_prev = NULL;
@@ -165,7 +165,7 @@ ht_gc_collect_cond(clht_wrapper_t* hashtable, int collect_not_referenced_only)
  * free the given hashtable
  */
 int
-ht_gc_free(hashtable_t* hashtable)
+ht_gc_free(clht_hashtable_t* hashtable)
 {
   /* the CLHT_LINKED version does not allocate any extra buckets! */
 #if !defined(CLHT_LB_LINKED) && !defined(LOCKFREE_RES)
@@ -196,7 +196,7 @@ ht_gc_free(hashtable_t* hashtable)
  * free all hashtable version (inluding the latest)
  */
 void
-ht_gc_destroy(clht_wrapper_t* hashtable)
+ht_gc_destroy(clht_t* hashtable)
 {
   ht_gc_collect_all(hashtable);
   ht_gc_free(hashtable->ht);
@@ -209,7 +209,7 @@ ht_gc_destroy(clht_wrapper_t* hashtable)
  * anymore)
  */
 inline int
-ht_gc_release(hashtable_t* hashtable)
+ht_gc_release(clht_hashtable_t* hashtable)
 {
   /* the CLHT_LINKED version does not allocate any extra buckets! */
 #if !defined(CLHT_LINKED) && !defined(LOCKFREE_RES)

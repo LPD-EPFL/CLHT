@@ -35,7 +35,7 @@
  * ################################################################### */
 
 
-hashtable_t** hashtable;
+clht_hashtable_t** hashtable;
 int num_buckets = 256;
 int num_threads = 1;
 int num_elements = KEY_BUCKT;
@@ -156,7 +156,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  clht_wrapper_t* ht;
+  clht_t* ht;
 } thread_data_t;
 
 
@@ -438,7 +438,7 @@ main(int argc, char **argv)
 {
   set_cpu(the_cores[0]);
     
-  assert(sizeof(hashtable_t) == 2*CACHE_LINE_SIZE);
+  assert(sizeof(clht_hashtable_t) == 2*CACHE_LINE_SIZE);
 
   struct option long_options[] = {
     // These options don't set a flag

@@ -44,7 +44,7 @@
  * ################################################################### */
 
 
-hashtable_t** hashtable;
+clht_hashtable_t** hashtable;
 int num_buckets = 256;
 size_t num_threads = 1;
 int num_elements = 2048;
@@ -144,7 +144,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint8_t id;
-  clht_wrapper_t* ht;
+  clht_t* ht;
 } thread_data_t;
 
 #if defined(LOCKFREE_RES)
@@ -159,7 +159,7 @@ test(void* thread)
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
-  clht_wrapper_t* hashtable = td->ht;
+  clht_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
   clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
@@ -216,7 +216,7 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
-      if(!ht_put(hashtable, key, key*key))
+      if(!clht_put(hashtable, key, key*key))
 	{
 	  i--;
 	}
@@ -237,15 +237,15 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
-      /* ht_print(hashtable, num_buckets); */
+      printf("size of ht is: %zu\n", clht_size(hashtable->ht));
+      /* clht_print(hashtable, num_buckets); */
     }
 #else
   if (!ID)
     {
-      if(ht_size(hashtable->ht) == 3321445)
+      if(clht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+	  printf("size of ht is: %zu\n", clht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -261,7 +261,7 @@ test(void* thread)
 	{									
 	  int res;								
 	  START_TS(1);							
-	  res = ht_put(hashtable, key, c + 1);
+	  res = clht_put(hashtable, key, c + 1);
 	  if(res)								
 	    {								
 	      END_TS(1, my_putting_count_succ);				
@@ -276,7 +276,7 @@ test(void* thread)
 	{									
 	  int removed;							
 	  START_TS(2);							
-	  removed = ht_remove(hashtable, key);
+	  removed = clht_remove(hashtable, key);
 	  if(removed != 0)							
 	    {								
 	      END_TS(2, my_removing_count_succ);				
@@ -291,7 +291,7 @@ test(void* thread)
 	{									
 	  clht_val_t res;								
 	  START_TS(0);							
-	  res = ht_get(hashtable->ht, key);
+	  res = clht_get(hashtable->ht, key);
 	  if(res != 0)							
 	    {								
 	      END_TS(0, my_getting_count_succ);				
@@ -318,14 +318,14 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+      printf("size of ht is: %zu\n", clht_size(hashtable->ht));
     }
 #else
   if (!ID)
     {
-      if(ht_size(hashtable->ht) == 3321445)
+      if(clht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+	  printf("size of ht is: %zu\n", clht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -363,7 +363,7 @@ main(int argc, char **argv)
 {
   set_cpu(the_cores[0]);
     
-  assert(sizeof(hashtable_t) == 2*CACHE_LINE_SIZE);
+  assert(sizeof(clht_hashtable_t) == 2*CACHE_LINE_SIZE);
 
   struct option long_options[] = {
     // These options don't set a flag
@@ -553,7 +553,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
+  clht_t* hashtable = clht_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */
@@ -664,7 +664,7 @@ main(int argc, char **argv)
 #define LLU long long unsigned int
 
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  int size_after = ht_size(hashtable->ht);
+  int size_after = clht_size(hashtable->ht);
 #if defined(DEBUG)
   printf("puts - rems  : %d\n", pr);
 #endif
@@ -691,7 +691,7 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  kb = ht_size_mem_garbage(hashtable->ht) / 1024.0;
+  kb = clht_size_mem_garbage(hashtable->ht) / 1024.0;
   mb = kb / 1024;
   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb);
 

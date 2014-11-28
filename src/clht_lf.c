@@ -45,7 +45,7 @@ __ac_Jenkins_hash_64(uint64_t key)
 
 /* Create a new bucket. */
 bucket_t*
-create_bucket() 
+clht_bucket_create() 
 {
   bucket_t* bucket = NULL;
   bucket = memalign(CACHE_LINE_SIZE, sizeof(bucket_t));
@@ -64,26 +64,26 @@ create_bucket()
   return bucket;
 }
 
-hashtable_t* ht_create(uint32_t num_buckets);
+clht_hashtable_t* clht_clht_hashtable_create(uint32_t num_buckets);
 
-clht_wrapper_t* 
-clht_wrapper_create(uint32_t num_buckets)
+clht_t* 
+clht_create(uint32_t num_buckets)
 {
-  clht_wrapper_t* w = (clht_wrapper_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_wrapper_t));
+  clht_t* w = (clht_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_t));
   if (w == NULL)
     {
       printf("** malloc @ hatshtalbe\n");
       return NULL;
     }
 
-  w->ht = ht_create(num_buckets);
+  w->ht = clht_clht_hashtable_create(num_buckets);
   return w;
 }
 
-hashtable_t* 
-ht_create(uint32_t num_buckets) 
+clht_hashtable_t* 
+clht_clht_hashtable_create(uint32_t num_buckets) 
 {
-  hashtable_t* hashtable = NULL;
+  clht_hashtable_t* hashtable = NULL;
     
   if (num_buckets == 0)
     {
@@ -91,7 +91,7 @@ ht_create(uint32_t num_buckets)
     }
     
   /* Allocate the table itself. */
-  hashtable = (hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(hashtable_t));
+  hashtable = (clht_hashtable_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_hashtable_t));
   if (hashtable == NULL) 
     {
       printf("** malloc @ hatshtalbe\n");
@@ -129,7 +129,7 @@ ht_create(uint32_t num_buckets)
 
 /* Hash a key for a particular hash table. */
 uint32_t
-ht_hash(hashtable_t* hashtable, clht_addr_t key) 
+clht_hash(clht_hashtable_t* hashtable, clht_addr_t key) 
 {
   /* uint64_t hashval; */
   /* return __ac_Jenkins_hash_64(key) & (hashtable->hash); */
@@ -171,9 +171,9 @@ lfht_bucket_search(bucket_t* bucket, clht_addr_t key)
 
 /* Retrieve a key-value entry from a hash table. */
 clht_val_t
-ht_get(hashtable_t* hashtable, clht_addr_t key)
+clht_get(clht_hashtable_t* hashtable, clht_addr_t key)
 {
-  size_t bin = ht_hash(hashtable, key);
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   return lfht_bucket_search(bucket, key);
@@ -184,7 +184,7 @@ ht_get(hashtable_t* hashtable, clht_addr_t key)
 __thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, num_retry_cas4 = 0, num_retry_cas5 = 0;
 
 void
-ht_print_retry_stats()
+clht_print_retry_stats()
 {
   printf("#cas1: %-8zu / #cas2: %-8zu / #cas3: %-8zu / #cas4: %-8zu\n",
 	 num_retry_cas1, num_retry_cas2, num_retry_cas3, num_retry_cas4);
@@ -201,10 +201,10 @@ ht_print_retry_stats()
 
 /* Insert a key-value entry into a hash table. */
 int
-ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val) 
+clht_put(clht_t* h, clht_addr_t key, clht_val_t val) 
 {
-  hashtable_t* hashtable = h->ht;
-  size_t bin = ht_hash(hashtable, key);
+  clht_hashtable_t* hashtable = h->ht;
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   int empty_index = -2;
@@ -267,10 +267,10 @@ ht_put(clht_wrapper_t* h, clht_addr_t key, clht_val_t val)
 
 /* Remove a key-value entry from a hash table. */
 clht_val_t
-ht_remove(clht_wrapper_t* h, clht_addr_t key)
+clht_remove(clht_t* h, clht_addr_t key)
 {
-  hashtable_t* hashtable = h->ht;
-  size_t bin = ht_hash(hashtable, key);
+  clht_hashtable_t* hashtable = h->ht;
+  size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
   lfht_snapshot_t s;
@@ -306,7 +306,7 @@ ht_remove(clht_wrapper_t* h, clht_addr_t key)
 }
 
 size_t
-ht_size(hashtable_t* hashtable)
+clht_size(clht_hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
   bucket_t* bucket = NULL;
@@ -330,7 +330,7 @@ ht_size(hashtable_t* hashtable)
 
 
 void
-ht_print(hashtable_t* hashtable)
+clht_print(clht_hashtable_t* hashtable)
 {
   uint32_t num_buckets = hashtable->num_buckets;
   bucket_t* bucket;

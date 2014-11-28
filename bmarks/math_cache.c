@@ -41,7 +41,7 @@
  * ################################################################### */
 
 
-hashtable_t** hashtable;
+clht_hashtable_t** hashtable;
 int num_buckets = 256;
 int num_threads = 1;
 int num_elements = 2048;
@@ -119,50 +119,16 @@ void barrier_cross(barrier_t *b)
   }
   pthread_mutex_unlock(&b->mutex);
 }
+
+#include "latency.h"
+
 barrier_t barrier, barrier_global;
 
-
-#define PFD_TYPE 0
-
-#if defined(COMPUTE_THROUGHPUT)
-#  define START_TS(s)
-#  define END_TS(s, i)
-#  define ADD_DUR(tar)
-#  define ADD_DUR_FAIL(tar)
-#  define PF_INIT(s, e, id)
-#elif PFD_TYPE == 0
-#  define START_TS(s)				\
-  {						\
-    asm volatile ("");				\
-    start_acq = getticks();			\
-    asm volatile ("");
-#  define END_TS(s, i)				\
-    asm volatile ("");				\
-    end_acq = getticks();			\
-    asm volatile ("");				\
-    }
-
-#  define ADD_DUR(tar) tar += (end_acq - start_acq - correction)
-#  define ADD_DUR_FAIL(tar)					\
-  else								\
-    {								\
-      ADD_DUR(tar);						\
-    }
-#  define PF_INIT(s, e, id)
-#else
-#  define SSPFD_NUM_ENTRIES  pf_vals_num
-#  define START_TS(s)      SSPFDI(s)
-#  define END_TS(s, i)     SSPFDO(s, i & SSPFD_NUM_ENTRIES)
-
-#  define ADD_DUR(tar) 
-#  define ADD_DUR_FAIL(tar)
-#  define PF_INIT(s, e, id) SSPFDINIT(s, e, id)
-#endif
 
 typedef struct thread_data
 {
   uint8_t id;
-  clht_wrapper_t* ht;
+  clht_t* ht;
 } thread_data_t;
 
 
@@ -197,7 +163,7 @@ test(void* thread)
   phys_id = the_cores[ID % (NUMBER_OF_SOCKETS * CORES_PER_SOCKET)];
   set_cpu(phys_id);
 
-  clht_wrapper_t* hashtable = td->ht;
+  clht_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
   clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
@@ -241,16 +207,16 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+      printf("size of ht is: %zu\n", clht_size(hashtable->ht));
       /* ssmem_ts_list_print(); */
-      /* ht_print(hashtable, num_buckets); */
+      /* clht_print(hashtable, num_buckets); */
     }
 #else
   if (!ID)
     {
-      if(ht_size(hashtable->ht) == 3321445)
+      if(clht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+	  printf("size of ht is: %zu\n", clht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -268,7 +234,7 @@ test(void* thread)
         
       size_t* res;
       START_TS(0);
-      res = (size_t*) ht_get(hashtable->ht, key);
+      res = (size_t*) clht_get(hashtable->ht, key);
       END_TS(0, my_getting_count);
 
       if (run_correctness)
@@ -312,7 +278,7 @@ test(void* thread)
 #if defined(__tile__)
 	  _mm_sfence();
 #endif
-	  res = ht_put(hashtable, key, (clht_val_t) obj);
+	  res = clht_put(hashtable, key, (clht_val_t) obj);
 	  END_TS(1, my_putting_count);
 	  if(res)
 	    {
@@ -333,7 +299,7 @@ test(void* thread)
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) & rand_max) + rand_min;
       size_t* removed;
       START_TS(2);
-      removed = (size_t*) ht_remove(hashtable, key);
+      removed = (size_t*) clht_remove(hashtable, key);
       END_TS(2, my_removing_count);
       if(removed != NULL) 
 	{
@@ -374,7 +340,7 @@ test(void* thread)
 #endif
 
 #if defined(LOCKFREE)
-  /* ht_print_retry_stats(); */
+  /* clht_print_retry_stats(); */
 #endif
     
   /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
@@ -383,7 +349,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+      printf("size of ht is: %zu\n", clht_size(hashtable->ht));
     }
 
 
@@ -405,9 +371,9 @@ test(void* thread)
 #else
   if (!ID)
     {
-      if(ht_size(hashtable->ht) == 3321445)
+      if(clht_size(hashtable->ht) == 3321445)
 	{
-	  printf("size of ht is: %zu\n", ht_size(hashtable->ht));
+	  printf("size of ht is: %zu\n", clht_size(hashtable->ht));
 	}
     }  
 #endif
@@ -455,7 +421,7 @@ main(int argc, char **argv)
 {
   set_cpu(the_cores[0]);
     
-  assert(sizeof(hashtable_t) == 2*CACHE_LINE_SIZE);
+  assert(sizeof(clht_hashtable_t) == 2*CACHE_LINE_SIZE);
 
   struct option long_options[] = {
     // These options don't set a flag
@@ -592,7 +558,7 @@ main(int argc, char **argv)
     
   /* Initialize the hashtable */
 
-  clht_wrapper_t* hashtable = clht_wrapper_create(num_buckets);
+  clht_t* hashtable = clht_create(num_buckets);
   assert(hashtable != NULL);
 
   /* Initializes the local data */
@@ -732,7 +698,7 @@ main(int argc, char **argv)
 #define LLU long long unsigned int
 
   int pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  int size_after = ht_size(hashtable->ht);
+  int size_after = clht_size(hashtable->ht);
 #if defined(DEBUG)
   printf("puts - rems  : %d\n", pr);
 #endif
