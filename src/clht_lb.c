@@ -3,11 +3,9 @@
 #include <malloc.h>
 #include <string.h>
 
-#ifdef __sparc__
-#include "../include/clht_lb.h"
-#else
 #include "clht_lb.h"
-#endif
+
+__thread ssmem_allocator_t* clht_alloc;
 
 #ifdef DEBUG
 __thread uint32_t put_num_restarts = 0;
