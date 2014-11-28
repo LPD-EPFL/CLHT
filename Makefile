@@ -43,47 +43,47 @@ ifeq ($(ARCH_NAME), tile)
     SSPFD = -lsspfd_tile
 endif
 
-COMPILE_FLAGS = -D_GNU_SOURCE
+CFLAGS = -D_GNU_SOURCE
 
 ifeq ($(DEBUG),1)
   DEBUG_FLAGS=-Wall -ggdb -g -DDEBUG
-  COMPILE_FLAGS += -O0 -DADD_PADDING -fno-inline
+  CFLAGS += -O0 -DADD_PADDING -fno-inline
 else ifeq ($(DEBUG),2)
   DEBUG_FLAGS=-Wall
-  COMPILE_FLAGS += -O0 -DADD_PADDING -fno-inline
+  CFLAGS += -O0 -DADD_PADDING -fno-inline
 else ifeq ($(DEBUG),3)
   DEBUG_FLAGS=-Wall -g -ggdb 
-  COMPILE_FLAGS += -O3 -DADD_PADDING -fno-inline
+  CFLAGS += -O3 -DADD_PADDING -fno-inline
 else
   DEBUG_FLAGS=-Wall
-  COMPILE_FLAGS += -O3 -DADD_PADDING
+  CFLAGS += -O3 -DADD_PADDING
 endif
 
 ifeq ($(SET_CPU),0)
-	COMPILE_FLAGS += -DNO_SET_CPU
+	CFLAGS += -DNO_SET_CPU
 endif
 
 ifeq ($(LATENCY),1)
-	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS
+	CFLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS
 endif
 
 ifeq ($(LATENCY),2)
-	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_ALL_CORES=0
+	CFLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_ALL_CORES=0
 	LIBS += $(SSPFD) -lm
 endif
 
 ifeq ($(LATENCY),3)
-	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_ALL_CORES=1
+	CFLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_ALL_CORES=1
 	LIBS += $(SSPFD) -lm
 endif
 
 ifeq ($(LATENCY),4)
-	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_PARSING=1
+	CFLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_PARSING=1
 	LIBS += $(SSPFD) -lm
 endif
 
 ifeq ($(LATENCY),5)
-	COMPILE_FLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_PARSING=1 -DLATENCY_ALL_CORES=1
+	CFLAGS += -DCOMPUTE_LATENCY -DDO_TIMINGS -DUSE_SSPFD -DLATENCY_PARSING=1 -DLATENCY_ALL_CORES=1
 	LIBS += $(SSPFD) -lm
 endif
 
@@ -96,7 +96,7 @@ MAININCLUDE := $(TOP)/include
 
 ifeq ($(M),1)
 LIBS += -lsspfd
-COMPILE_FLAGS += -DUSE_SSPFD
+CFLAGS += -DUSE_SSPFD
 endif
 
 ALL = 	clht_lb clht_lb_res clht_lb_res_no_next clht_lb_ro clht_lb_linked clht_lb_packed \
@@ -168,7 +168,7 @@ ifeq ($(UNAME), maglite)
 PLATFORM=-DSPARC
 GCC:=/opt/csw/bin/gcc
 LIBS+= -lrt -lpthread -lm
-COMPILE_FLAGS+= -m64 -mcpu=v9 -mtune=v9
+CFLAGS+= -m64 -mcpu=v9 -mtune=v9
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)
@@ -186,12 +186,13 @@ endif
 ifeq ($(UNAME), ol-collab1)
 PLATFORM=-DT44
 GCC=/usr/sfw/bin/gcc
-COMPILE_FLAGS += -m64
+CFLAGS += -m64
 LIBS+= -lrt -lpthread -lm
 endif
 
-COMPILE_FLAGS += $(PLATFORM)
-COMPILE_FLAGS += $(OPTIMIZE)
+CFLAGS += $(PLATFORM)
+CFLAGS += $(OPTIMIZE)
+CFLAGS += $(DEBUG_FLAGS)
 
 INCLUDES := -I$(MAININCLUDE) -I$(TOP)/external/include
 OBJ_FILES := clht_gc.o
@@ -209,13 +210,13 @@ default: normal
 
 all: $(ALL)
 
-.PHONY: $(ALL)
+.PHONY: $(ALL) clht_gc.o
 
 normal: clht_lb_res clht_lf_res 
 
 
 %.o:: $(SRC)/%.c 
-	$(GCC) $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) -o $@ -c $<
+	$(GCC) $(CFLAGS) $(INCLUDES) -o $@ -c $<
 
 ################################################################################
 # library
@@ -226,63 +227,54 @@ OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lb.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lb_res
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lb_res.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lb_res_no_next
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lb_res_no_next.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lb_linked
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lb_linked.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lb_packed
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lb_packed.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lb_lock_ins
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lb_lock_ins.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lf
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lf.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lf_res
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lf_res.o $(OBJ_FILES)
-	rm -f *.o	
 
 TYPE = clht_lf_only_map_rem
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
 	ar -r libclht.a clht_lf_only_map_rem.o $(OBJ_FILES)
-	rm -f *.o	
 
 ################################################################################
 # lock-based targets
@@ -290,27 +282,27 @@ lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 
 TYPE = clht_lb
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) -DNO_RESIZE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb $(LIBS) -lclht
+	$(GCC) -DNO_RESIZE $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb $(LIBS) -lclht
 
 TYPE = clht_lb_res
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) $(INCLUDES) $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(MAIN_BMARK) $(SRC)/clht_lb_res.c -o clht_lb_res $(LIBS)
+	$(GCC) $(INCLUDES) $(CFLAGS) $(MAIN_BMARK) $(SRC)/clht_lb_res.c -o clht_lb_res $(LIBS)
 
 TYPE = clht_lb_res_no_next
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb_nn $(LIBS)
+	$(GCC) $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb_nn $(LIBS)
 
 TYPE = clht_lb_linked
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb_linked $(LIBS)
+	$(GCC) $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb_linked $(LIBS)
 
 TYPE = clht_lb_packed
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) $(SRC)/clht_lb_packed.c  -o clht_lb_packed $(LIBS)
+	$(GCC) $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) $(SRC)/clht_lb_packed.c -o clht_lb_packed $(LIBS)
 
 TYPE = clht_lb_lock_ins
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) -DLOCK_INS $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb_lock_ins $(LIBS)
+	$(GCC) -DLOCK_INS $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lb_lock_ins $(LIBS)
 
 ################################################################################
 # lock-free targets
@@ -318,36 +310,36 @@ $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
 
 TYPE = clht_lf
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) -DLOCKFREE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lf $(LIBS)
+	$(GCC) -DLOCKFREE $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lf $(LIBS)
 
 TYPE = clht_lf_res
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) -DLOCKFREE_RES $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lf_res $(LIBS)
+	$(GCC) -DLOCKFREE_RES $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lf_res $(LIBS)
 
 TYPE = clht_lf_only_map_rem
 $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
-	$(GCC) -DLOCKFREE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lf_only_map_rem $(LIBS)
+	$(GCC) -DLOCKFREE $(CFLAGS) $(INCLUDES) $(MAIN_BMARK) -o clht_lf_only_map_rem $(LIBS)
 
 ################################################################################
 # other tests
 ################################################################################
 
 math_cache_lb: $(BMARKS)/math_cache.c libclht_lb_res.a
-	$(GCC) -DCOMPUTE_THROUGHPUT $(INCLUDES) $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(BMARKS)/math_cache.c -o math_cache_lb $(LIBS)
+	$(GCC) $(INCLUDES) $(CFLAGS) $(BMARKS)/math_cache.c -o math_cache_lb $(LIBS)
 
 math_cache_lf: $(BMARKS)/math_cache.c libclht_lf_res.a
-	$(GCC) -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(BMARKS)/math_cache.c -o math_cache_lf $(LIBS)
+	$(GCC) -DLOCKFREE $(CFLAGS) $(INCLUDES) $(BMARKS)/math_cache.c -o math_cache_lf $(LIBS)
 
 snap_stress: $(BMARKS)/snap_stress.c libclht_lf_res.a
-	$(GCC) -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(BMARKS)/snap_stress.c -o snap_stress $(LIBS)
+	$(GCC) -DLOCKFREE $(CFLAGS) $(INCLUDES) $(BMARKS)/snap_stress.c -o snap_stress $(LIBS)
 
 math_cache_lock_ins: $(BMARKS)/math_cache.c libclht_lb_lock_ins.a
-	$(GCC) -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(BMARKS)/math_cache.c $(SRC)/clht_lb_lock_ins.c -o math_cache_lock_ins $(LIBS)
+	$(GCC) -DLOCK_INS $(CFLAGS) $(INCLUDES) $(BMARKS)/math_cache.c -o math_cache_lock_ins $(LIBS)
 
 noise: $(BMARKS)/noise.c $(OBJ_FILES)
-	$(GCC) -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/noise.c -o noise $(LIBS)
+	$(GCC) $(CFLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/noise.c -o noise $(LIBS)
 
 
 
 clean:				
-	rm -f *.o clht_lb* math_cache math_cache_lf* math_cache_nogc_lf lfht* full_stress_lf snap_stress
+	rm -f *.o *.a clht_* math_cache* snap_stress
