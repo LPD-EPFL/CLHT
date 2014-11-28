@@ -2,47 +2,6 @@
 # Architecture dependent settings
 #################################
 
-ifndef ARCH
-    ARCH_NAME = $(shell uname -m)
-endif
-
-ifeq ($(ARCH_NAME), i386)
-    ARCH = x86
-    CFLAGS += -m32
-    LDFLAGS += -m32
-    SSPFD = -lsspfd_x86
-    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_x86
-endif
-
-ifeq ($(ARCH_NAME), i686)
-    ARCH = x86
-    CFLAGS += -m32
-    LDFLAGS += -m32
-    SSPFD = -lsspfd_x86
-    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_x86
-endif
-
-ifeq ($(ARCH_NAME), x86_64)
-    ARCH = x86_64
-    CFLAGS += -m64
-    LDFLAGS += -m64
-    SSPFD = -lsspfd_x86_64
-    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_x86_64
-endif
-
-ifeq ($(ARCH_NAME), sun4v)
-    ARCH = sparc64
-    CFLAGS += -DSPARC=1 -DINLINED=1 -m64
-    LDFLAGS += -lrt -m64
-    SSPFD = -lsspfd_sparc64
-    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_sparc64
-endif
-
-ifeq ($(ARCH_NAME), tile)
-    LDFLAGS += -L$(LIBSSMEM)/lib -lssmem_tile
-    SSPFD = -lsspfd_tile
-endif
-
 CFLAGS = -D_GNU_SOURCE
 
 ifeq ($(DEBUG),1)
