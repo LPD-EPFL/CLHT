@@ -231,14 +231,14 @@ clht_lb_linked_lat: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lb_linked.c 
 clht_lf: $(BMARKS)/main_lock.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h include/prand.h
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock.c src/clht_lf.c -o clht_lf $(LIBS)
 
-lfht_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/lfht_res.c include/lfht_res.h src/clht_lb_gc.c
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/lfht_res.c src/clht_lb_gc.c -o lfht_res $(LIBS)
+clht_lf_res: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lf_res.c include/clht_lf_res.h src/clht_lb_gc.c
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/clht_lf_res.c src/clht_lb_gc.c -o clht_lf_res $(LIBS)
 
-lfht_res_lat: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/lfht_res.c include/lfht_res.h src/clht_lb_gc.c
-	$(GCC) -D_GNU_SOURCE -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/lfht_res.c src/clht_lb_gc.c -o lfht_res_lat $(LIBS)
+clht_lf_res_lat: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lf_res.c include/clht_lf_res.h src/clht_lb_gc.c
+	$(GCC) -D_GNU_SOURCE -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_res.c src/clht_lf_res.c src/clht_lb_gc.c -o clht_lf_res_lat $(LIBS)
 
-lfht_mem: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/lfht_res.c include/lfht_res.h src/clht_lb_gc.c
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/lfht_res.c src/clht_lb_gc.c -o lfhtm $(LIBS)
+lfht_mem: $(BMARKS)/main_lock_res.c $(OBJ_FILES) src/clht_lf_res.c include/clht_lf_res.h src/clht_lb_gc.c
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE_RES $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/clht_lf_res.c src/clht_lb_gc.c -o lfhtm $(LIBS)
 
 
 clht_lb_lock_ins: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lb_lock_ins.c include/clht_lb_lock_ins.h

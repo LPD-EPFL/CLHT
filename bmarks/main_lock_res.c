@@ -29,7 +29,7 @@
 #endif
 
 #if defined(LOCKFREE_RES)
-#  include "lfht_res.h"
+#  include "clht_lf_res.h"
 #else
 #  include "clht_lb_res.h"
 #endif
@@ -236,7 +236,7 @@ test(void* thread)
   FAI_U32(&ntr);
   do
     {
-      LFHT_GC_HT_VERSION_USED(hashtable->ht);
+      CLHT_GC_HT_VERSION_USED(hashtable->ht);
     }
   while (ntr != num_threads);
 #endif
