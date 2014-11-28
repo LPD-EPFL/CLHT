@@ -1,7 +1,7 @@
 /*   
  *   File: clht_lf_res.h
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-free cache-line hash table with resizing.
  *   clht_lf_res.h is part of ASCYLIB
  *
  * The MIT License (MIT)

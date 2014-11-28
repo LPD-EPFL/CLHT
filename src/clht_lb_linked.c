@@ -1,7 +1,10 @@
 /*   
  *   File: clht_lb_linked.c
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-based cache-line hash table with resizing, the buckets
+ *    are linked to their next backets (b0 to b1, b1 to b2, ...), so that if 
+ *    there is no space in a bucket, the next one is used, and so on. If the 
+ *    hash table is too full, it is resized.
  *   clht_lb_linked.c is part of ASCYLIB
  *
  * The MIT License (MIT)

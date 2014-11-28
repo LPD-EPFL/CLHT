@@ -1,7 +1,9 @@
 /*   
  *   File: clht_lf.c
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-free cache-line hash table with no resizing. If there is
+ *    not enough space for a key/value pair in its corresponding bucket, the 
+ *    operation might never complete. Thus, better use the resize version.
  *   clht_lf.c is part of ASCYLIB
  *
  * The MIT License (MIT)

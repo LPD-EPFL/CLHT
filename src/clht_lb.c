@@ -1,7 +1,7 @@
 /*   
  *   File: clht_lb.c
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-based cache-line hash table with no resizing
  *   clht_lb.c is part of ASCYLIB
  *
  * The MIT License (MIT)

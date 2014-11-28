@@ -1,7 +1,8 @@
 /*   
  *   File: clht_lb_lock_ins.c
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-based cache-line hash table with no resizing. Only
+ *    inserts use real locks. Removals work with a CAS.
  *   clht_lb_lock_ins.c is part of ASCYLIB
  *
  * The MIT License (MIT)

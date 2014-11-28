@@ -1,7 +1,9 @@
 /*   
  *   File: clht_lb_packed.c
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-based cache-line hash table with no resizing. All elements
+ *    are "packed" in the first slots of the bucket. Removals move elements to 
+ *    avoid leaving any empty slots.
  *   clht_lb_packed.c is part of ASCYLIB
  *
  * The MIT License (MIT)

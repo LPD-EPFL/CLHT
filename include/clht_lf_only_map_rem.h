@@ -1,7 +1,11 @@
 /*   
  *   File: clht_lf_only_map_rem.h
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
- *   Description: 
+ *   Description: lock-free cache-line hash table with no resizing. The remove
+ *    operation changed only the map[] of the clht_snapshot_t struct and does
+ *    not increment the version number of the bucket. If there is
+ *    not enough space for a key/value pair in its corresponding bucket, the 
+ *    operation might never complete. Thus, better use the resize version.
  *   clht_lf_only_map_rem.h is part of ASCYLIB
  *
  * The MIT License (MIT)
