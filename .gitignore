@@ -26,6 +26,7 @@
 /clht_lb_linked
 /clht_lb_lock_ins
 /clht_lb_nn
+/clht_lb_packed
 /clht_lb_res
 /clht_lb_ro
 /clht_lbp
@@ -38,6 +39,7 @@
 /dht_mp.o
 /events_all
 /external/lib
+/full_stress_lf
 /h
 /hclh.o
 /hl

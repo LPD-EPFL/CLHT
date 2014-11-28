@@ -238,40 +238,14 @@ math_cache_lf: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lf_res.c include/clh
 snap_stress: $(BMARKS)/snap_stress.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
 	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/snap_stress.c src/clht_lf.c src/clht_lb_gc.c -o snap_stress $(LIBS)
 
-full_stress_lf: full_stress.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) full_stress.c src/clht_lf.c src/clht_lb_gc.c -o full_stress_lf $(LIBS)
-
-math_cache_lf_s: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lf.c src/clht_lb_gc.c $(LIBS) -S
-
-lfht_s_annot: src/clht_lf.c include/clht_lf.h
-	$(GCC) -c -g -Wa,-a,-ad -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) src/clht_lf.c $(LIBS) > lfht.lst
-
-math_cache_lf_dup: $(BMARKS)/math_cache.c $(OBJ_FILES) src/lfht_dup.c include/lfht_dup.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/lfht_dup.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lf_dup $(LIBS)
-
 math_cache_lock_ins: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lb_lock_ins.c include/clht_lb_lock_ins.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_lock_ins.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lock_ins $(LIBS)
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCK_INS $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_lock_ins.c src/clht_lb_gc.c -o math_cache_lock_ins $(LIBS)
 
-math_cache_nogc_lf: $(BMARKS)/math_cache_no_gc.c $(OBJ_FILES) src/clht_lf.c include/clht_lf.h 
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT -DLOCKFREE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache_no_gc.c src/clht_lf.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_nogc_lf $(LIBS)
+clht_lb_packed: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lb_packed.c include/clht_lb_packed.h
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/clht_lb_packed.c src/clht_lb_gc.c  -o clht_lb_packed $(LIBS)
 
-math_cache_lat: $(BMARKS)/math_cache.c $(OBJ_FILES) src/clht_lb_res.c src/clht_lb_gc.c include/clht_lb_res.h
-	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/math_cache.c src/clht_lb_res.c src/clht_lb_gc.c -o $(BMARKS)/math_cache_lat $(LIBS)
-
-
-clht_lbp: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lb_packed.c include/clht_lb_packed.h
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/clht_lb_packed.c -o clht_lbp $(LIBS)
-
-clht_lbp_lat: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lb_packed.c include/clht_lb_packed.h
-	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/clht_lb_packed.c -o clht_lbp_lat $(LIBS)
-
-
-clht_lb_lat: $(BMARKS)/main_lock_mem.c $(OBJ_FILES) src/clht_lb.c include/clht_lb.h
-	$(GCC) -D_GNU_SOURCE $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/main_lock_mem.c src/clht_lb.c -o clht_lb_lat $(LIBS)
-
-noise: noise.c
-	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) noise.c -o noise $(LIBS)
+noise: $(BMARKS)/noise.c
+	$(GCC) -D_GNU_SOURCE -DCOMPUTE_THROUGHPUT $(COMPILE_FLAGS) $(PRIMITIVE) $(DEBUG_FLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/noise.c -o noise $(LIBS)
 
 clean:				
 	rm -f *.o clht_lb* math_cache math_cache_lf* math_cache_nogc_lf lfht* full_stress_lf snap_stress

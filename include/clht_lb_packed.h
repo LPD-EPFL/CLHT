@@ -7,6 +7,8 @@
 #include "atomic_ops.h"
 #include "utils.h"
 
+#include "ssmem.h"
+
 #define true 1
 #define false 0
 
