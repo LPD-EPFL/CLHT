@@ -101,7 +101,7 @@ endif
 
 ALL = 	clht_lb clht_lb_res clht_lb_res_no_next clht_lb_ro clht_lb_linked clht_lb_packed \
 	clht_lf clht_lf_res clht_lf_only_map_rem \
-	math_cache_lb math_cache_lf math_cache_lock_ins \
+	math_cache_lb math_cache_lf \
 	snap_stress noise
 
 # default setings
@@ -118,7 +118,7 @@ PLATFORM=-DOPTERON
 GCC=gcc-4.8
 PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
-LIBS += -lrt -lpthread -lm -lnuma
+LIBS += -lnuma
 endif
 
 ifeq ($(UNAME), lpdxeon2680)
@@ -126,7 +126,7 @@ PLATFORM=-DXEON2
 GCC=gcc
 PLATFORM_NUMA=1
 OPTIMIZE=
-LIBS += -lrt -lpthread -lm -lnuma
+LIBS += -lnuma
 endif
 
 ifeq ($(UNAME), lpdpc4)
@@ -134,7 +134,7 @@ PLATFORM=-DCOREi7
 GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS += -lrt -lpthread -lm
+LIBS += 
 endif
 
 ifeq ($(UNAME), lpdpc34)
@@ -142,52 +142,52 @@ PLATFORM=-DCOREi7 -DRTM
 GCC=gcc-4.8
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS += -lrt -lpthread -lm -mrtm
+LIBS += -mrtm
 endif
 
 ifeq ($(UNAME), diascld9)
 PLATFORM=-DOPTERON2
 GCC=gcc
-LIBS += -lrt -lpthread -lm
+LIBS += 
 endif
 
 ifeq ($(UNAME), diassrv8)
 PLATFORM=-DXEON
 GCC=gcc
 PLATFORM_NUMA=1
-LIBS += -lrt -lpthread -lm -lnuma
+LIBS += -lnuma
 endif
 
 ifeq ($(UNAME), diascld19)
 PLATFORM=-DXEON2
 GCC=gcc
-LIBS += -lrt -lpthread -lm
+LIBS += 
 endif
 
 ifeq ($(UNAME), maglite)
 PLATFORM=-DSPARC
 GCC:=/opt/csw/bin/gcc
-LIBS+= -lrt -lpthread -lm
+LIBS+= 
 CFLAGS += -m64 -mcpu=v9 -mtune=v9
 endif
 
 ifeq ($(UNAME), parsasrv1.epfl.ch)
 PLATFORM=-DTILERA
 GCC=tile-gcc
-LIBS += -lrt -lpthread -lm -ltmc
+LIBS += -ltmc
 endif
 
 ifeq ($(UNAME), smal1.sics.se)
 PLATFORM=-DTILERA
 GCC=tile-gcc
-LIBS += -lrt -lpthread -lm -ltmc
+LIBS += -ltmc
 endif
 
 ifeq ($(UNAME), ol-collab1)
 PLATFORM=-DT44
 GCC=/usr/sfw/bin/gcc
 CFLAGS += -m64
-LIBS+= -lrt -lpthread -lm
+LIBS+= 
 endif
 
 CFLAGS += $(PLATFORM)
@@ -201,16 +201,19 @@ SRC := src
 
 BMARKS := bmarks
 
-#MAIN_BMARK := $(BMARKS)/test.c
+MAIN_BMARK := $(BMARKS)/test.c
 #MAIN_BMARK := $(BMARKS)/test_ro.c
-MAIN_BMARK := $(BMARKS)/test_mem.c
+#MAIN_BMARK := $(BMARKS)/test_mem.c
 
 
 default: normal
 
 all: $(ALL)
 
-.PHONY: $(ALL)
+.PHONY: $(ALL) \
+	libclht_lb.a libclht_lb_res.a libclht_lb_res_no_next.a \
+	libclht_lb_linked.a libclht_lb_packed.a libclht_lb_lock_ins.a \
+	libclht_lf.a libclht_lf_res.a libclht_lf_only_map_rem.a
 
 normal: clht_lb_res clht_lf_res 
 
@@ -226,54 +229,63 @@ TYPE = clht_lb
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lb.o $(OBJ_FILES)
 
 TYPE = clht_lb_res
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lb_res.o $(OBJ_FILES)
 
 TYPE = clht_lb_res_no_next
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lb_res_no_next.o $(OBJ_FILES)
 
 TYPE = clht_lb_linked
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lb_linked.o $(OBJ_FILES)
 
 TYPE = clht_lb_packed
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lb_packed.o $(OBJ_FILES)
 
 TYPE = clht_lb_lock_ins
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lb_lock_ins.o $(OBJ_FILES)
 
 TYPE = clht_lf
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lf.o $(OBJ_FILES)
 
 TYPE = clht_lf_res
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lf_res.o $(OBJ_FILES)
 
 TYPE = clht_lf_only_map_rem
 OBJ = $(TYPE).o
 lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 	@echo Archive name = libclht.a
+	ar -d libclht.a *
 	ar -r libclht.a clht_lf_only_map_rem.o $(OBJ_FILES)
 
 ################################################################################
@@ -325,16 +337,13 @@ $(TYPE): $(MAIN_BMARK) lib$(TYPE).a
 ################################################################################
 
 math_cache_lb: $(BMARKS)/math_cache.c libclht_lb_res.a
-	$(GCC) $(INCLUDES) $(CFLAGS) $(BMARKS)/math_cache.c -o math_cache_lb $(LIBS)
+	$(GCC) $(CFLAGS) $(INCLUDES) $(BMARKS)/math_cache.c -o math_cache_lb $(LIBS)
 
 math_cache_lf: $(BMARKS)/math_cache.c libclht_lf_res.a
 	$(GCC) -DLOCKFREE $(CFLAGS) $(INCLUDES) $(BMARKS)/math_cache.c -o math_cache_lf $(LIBS)
 
 snap_stress: $(BMARKS)/snap_stress.c libclht_lf_res.a
 	$(GCC) -DLOCKFREE $(CFLAGS) $(INCLUDES) $(BMARKS)/snap_stress.c -o snap_stress $(LIBS)
-
-math_cache_lock_ins: $(BMARKS)/math_cache.c libclht_lb_lock_ins.a
-	$(GCC) -DLOCK_INS $(CFLAGS) $(INCLUDES) $(BMARKS)/math_cache.c -o math_cache_lock_ins $(LIBS)
 
 noise: $(BMARKS)/noise.c $(OBJ_FILES)
 	$(GCC) $(CFLAGS) $(INCLUDES) $(OBJ_FILES) $(BMARKS)/noise.c -o noise $(LIBS)

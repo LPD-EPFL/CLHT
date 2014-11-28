@@ -725,11 +725,6 @@ main(int argc, char **argv)
 	 (1 - (double) (removing_count_total - removing_count_total_succ) / removing_count_total) * 100,
 	 removing_perc);
 
-#if !defined(LOCKFREE) && !defined(LOCK_INS)
-  ht_status(hashtable, 0, 1);
-  /* ht_gc_destroy(hashtable); */
-#endif
-
   size_t all_total = putting_count_total + getting_count_total + removing_count_total;
   double throughput = (all_total) * 1000.0 / duration;
   printf("#txs tot (%zu\n", all_total);

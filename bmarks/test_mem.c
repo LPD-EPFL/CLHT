@@ -675,16 +675,6 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-/*   kb = clht_size_mem_garbage(hashtable->ht) / 1024.0; */
-/*   mb = kb / 1024; */
-/*   printf("Sizeof garbage: %10.2f KB = %10.2f MB\n", kb, mb); */
-
-/* #if defined(CLHT_LINKED) || defined(LOCKFREE_RES) */
-/*   ht_status(hashtable, 0, 0, 1); */
-/* #else */
-/*   ht_status(hashtable, 0, 1); */
-/* #endif */
-  /* ht_gc_destroy(hashtable); */
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);

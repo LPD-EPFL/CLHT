@@ -333,7 +333,7 @@ void ht_gc_destroy(clht_t* hashtable);
 size_t ht_gc_min_version_used(clht_t* h);
 
 void clht_print(clht_hashtable_t* hashtable);
-size_t ht_status(clht_t* hashtable, int resize_increase, int emergency_increase, int just_print);
+/* size_t ht_status(clht_t* hashtable, int resize_increase, int emergency_increase, int just_print); */
 
 bucket_t* clht_bucket_create();
 int ht_resize_pes(clht_t* hashtable, int is_increase, int by);
