@@ -279,5 +279,7 @@ bucket_t* clht_bucket_create();
 int ht_resize_pes(clht_t* hashtable, int is_increase, int by);
 void  clht_print_retry_stats();
 
+const char* clht_type_desc();
+
 #endif /* _LFHT_RES_H_ */
 

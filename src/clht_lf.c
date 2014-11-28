@@ -16,6 +16,12 @@ __thread uint32_t put_num_failed_on_new = 0;
 #include "stdlib.h"
 #include "assert.h"
 
+const char*
+clht_type_desc()
+{
+  return "CLHT-LF-NO-RESIZE";
+}
+
 inline int
 is_power_of_two (unsigned int x) 
 {

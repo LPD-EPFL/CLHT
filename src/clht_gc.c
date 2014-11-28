@@ -198,9 +198,11 @@ ht_gc_free(clht_hashtable_t* hashtable)
 void
 ht_gc_destroy(clht_t* hashtable)
 {
+#if !defined(CLHT_LINKED)
   ht_gc_collect_all(hashtable);
   ht_gc_free(hashtable->ht);
   free(hashtable);
+#endif
 }
 
 /* 

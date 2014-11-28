@@ -16,6 +16,12 @@ __thread uint32_t put_num_failed_on_new = 0;
 #include "stdlib.h"
 #include "assert.h"
 
+const char*
+clht_type_desc()
+{
+  return "CLHT-LF-ONLY-MAP-REM";
+}
+
 inline int
 is_power_of_two (unsigned int x) 
 {
@@ -206,7 +212,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
 
   int empty_index = -2;
   clht_snapshot_all_t s, s1, s2;
-
+  
  retry:
   s = bucket->snapshot;
 #ifdef __tile__

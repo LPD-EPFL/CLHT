@@ -284,13 +284,11 @@ lock_acq_chk_resize(clht_lock_t* lock, clht_hashtable_t* h)
       ht_resize_help(h);
 #endif
 
-#if !defined(CLHT_LINKED)
       while (h->table_new == NULL)
 	{
 	  _mm_pause();
 	  _mm_mfence();
 	}
-#endif
 
       return 0;
     }
@@ -406,6 +404,7 @@ size_t ht_status(clht_t* hashtable, int resize_increase, int just_print);
 bucket_t* clht_bucket_create();
 int ht_resize_pes(clht_t* hashtable, int is_increase, int by);
 
+const char* clht_type_desc();
 
 #endif /* _CLHT_RES_RES_H_ */
 

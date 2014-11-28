@@ -19,6 +19,12 @@ __thread size_t check_ht_status_steps = CLHT_STATUS_INVOK_IN;
 #include "stdlib.h"
 #include "assert.h"
 
+const char*
+clht_type_desc()
+{
+  return "CLHT-LB-LINKED";
+}
+
 inline int
 is_power_of_two (unsigned int x) 
 {

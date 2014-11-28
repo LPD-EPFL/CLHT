@@ -364,6 +364,8 @@ main(int argc, char **argv)
     
   assert(sizeof(clht_hashtable_t) == 2*CACHE_LINE_SIZE);
 
+  printf("# using: %s\n", clht_type_desc());
+
   struct option long_options[] = {
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},

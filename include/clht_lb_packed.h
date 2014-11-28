@@ -166,5 +166,6 @@ void clht_print(clht_hashtable_t* hashtable, uint32_t num_buckets);
 
 bucket_t* clht_bucket_create();
 
+const char* clht_type_desc();
 
 #endif /* _CLHT_PACKED_PACKED_H_ */

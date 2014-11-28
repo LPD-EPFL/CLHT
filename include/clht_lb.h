@@ -162,4 +162,6 @@ void clht_print(clht_hashtable_t* hashtable);
 
 bucket_t* clht_bucket_create();
 
+const char* clht_type_desc();
+
 #endif /* _CLHT_LB_H_ */

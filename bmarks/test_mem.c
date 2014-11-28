@@ -347,6 +347,8 @@ main(int argc, char **argv)
     
   assert(sizeof(clht_hashtable_t) == 2*CACHE_LINE_SIZE);
 
+  printf("# using: %s\n", clht_type_desc());
+
   struct option long_options[] = {
     // These options don't set a flag
     {"help",                      no_argument,       NULL, 'h'},
@@ -675,6 +677,7 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
+  ht_gc_destroy(hashtable);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);

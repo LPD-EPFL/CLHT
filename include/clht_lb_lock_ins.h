@@ -360,6 +360,7 @@ size_t ht_status(clht_t* hashtable, int resize_increase, int just_print);
 bucket_t* clht_bucket_create();
 int ht_resize_pes(clht_t* hashtable, int is_increase, int by);
 
+const char* clht_type_desc();
 
 #endif /* _CLHT_LOCK_INS_H_ */
 

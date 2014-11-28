@@ -201,9 +201,9 @@ SRC := src
 
 BMARKS := bmarks
 
-MAIN_BMARK := $(BMARKS)/test.c
+#MAIN_BMARK := $(BMARKS)/test.c
 #MAIN_BMARK := $(BMARKS)/test_ro.c
-#MAIN_BMARK := $(BMARKS)/test_mem.c
+MAIN_BMARK := $(BMARKS)/test_mem.c
 
 
 default: normal
@@ -220,6 +220,9 @@ normal: clht_lb_res clht_lf_res
 
 %.o:: $(SRC)/%.c 
 	$(GCC) $(CFLAGS) $(INCLUDES) -o $@ -c $<
+
+clht_gc_linked.o: $(SRC)/clht_gc.c
+	$(GCC) -DCLHT_LINKED $(CFLAGS) $(INCLUDES) -o clht_gc.o -c $(SRC)/clht_gc.c
 
 ################################################################################
 # library
@@ -248,7 +251,7 @@ lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
 
 TYPE = clht_lb_linked
 OBJ = $(TYPE).o
-lib$(TYPE).a: $(OBJ_FILES) $(OBJ)
+lib$(TYPE).a: clht_gc_linked.o $(OBJ)
 	@echo Archive name = libclht.a
 	ar -d libclht.a *
 	ar -r libclht.a clht_lb_linked.o $(OBJ_FILES)

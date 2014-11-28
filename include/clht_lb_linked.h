@@ -16,6 +16,8 @@ extern __thread ssmem_allocator_t* clht_alloc;
 
 /* #define DEBUG */
 
+#define CLHT_LINKED           1
+
 #define CLHT_READ_ONLY_FAIL   1
 #define CLHT_HELP_RESIZE      0
 #define CLHT_PERC_EXPANSIONS  1
@@ -284,14 +286,6 @@ lock_acq_chk_resize(clht_lock_t* lock, clht_hashtable_t* h)
       ht_resize_help(h);
 #endif
 
-#if !defined(CLHT_LINKED)
-      while (h->table_new == NULL)
-	{
-	  _mm_pause();
-	  _mm_mfence();
-	}
-#endif
-
       return 0;
     }
 
@@ -402,6 +396,7 @@ size_t ht_status(clht_t* hashtable, int resize_increase, int emergency_increase,
 bucket_t* clht_bucket_create();
 int ht_resize_pes(clht_t* hashtable, int is_increase, int by);
 
+const char* clht_type_desc();
 
 #endif /* _CLHT_LB_LINKED_RES_H_ */
 
