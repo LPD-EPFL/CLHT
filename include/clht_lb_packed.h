@@ -1,5 +1,5 @@
-#ifndef _DHT_PACKED_H_
-#define _DHT_PACKED_H_
+#ifndef _CLHT_PACKED_PACKED_H_
+#define _CLHT_PACKED_PACKED_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -167,4 +167,4 @@ void ht_print(hashtable_t* hashtable, uint32_t num_buckets);
 bucket_t* create_bucket();
 
 
-#endif /* _DHT_PACKED_H_ */
+#endif /* _CLHT_PACKED_PACKED_H_ */

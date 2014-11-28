@@ -1,5 +1,5 @@
-#ifndef _DHT_RES_H_
-#define _DHT_RES_H_
+#ifndef _CLHT_RES_RES_H_
+#define _CLHT_RES_RES_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -407,5 +407,5 @@ bucket_t* create_bucket();
 int ht_resize_pes(clht_wrapper_t* hashtable, int is_increase, int by);
 
 
-#endif /* _DHT_RES_H_ */
+#endif /* _CLHT_RES_RES_H_ */
 

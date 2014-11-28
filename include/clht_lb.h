@@ -1,5 +1,5 @@
-#ifndef _DHT_H_
-#define _DHT_H_
+#ifndef _CLHT_LB_H_
+#define _CLHT_LB_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -162,4 +162,4 @@ void ht_print(hashtable_t* hashtable);
 
 bucket_t* create_bucket();
 
-#endif /* _DHT_H_ */
+#endif /* _CLHT_LB_H_ */
