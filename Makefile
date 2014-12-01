@@ -158,9 +158,9 @@ SRC := src
 
 BMARKS := bmarks
 
-#MAIN_BMARK := $(BMARKS)/test.c
-#MAIN_BMARK := $(BMARKS)/test_ro.c
-MAIN_BMARK := $(BMARKS)/test_mem.c
+#MAIN_BMARK := $(BMARKS)/test.c     # no memory allocation
+#MAIN_BMARK := $(BMARKS)/test_ro.c  # read-only benchmark
+MAIN_BMARK := $(BMARKS)/test_mem.c  # memory allocation
 
 ALL = 	clht_lb clht_lb_res clht_lb_res_no_next clht_lb_ro clht_lb_linked clht_lb_packed \
 	clht_lf clht_lf_res clht_lf_only_map_rem

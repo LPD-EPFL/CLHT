@@ -168,7 +168,7 @@ extern "C" {
     40, 41, 42, 43, 44, 45, 46, 47  
   };
 
-#elif defined(COREi7)
+#elif defined(COREi7) | defined(DEFAULT)
 #  define NUMBER_OF_SOCKETS 1
 #  define CORES_PER_SOCKET 8
 #  define CACHE_LINE_SIZE 64

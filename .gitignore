@@ -146,6 +146,7 @@
 /rw_ttas.o
 /sequential
 /snap_stress
+/test
 /throughput_array
 /throughput_clh
 /throughput_hclh
