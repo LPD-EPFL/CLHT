@@ -57,12 +57,8 @@
 #if defined(USE_SSPFD)
 #   include "sspfd.h"
 #endif
-#if defined(LOCKFREE)
-#  include "clht_lf_res.h"
-#else
-#  include "clht_lb_res.h"
-#endif
-#include "ssmem.h"
+
+#include "clht.h"
 
 /* #define DETAILED_THROUGHPUT */
 
@@ -199,9 +195,6 @@ test(void* thread)
   clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
   assert(clht_alloc != NULL);
   ssmem_alloc_init(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
-  /* ssmem_allocator_t* alloc = (ssmem_allocator_t*) memalign(CACHE_LINE_SIZE, sizeof(ssmem_allocator_t)); */
-  /* assert(alloc != NULL); */
-  /* ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID); */
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -318,8 +311,8 @@ test(void* thread)
 	  else
 	    {
 	      ssmem_free(clht_alloc, (void*) obj);
+	      ADD_DUR(my_putting_fail);
 	    }
-	  ADD_DUR_FAIL(my_putting_fail);
 	  my_putting_count++;
 	  obj = NULL;
 
@@ -361,20 +354,6 @@ test(void* thread)
      
   free((void*) dat);
    
-#if defined(DEBUG)
-  if (put_num_restarts | put_num_failed_expand | put_num_failed_on_new)
-    {
-      /* printf("put_num_restarts = %3u / put_num_failed_expand = %3u / put_num_failed_on_new = %3u \n", */
-      /* 	     put_num_restarts, put_num_failed_expand, put_num_failed_on_new); */
-    }
-#endif
-
-#if defined(LOCKFREE)
-  /* clht_print_retry_stats(); */
-#endif
-    
-  /* printf("gets: %-10llu / succ: %llu\n", num_get, num_get_succ); */
-  /* printf("rems: %-10llu / succ: %llu\n", num_rem, num_rem_succ); */
   barrier_cross(&barrier);
 #if defined(DEBUG)
   if (!ID)

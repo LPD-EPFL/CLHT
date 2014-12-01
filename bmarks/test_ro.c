@@ -58,12 +58,7 @@
 #   include "sspfd.h"
 #endif
 
-#if defined(LOCKFREE_RES)
-#  include "clht_lf_res.h"
-#else
-#  include "clht_lb_res.h"
-#endif
-
+#include "clht.h"
 #include "prand.h"
 
 /* #define DETAILED_THROUGHPUT */
@@ -165,9 +160,7 @@ typedef struct thread_data
   clht_t* ht;
 } thread_data_t;
 
-#if defined(LOCKFREE_RES)
 uint32_t ntr = 0;
-#endif
 
 void*
 test(void* thread) 
@@ -223,15 +216,12 @@ test(void* thread)
     }
   MEM_BARRIER;
 
-#if defined(LOCKFREE_RES)
-  /* sort barrier */
   FAI_U32(&ntr);
   do
     {
       CLHT_GC_HT_VERSION_USED(hashtable->ht);
     }
   while (ntr != num_threads);
-#endif
   barrier_cross(&barrier);
 
 #if defined(DEBUG)
