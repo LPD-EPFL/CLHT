@@ -228,7 +228,7 @@ test(void* thread)
   FAI_U32(&ntr);
   do
     {
-      CLHTM_GC_HT_VERSION_USED(hashtable->ht);
+      CLHT_GC_HT_VERSION_USED(hashtable->ht);
     }
   while (ntr != num_threads);
 #endif
