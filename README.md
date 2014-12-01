@@ -83,11 +83,24 @@ You can set it to:
   
 Call any of the executables with `-h` to get the available options of the tests.
 
-Additionally, you can build `make rest` that builds some corectness tests.
+Additionally, you can build `make rest` that builds some correctness tests.
 
 
 Using CLHT
 ----------
+
+To use CLHT you need to include the `clht.h` file in your source code and then link with `-lclht -lssmem` (ssmem is used in the CLHT implementation).
+
+The following functions can be used to create and use a new hash table:
+  * `clht_t* clht_create(uint32_t num_buckets)`: creates a new CLHT instance.
+  * `void clht_gc_thread_init(clht_t* hashtable, int id)`: initializes the GC for hash table resizing. Every thread should make this call before using the hash table.
+  * `void clht_gc_destroy(clht_t* hashtable)`: frees up the hash table
+  * `clht_val_t clht_get(clht_hashtable_t* hashtable, clht_addr_t key)`: gets the value for a give key, or return 0
+  * `int clht_put(clht_t* hashtable, clht_addr_t key, clht_val_t val)`: inserts a new key/value pair (if the key is not already present)
+  * `clht_val_t clht_remove(clht_t* hashtable, clht_addr_t key)`: removes the key from the hash table (if the key is present)
+  * `void clht_print(clht_hashtable_t* hashtable)`: prints the hash talbe
+  * `const char* clht_type_desc()`: return the type of CLHT. For example, CLHT-LB-RESIZE.
+
 
 Details
 -------
