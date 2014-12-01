@@ -67,7 +67,7 @@ extern __thread ssmem_allocator_t* clht_alloc;
 #define CLHT_INC_EMERGENCY          2
 #define CLHT_NO_EMPTY_SLOT_TRIES    16
 #define CLHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
-#define LOAD_FACTOR              0.5
+#define LOAD_FACTOR                 1
 
 #ifndef ALIGNED
 #  if __GNUC__ && !SCC
@@ -149,7 +149,8 @@ typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
     };
   };
   clht_addr_t key[KEY_BUCKT];
-  clht_val_t val[KEY_BUCKT];
+  clht_val_t  val[KEY_BUCKT];
+  volatile struct bucket_s* padding;
 } bucket_t;
 
 #if __GNUC__ > 4 && __GNUC_MINOR__ > 4
