@@ -116,7 +116,7 @@ clht_bucket_create_stats(clht_hashtable_t* h, int* resize)
   return b;
 }
 
-clht_hashtable_t* clht_clht_hashtable_create(uint32_t num_buckets);
+clht_hashtable_t* clht_hashtable_create(uint32_t num_buckets);
 
 clht_t* 
 clht_create(uint32_t num_buckets)
@@ -128,7 +128,7 @@ clht_create(uint32_t num_buckets)
       return NULL;
     }
 
-  w->ht = clht_clht_hashtable_create(num_buckets);
+  w->ht = clht_hashtable_create(num_buckets);
   if (w->ht == NULL)
     {
       free(w);
@@ -145,7 +145,7 @@ clht_create(uint32_t num_buckets)
 }
 
 clht_hashtable_t* 
-clht_clht_hashtable_create(uint32_t num_buckets) 
+clht_hashtable_create(uint32_t num_buckets) 
 {
   clht_hashtable_t* hashtable = NULL;
     
@@ -525,7 +525,7 @@ ht_resize_pes(clht_t* h, int is_increase, int by)
 
   /* printf("// resizing: from %8zu to %8zu buckets\n", ht_old->num_buckets, num_buckets_new); */
 
-  clht_hashtable_t* ht_new = clht_clht_hashtable_create(num_buckets_new);
+  clht_hashtable_t* ht_new = clht_hashtable_create(num_buckets_new);
   ht_new->version = ht_old->version + 1;
 
 #if CLHT_HELP_RESIZE == 1

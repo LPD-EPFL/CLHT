@@ -102,7 +102,7 @@ clht_bucket_create()
   return bucket;
 }
 
-clht_hashtable_t* clht_clht_hashtable_create(uint32_t num_buckets);
+clht_hashtable_t* clht_hashtable_create(uint32_t num_buckets);
 
 clht_t* 
 clht_create(uint32_t num_buckets)
@@ -114,12 +114,12 @@ clht_create(uint32_t num_buckets)
       return NULL;
     }
 
-  w->ht = clht_clht_hashtable_create(num_buckets);
+  w->ht = clht_hashtable_create(num_buckets);
   return w;
 }
 
 clht_hashtable_t* 
-clht_clht_hashtable_create(uint32_t num_buckets) 
+clht_hashtable_create(uint32_t num_buckets) 
 {
   clht_hashtable_t* hashtable = NULL;
     

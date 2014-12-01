@@ -335,7 +335,7 @@ _mm_pause_rep(uint64_t w)
 /* ******************************************************************************** */
 
 /* Create a new hashtable. */
-clht_hashtable_t* clht_clht_hashtable_create(uint32_t num_buckets);
+clht_hashtable_t* clht_hashtable_create(uint32_t num_buckets);
 clht_t* clht_create(uint32_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
