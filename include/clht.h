@@ -330,39 +330,36 @@ _mm_pause_rep(uint64_t w)
 /* ******************************************************************************** */
 
 /* Create a new hashtable. */
-clht_hashtable_t* clht_hashtable_create(uint32_t num_buckets);
 clht_t* clht_create(uint32_t num_buckets);
+/* initializes the necessary per-thread structures for the hash table */
+void clht_gc_thread_init(clht_t* hashtable, int id);
+
 
 /* Insert a key-value pair into a hashtable. */
 int clht_put(clht_t* hashtable, clht_addr_t key, clht_val_t val);
-
 /* Retrieve a key-value pair from a hashtable. */
 clht_val_t clht_get(clht_hashtable_t* hashtable, clht_addr_t key);
-
 /* Remove a key-value pair from a hashtable. */
 clht_val_t clht_remove(clht_t* hashtable, clht_addr_t key);
 
+/* returns the size of the hash table */
 size_t clht_size(clht_hashtable_t* hashtable);
-size_t clht_size_mem(clht_hashtable_t* hashtable);
-size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
-void clht_gc_thread_init(clht_t* hashtable, int id);
+/* frees the memory used by the hashtable */
+void clht_gc_destroy(clht_t* hashtable);
+
+/* prints the contents of the hash table */
+void clht_print(clht_hashtable_t* hashtable);
+
+/* string description of the type of the hash table
+ For example, CLHT-LB-RESIZE */
+const char* clht_type_desc();
+
+
+
+/* internal */
 inline void clht_gc_thread_version(clht_hashtable_t* h);
 inline int clht_gc_get_id();
-int clht_gc_collect(clht_t* h);
-int clht_gc_collect_all(clht_t* h);
-int clht_gc_free(clht_hashtable_t* hashtable);
-void clht_gc_destroy(clht_t* hashtable);
-size_t clht_gc_min_version_used(clht_t* h);
-
-void clht_print(clht_hashtable_t* hashtable);
-size_t ht_status(clht_t* hashtable, int resize_increase, int emergency_increase, int just_print);
-
-bucket_t* clht_bucket_create();
-int ht_resize_pes(clht_t* hashtable, int is_increase, int by);
-void  clht_print_retry_stats();
-
-const char* clht_type_desc();
 
 #endif /* _CLHT_H_ */
 
