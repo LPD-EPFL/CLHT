@@ -38,7 +38,7 @@ static __thread ht_ts_t* clht_ts_thread = NULL;
  * initialize thread metadata for GC
  */
 void
-ht_gc_thread_init(clht_t* h, int id)
+clht_gc_thread_init(clht_t* h, int id)
 {
   clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
   assert(clht_alloc != NULL);
@@ -63,7 +63,7 @@ ht_gc_thread_init(clht_t* h, int id)
  * set the ht version currently used by the current thread
  */
 inline void
-ht_gc_thread_version(clht_hashtable_t* h)
+clht_gc_thread_version(clht_hashtable_t* h)
 {
   clht_ts_thread->version = h->version;
 }
@@ -77,18 +77,18 @@ clht_gc_get_id()
   return clht_ts_thread->id;
 }
 
-static int ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only);
+static int clht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only);
 
 /* 
  * perform a GC of the versions of the ht that are not currently used by any
  * of the participating threads
  */
 inline int
-ht_gc_collect(clht_t* hashtable)
+clht_gc_collect(clht_t* hashtable)
 {
 #if CLHT_DO_GC == 1
   CLHT_GC_HT_VERSION_USED(hashtable->ht);
-  return ht_gc_collect_cond(hashtable, 1);
+  return clht_gc_collect_cond(hashtable, 1);
 #else
   return 0;
 #endif
@@ -99,9 +99,9 @@ ht_gc_collect(clht_t* hashtable)
  * referenced by any of the threads
  */
 int
-ht_gc_collect_all(clht_t* hashtable)
+clht_gc_collect_all(clht_t* hashtable)
 {
-  return ht_gc_collect_cond(hashtable, 0);
+  return clht_gc_collect_cond(hashtable, 0);
 }
 
 #define GET_ID(x) x ? clht_gc_get_id() : 99
@@ -112,7 +112,7 @@ ht_gc_collect_all(clht_t* hashtable)
  * than the returned value, can be GCed
  */
 size_t
-ht_gc_min_version_used(clht_t* h)
+clht_gc_min_version_used(clht_t* h)
 {
   volatile ht_ts_t* cur = h->version_list;
 
@@ -131,11 +131,11 @@ ht_gc_min_version_used(clht_t* h)
 
 /* 
  * GC help function:
- * collect_not_referenced_only == 0 -> ht_gc_collect_all();
- * collect_not_referenced_only != 0 -> ht_gc_collect();
+ * collect_not_referenced_only == 0 -> clht_gc_collect_all();
+ * collect_not_referenced_only != 0 -> clht_gc_collect();
  */
 static int
-ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only)
+clht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only)
 {
   /* if version_min >= current version there is nothing to collect! */
   if ((hashtable->version_min >= hashtable->ht->version) || TRYLOCK_ACQ(&hashtable->gc_lock))
@@ -151,7 +151,7 @@ ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only)
   size_t version_min = hashtable->ht->version; 
   if (collect_not_referenced_only)
     {
-      version_min = ht_gc_min_version_used(hashtable);
+      version_min = clht_gc_min_version_used(hashtable);
     }
 
   /* printf("[GCOLLE-%02d] gc collect versions < %3zu - current: %3zu - oldest: %zu\n",  */
@@ -176,7 +176,7 @@ ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only)
 	  /* printf("[GCOLLE-%02d] gc_free version: %6zu | current version: %6zu\n", GET_ID(collect_not_referenced_only), */
 	  /* 	 cur->version, hashtable->ht->version); */
 	  nxt->table_prev = NULL;
-	  ht_gc_free(cur);
+	  clht_gc_free(cur);
 	  cur = nxt;
 	}
 
@@ -199,7 +199,7 @@ ht_gc_collect_cond(clht_t* hashtable, int collect_not_referenced_only)
  * free the given hashtable
  */
 int
-ht_gc_free(clht_hashtable_t* hashtable)
+clht_gc_free(clht_hashtable_t* hashtable)
 {
   /* the CLHT_LINKED version does not allocate any extra buckets! */
 #if !defined(CLHT_LB_LINKED) && !defined(LOCKFREE_RES)
@@ -230,11 +230,11 @@ ht_gc_free(clht_hashtable_t* hashtable)
  * free all hashtable version (inluding the latest)
  */
 void
-ht_gc_destroy(clht_t* hashtable)
+clht_gc_destroy(clht_t* hashtable)
 {
 #if !defined(CLHT_LINKED)
-  ht_gc_collect_all(hashtable);
-  ht_gc_free(hashtable->ht);
+  clht_gc_collect_all(hashtable);
+  clht_gc_free(hashtable->ht);
   free(hashtable);
 #endif
 
@@ -248,7 +248,7 @@ ht_gc_destroy(clht_t* hashtable)
  * anymore)
  */
 inline int
-ht_gc_release(clht_hashtable_t* hashtable)
+clht_gc_release(clht_hashtable_t* hashtable)
 {
 #warning ssmem_release is disabled due to a problem in ssmem
   /* the CLHT_LINKED version does not allocate any extra buckets! */

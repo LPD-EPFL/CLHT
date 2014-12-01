@@ -174,7 +174,7 @@ test(void* thread)
 
   clht_t* hashtable = td->ht;
 
-  ht_gc_thread_init(hashtable, ID);    
+  clht_gc_thread_init(hashtable, ID);    
   ssmem_allocator_t* alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
   assert(alloc != NULL);
   ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
@@ -700,7 +700,7 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
-  ht_gc_destroy(hashtable);
+  clht_gc_destroy(hashtable);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);

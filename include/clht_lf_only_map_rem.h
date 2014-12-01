@@ -73,7 +73,7 @@ extern __thread ssmem_allocator_t* clht_alloc;
 #define CLHT_OCCUP_AFTER_RES        40
 #define CLHT_INC_EMERGENCY          2
 #define CLHT_NO_EMPTY_SLOT_TRIES    16
-#define CLHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
+#define CLHT_GC_HT_VERSION_USED(ht) clht_gc_thread_version(ht)
 #define LOAD_FACTOR              0.5
 
 #ifndef ALIGNED
@@ -357,14 +357,14 @@ size_t clht_size(clht_hashtable_t* hashtable);
 size_t clht_size_mem(clht_hashtable_t* hashtable);
 size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
-void ht_gc_thread_init(clht_t* hashtable, int id);
-inline void ht_gc_thread_version(clht_hashtable_t* h);
+void clht_gc_thread_init(clht_t* hashtable, int id);
+inline void clht_gc_thread_version(clht_hashtable_t* h);
 inline int clht_gc_get_id();
-int ht_gc_collect(clht_t* h);
-int ht_gc_collect_all(clht_t* h);
-int ht_gc_free(clht_hashtable_t* hashtable);
-void ht_gc_destroy(clht_t* hashtable);
-size_t ht_gc_min_version_used(clht_t* h);
+int clht_gc_collect(clht_t* h);
+int clht_gc_collect_all(clht_t* h);
+int clht_gc_free(clht_hashtable_t* hashtable);
+void clht_gc_destroy(clht_t* hashtable);
+size_t clht_gc_min_version_used(clht_t* h);
 
 void clht_print(clht_hashtable_t* hashtable);
 /* size_t ht_status(clht_t* hashtable, int resize_increase, int emergency_increase, int just_print); */

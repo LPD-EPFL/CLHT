@@ -77,7 +77,7 @@
 #endif
 
 #if CLHT_DO_GC == 1
-#  define CLHT_GC_HT_VERSION_USED(ht) ht_gc_thread_version(ht)
+#  define CLHT_GC_HT_VERSION_USED(ht) clht_gc_thread_version(ht)
 #else
 #  define CLHT_GC_HT_VERSION_USED(ht)
 #endif
@@ -377,13 +377,13 @@ size_t clht_size(clht_hashtable_t* hashtable);
 size_t clht_size_mem(clht_hashtable_t* hashtable);
 size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
-void ht_gc_thread_init(clht_t* hashtable, int id);
-inline void ht_gc_thread_version(clht_hashtable_t* h);
+void clht_gc_thread_init(clht_t* hashtable, int id);
+inline void clht_gc_thread_version(clht_hashtable_t* h);
 inline int clht_gc_get_id();
-int ht_gc_collect(clht_t* h);
-int ht_gc_collect_all(clht_t* h);
-int ht_gc_free(clht_hashtable_t* hashtable);
-void ht_gc_destroy(clht_t* hashtable);
+int clht_gc_collect(clht_t* h);
+int clht_gc_collect_all(clht_t* h);
+int clht_gc_free(clht_hashtable_t* hashtable);
+void clht_gc_destroy(clht_t* hashtable);
 
 void clht_print(clht_hashtable_t* hashtable);
 size_t ht_status(clht_t* hashtable, int resize_increase, int just_print);

@@ -451,7 +451,7 @@ ht_resize_pes(clht_t* h, int is_increase, int by)
   size_t version_min;
   do
     {
-      version_min = ht_gc_min_version_used(h);
+      version_min = clht_gc_min_version_used(h);
     }
   while(cur_version >= version_min);
 
@@ -570,7 +570,7 @@ ht_status(clht_t* h, int resize_increase, int emergency_increase, int just_print
 
   if (!just_print)
     {
-      ht_gc_collect(h);
+      clht_gc_collect(h);
     }
 
   TRYLOCK_RLS(h->status_lock);

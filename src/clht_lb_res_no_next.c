@@ -525,9 +525,9 @@ ht_resize_pes(clht_t* h, int is_increase, int by)
 	 clht_gc_get_id(), ht_new->num_buckets, (unsigned long long) e, e / 2.1e9);
 
 #if CLHT_DO_GC == 1
-  ht_gc_collect(h);
+  clht_gc_collect(h);
 #else
-  ht_gc_release(ht_old);
+  clht_gc_release(ht_old);
 #endif
 
   return 1;
@@ -612,7 +612,7 @@ ht_status(clht_t* h, int resize_increase, int just_print)
 
   if (!just_print)
     {
-      ht_gc_collect(h);
+      clht_gc_collect(h);
     }
 
   TRYLOCK_RLS(h->status_lock);

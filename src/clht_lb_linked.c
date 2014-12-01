@@ -596,7 +596,7 @@ ht_resize_pes(clht_t* h, int is_increase, int by)
   printf("[RESIZE-%02d] to #bu %7zu = MB: %7.2f    | took: %13llu ti = %8.6f s\n", 
 	 clht_gc_get_id(), ht_new->num_buckets, mba, (unsigned long long) e, e / 2.1e9);
 
-  ht_gc_collect(h);
+  clht_gc_collect(h);
 
   if (ht_resize_again)
     {
@@ -707,7 +707,7 @@ ht_status(clht_t* h, int resize_increase, int emergency_increase, int just_print
 
   if (!just_print)
     {
-      ht_gc_collect(h);
+      clht_gc_collect(h);
     }
 
   TRYLOCK_RLS(h->status_lock);
