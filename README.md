@@ -55,8 +55,36 @@ We have implemented the following variants of CLHT-LF:
   3. `clht_lf_only_map_rem`: as (2), but `remove` operations do not increment the `snapshot_t`'s version number.
 
 
-Installation
-------------
+Compilation
+-----------
+
+CLHT requires the ssmem memory allocator (https://github.com/LPD-EPFL/ssmem).
+Clone ssmem, do `make libssmem.a` and then copy `libssmem.a` in `CLHT/external/lib` and `include/smmem.h` in `CLHT/external/include`.
+
+Additionally, the sspfd profiler library is required (https://github.com/trigonak/sspfd).
+Clone ssmem, do `make` and then copy `libsspfd.a` in `CLHT/external/lib` and `include/sspfd.h` in `CLHT/external/include`.
+
+You can compile the different variants of CLHT with the corresponding target. For example:
+`make libclht_lb_res.a` will build the `clht_lb_res` version.
+
+The compilation always produces the `libclht.a`, regardless of the variant that is built.
+
+To make a debug build of CLHT, you can do `make target DEBUG=1`.
+
+Tests
+-----
+
+CLHT comes with various microbenchmarks. `make all` builds a performance benchmark for each variand of CLHT.
+You can control which test file to be used in Makefile by changing `MAIN_BMARK` variable.
+You can set it to:
+  * `test.c`: for a test w/o memory allocation for the values
+  * `test_mem.c`: for a test with memory allocation for the values
+  * `test_ro.c`: for a read-only test
+  
+Call any of the executables with `-h` to get the available options of the tests.
+
+Additionally, you can build `make rest` that builds some corectness tests.
+
 
 Using CLHT
 ----------
