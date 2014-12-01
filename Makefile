@@ -58,11 +58,6 @@ LIBS += -lsspfd
 CFLAGS += -DUSE_SSPFD
 endif
 
-ALL = 	clht_lb clht_lb_res clht_lb_res_no_next clht_lb_ro clht_lb_linked clht_lb_packed \
-	clht_lf clht_lf_res clht_lf_only_map_rem \
-	math_cache_lb math_cache_lf \
-	snap_stress noise
-
 # default setings
 PLATFORM=-DDEFAULT
 GCC=gcc
@@ -164,8 +159,15 @@ BMARKS := bmarks
 #MAIN_BMARK := $(BMARKS)/test_ro.c
 MAIN_BMARK := $(BMARKS)/test_mem.c
 
+ALL = 	clht_lb clht_lb_res clht_lb_res_no_next clht_lb_ro clht_lb_linked clht_lb_packed \
+	clht_lf clht_lf_res clht_lf_only_map_rem
+
+REST = 	math_cache_lb math_cache_lf \
+	snap_stress noise
 
 default: normal
+
+rest: $(REST)
 
 all: $(ALL)
 
@@ -181,7 +183,7 @@ normal: clht_lb_res clht_lf_res
 	$(GCC) $(CFLAGS) $(INCLUDES) -o $@ -c $<
 
 clht_gc_linked.o: $(SRC)/clht_gc.c
-	$(GCC) -DCLHT_LINKED $(CFLAGS) $(INCLUDES) -o clht_gc.o -c $(SRC)/clht_gc.c
+	$(GCC) -DCLHT_LINKED $(CFLAGS) $(INCLUDES) -o clht_gc_linked.o -c $(SRC)/clht_gc.c
 
 ################################################################################
 # library
@@ -213,7 +215,7 @@ OBJ = $(TYPE).o
 lib$(TYPE).a: clht_gc_linked.o $(OBJ)
 	@echo Archive name = libclht.a
 	ar -d libclht.a *
-	ar -r libclht.a clht_lb_linked.o $(OBJ_FILES)
+	ar -r libclht.a clht_lb_linked.o clht_gc_linked.o
 
 TYPE = clht_lb_packed
 OBJ = $(TYPE).o

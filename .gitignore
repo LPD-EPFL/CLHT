@@ -23,6 +23,7 @@
 /Makefile~
 /alock.o
 /clht_gc.o
+/clht_gc_linked.o
 /clht_lb
 /clht_lb.o
 /clht_lb_linked
@@ -46,6 +47,7 @@
 /core
 /cscope.files
 /cscope.out
+/data
 /dht_mp.o
 /events_all
 /external/lib
@@ -131,6 +133,9 @@
 /o
 /perf.sh
 /perf.sh~
+/plot
+/plot_sparc
+/pseudo
 /run
 /run_2.sh~
 /run_avg.sh~
@@ -160,7 +165,3 @@
 /top.sh
 /top.sh~
 /ttas.o
-/data
-/plot
-/pseudo
-/plot_sparc
