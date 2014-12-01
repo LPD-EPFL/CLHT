@@ -72,7 +72,7 @@ PLATFORM=-DOPTERON
 GCC=gcc-4.8
 PLATFORM_NUMA=1
 OPTIMIZE=-DOPTERON_OPTIMIZE
-LIBS += -lnuma
+PLATFORM_NUMA=1
 endif
 
 ifeq ($(UNAME), lpdxeon2680)
@@ -80,7 +80,6 @@ PLATFORM=-DXEON2
 GCC=gcc
 PLATFORM_NUMA=1
 OPTIMIZE=
-LIBS += -lnuma
 endif
 
 ifeq ($(UNAME), lpdpc4)
@@ -88,7 +87,6 @@ PLATFORM=-DCOREi7
 GCC=gcc
 PLATFORM_NUMA=0
 OPTIMIZE=
-LIBS += 
 endif
 
 ifeq ($(UNAME), lpdpc34)
@@ -142,6 +140,11 @@ PLATFORM=-DT44
 GCC=/usr/sfw/bin/gcc
 CFLAGS += -m64
 LIBS+= 
+endif
+
+ifeq ($(PLATFORM_NUMA), 1)
+CFLAGS += -DNUMA
+LIBS += -lnuma
 endif
 
 CFLAGS += $(PLATFORM)
