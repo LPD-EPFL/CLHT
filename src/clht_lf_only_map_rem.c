@@ -181,7 +181,7 @@ clht_hash(clht_hashtable_t* hashtable, clht_addr_t key)
 
 
 static inline clht_val_t
-lfht_bucket_search(bucket_t* bucket, clht_addr_t key)
+clht_bucket_search(bucket_t* bucket, clht_addr_t key)
 {
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
@@ -213,7 +213,7 @@ clht_get(clht_hashtable_t* hashtable, clht_addr_t key)
   size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
-  return lfht_bucket_search(bucket, key);
+  return clht_bucket_search(bucket, key);
 }
 
 
@@ -253,7 +253,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
   _mm_lfence();
 #endif
 
-  if (lfht_bucket_search(bucket, key) != 0)
+  if (clht_bucket_search(bucket, key) != 0)
     {
       if (unlikely(empty_index >= 0))
 	{

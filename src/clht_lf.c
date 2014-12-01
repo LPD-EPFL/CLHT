@@ -179,7 +179,7 @@ clht_hash(clht_hashtable_t* hashtable, clht_addr_t key)
 
 
 static inline clht_val_t
-lfht_bucket_search(bucket_t* bucket, clht_addr_t key)
+clht_bucket_search(bucket_t* bucket, clht_addr_t key)
 {
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
@@ -214,7 +214,7 @@ clht_get(clht_hashtable_t* hashtable, clht_addr_t key)
   size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
-  return lfht_bucket_search(bucket, key);
+  return clht_bucket_search(bucket, key);
 }
 
 
@@ -246,7 +246,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
   bucket_t* bucket = hashtable->table + bin;
 
   int empty_index = -2;
-  lfht_snapshot_all_t s, s1;
+  clht_snapshot_all_t s, s1;
 
  retry:
   s = bucket->snapshot;
@@ -254,7 +254,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
   _mm_lfence();
 #endif
 
-  if (lfht_bucket_search(bucket, key) != 0)
+  if (clht_bucket_search(bucket, key) != 0)
     {
       if (unlikely(empty_index >= 0))
 	{
@@ -292,7 +292,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
       s1 = snap_set_map(s, empty_index, MAP_INSRT);
     }
 
-  lfht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
+  clht_snapshot_all_t s2 = snap_set_map_and_inc_version(s1, empty_index, MAP_VALID);
   if (CAS_U64(&bucket->snapshot, s1, s2) != s1)
     {
       INC(num_retry_cas2);
@@ -311,7 +311,7 @@ clht_remove(clht_t* h, clht_addr_t key)
   size_t bin = clht_hash(hashtable, key);
   bucket_t* bucket = hashtable->table + bin;
 
-  lfht_snapshot_t s;
+  clht_snapshot_t s;
 
   int i;
  retry:
@@ -328,7 +328,7 @@ clht_remove(clht_t* h, clht_addr_t key)
 #ifdef __tile__
 	  _mm_mfence();
 #endif
-	  lfht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
+	  clht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
 	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
 	    {
 	      return removed;

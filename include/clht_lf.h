@@ -30,8 +30,8 @@
  *
  */
 
-#ifndef _LFHT_RES_H_
-#define _LFHT_RES_H_
+#ifndef _CLHT_LF_RES_H_
+#define _CLHT_LF_RES_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -103,7 +103,7 @@ inline int is_power_of_two(unsigned int x);
 
 typedef uintptr_t clht_addr_t;
 typedef volatile uintptr_t clht_val_t;
-typedef uint64_t lfht_snapshot_all_t;
+typedef uint64_t clht_snapshot_all_t;
 
 typedef union
 {
@@ -119,10 +119,10 @@ typedef union
 #endif
     uint8_t map[KEY_BUCKT];
   };
-} lfht_snapshot_t;
+} clht_snapshot_t;
 
 #if __GNUC__ > 4 && __GNUC_MINOR__ > 4
-_Static_assert (sizeof(lfht_snapshot_t) == 8, "sizeof(lfht_snapshot_t) == 8");
+_Static_assert (sizeof(clht_snapshot_t) == 8, "sizeof(clht_snapshot_t) == 8");
 #endif
 
 typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
@@ -151,7 +151,7 @@ typedef volatile struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 _Static_assert (sizeof(bucket_t) % 64 == 0, "sizeof(bucket_t) == 64");
 #endif
 
-typedef struct ALIGNED(CACHE_LINE_SIZE) lfht_wrapper
+typedef struct ALIGNED(CACHE_LINE_SIZE) clht_wrapper
 {
   union
   {
@@ -187,7 +187,7 @@ uint32_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );
 static inline int
 snap_get_empty_index(uint64_t snap)
 {
-  lfht_snapshot_t s = { .snapshot = snap };
+  clht_snapshot_t s = { .snapshot = snap };
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
     {
@@ -216,7 +216,7 @@ keys_get_empty_index(clht_addr_t* keys)
 static inline int
 buck_get_empty_index(bucket_t* b, uint64_t snap)
 {
-  lfht_snapshot_t s = { .snapshot = snap };
+  clht_snapshot_t s = { .snapshot = snap };
 
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
@@ -231,9 +231,9 @@ buck_get_empty_index(bucket_t* b, uint64_t snap)
 
 
 static inline int
-vals_get_empty_index(clht_val_t* vals, lfht_snapshot_all_t snap)
+vals_get_empty_index(clht_val_t* vals, clht_snapshot_all_t snap)
 {
-  lfht_snapshot_t s = { .snapshot = snap };
+  clht_snapshot_t s = { .snapshot = snap };
 
   int i;
   for (i = 0; i < KEY_BUCKT; i++)
@@ -250,7 +250,7 @@ vals_get_empty_index(clht_val_t* vals, lfht_snapshot_all_t snap)
 static inline uint64_t
 snap_set_map(uint64_t s, int index, int val)
 {
-  lfht_snapshot_t s1 = { .snapshot = s };
+  clht_snapshot_t s1 = { .snapshot = s };
   s1.map[index] = val;
   return s1.snapshot;
 }
@@ -258,7 +258,7 @@ snap_set_map(uint64_t s, int index, int val)
 static inline uint64_t
 snap_set_map_and_inc_version(uint64_t s, int index, int val)
 {
-  lfht_snapshot_t s1 = { .snapshot =  s};
+  clht_snapshot_t s1 = { .snapshot =  s};
   s1.map[index] = val;
   s1.version++;
   return s1.snapshot;
@@ -298,7 +298,7 @@ size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
 void ht_gc_thread_init(clht_t* hashtable, int id);
 inline void ht_gc_thread_version(clht_hashtable_t* h);
-inline int lfht_gc_get_id();
+inline int clht_gc_get_id();
 int ht_gc_collect(clht_t* h);
 int ht_gc_collect_all(clht_t* h);
 int ht_gc_free(clht_hashtable_t* hashtable);
@@ -313,5 +313,5 @@ void  clht_print_retry_stats();
 
 const char* clht_type_desc();
 
-#endif /* _LFHT_RES_H_ */
+#endif /* _CLHT_LF_RES_H_ */
 

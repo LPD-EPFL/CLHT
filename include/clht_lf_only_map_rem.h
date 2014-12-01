@@ -32,8 +32,8 @@
  *
  */
 
-#ifndef _LFHT_RES_H_
-#define _LFHT_RES_H_
+#ifndef _CLHT_LF_RES_H_
+#define _CLHT_LF_RES_H_
 
 #include <stdlib.h>
 #include <stdio.h>
