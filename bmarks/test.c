@@ -58,7 +58,7 @@
 #   include "sspfd.h"
 #endif
 
-#include "clht_lb.h"
+#include "clht.h"
 
 /* #define DETAILED_THROUGHPUT */
 #define RANGE_EXACT 0
@@ -184,9 +184,6 @@ test(void* thread)
   clht_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
-  clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(clht_alloc != NULL);
-  ssmem_alloc_init_fs_size(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
     
 #if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;

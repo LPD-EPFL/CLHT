@@ -58,6 +58,7 @@
 #   include "sspfd.h"
 #endif
 
+#include "ssmem.h"
 #include "clht.h"
 
 /* #define DETAILED_THROUGHPUT */
@@ -192,9 +193,9 @@ test(void* thread)
   clht_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
-  clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(clht_alloc != NULL);
-  ssmem_alloc_init(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  ssmem_allocator_t* alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc != NULL);
+  ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
     
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
 
@@ -289,7 +290,7 @@ test(void* thread)
 	  /* cache the computation if not already there */
 	  int res;
 	  START_TS(1);
-	  obj = (size_t*) ssmem_alloc(clht_alloc, obj_size_bytes);
+	  obj = (size_t*) ssmem_alloc(alloc, obj_size_bytes);
 	  obj[0] = key;
 	  size_t v = key * key;
 	  int i;
@@ -310,7 +311,7 @@ test(void* thread)
 	    }
 	  else
 	    {
-	      ssmem_free(clht_alloc, (void*) obj);
+	      ssmem_free(alloc, (void*) obj);
 	      ADD_DUR(my_putting_fail);
 	    }
 	  my_putting_count++;
@@ -344,7 +345,7 @@ test(void* thread)
 
 	    }
 
-	  ssmem_free(clht_alloc, (void*) removed);
+	  ssmem_free(alloc, (void*) removed);
 	  ADD_DUR(my_removing_succ);
 	  my_removing_count_succ++;
 	}
@@ -389,7 +390,7 @@ test(void* thread)
 
   barrier_cross(&barrier);
   ssmem_term();
-  free(clht_alloc);
+  free(alloc);
 
 #if defined(COMPUTE_LATENCY)
   putting_succ[ID] += my_putting_succ;

@@ -40,6 +40,10 @@ static __thread ht_ts_t* clht_ts_thread = NULL;
 void
 ht_gc_thread_init(clht_t* h, int id)
 {
+  clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(clht_alloc != NULL);
+  ssmem_alloc_init_fs_size(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, id);
+
   ht_ts_t* ts = (ht_ts_t*) memalign(CACHE_LINE_SIZE, sizeof(ht_ts_t));
   assert(ts != NULL);
 
@@ -233,6 +237,9 @@ ht_gc_destroy(clht_t* hashtable)
   ht_gc_free(hashtable->ht);
   free(hashtable);
 #endif
+
+  ssmem_alloc_term(clht_alloc);
+  free(clht_alloc);
 }
 
 /* 
@@ -243,27 +250,28 @@ ht_gc_destroy(clht_t* hashtable)
 inline int
 ht_gc_release(clht_hashtable_t* hashtable)
 {
+#warning ssmem_release is disabled due to a problem in ssmem
   /* the CLHT_LINKED version does not allocate any extra buckets! */
 #if !defined(CLHT_LINKED) && !defined(LOCKFREE_RES)
-  uint32_t num_buckets = hashtable->num_buckets;
-  volatile bucket_t* bucket = NULL;
+  /* uint32_t num_buckets = hashtable->num_buckets; */
+  /* volatile bucket_t* bucket = NULL; */
 
-  uint32_t bin;
-  for (bin = 0; bin < num_buckets; bin++)
-    {
-      bucket = hashtable->table + bin;
-      bucket = bucket->next;
-      while (bucket != NULL)
-	{
-	  volatile bucket_t* cur = bucket;
-	  bucket = bucket->next;
-	  ssmem_release(clht_alloc, (void*) cur);
-	}
-    }
+  /* uint32_t bin; */
+  /* for (bin = 0; bin < num_buckets; bin++) */
+  /*   { */
+  /*     bucket = hashtable->table + bin; */
+  /*     bucket = bucket->next; */
+  /*     while (bucket != NULL) */
+  /* 	{ */
+  /* 	  volatile bucket_t* cur = bucket; */
+  /* 	  bucket = bucket->next; */
+  /* 	  /\* ssmem_release(clht_alloc, (void*) cur); *\/ */
+  /* 	} */
+  /*   } */
 #endif
 
-  ssmem_release(clht_alloc, hashtable->table);
-  ssmem_release(clht_alloc, hashtable);
+  /* ssmem_release(clht_alloc, hashtable->table); */
+  /* ssmem_release(clht_alloc, hashtable); */
 
   return 1;
 }

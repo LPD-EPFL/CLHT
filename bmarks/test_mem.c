@@ -58,6 +58,7 @@
 #   include "sspfd.h"
 #endif
 
+#include "ssmem.h"
 #include "clht.h"
 
 #define MEM_SIZE     8
@@ -174,9 +175,9 @@ test(void* thread)
   clht_t* hashtable = td->ht;
 
   ht_gc_thread_init(hashtable, ID);    
-  clht_alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(clht_alloc != NULL);
-  ssmem_alloc_init_fs_size(clht_alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  ssmem_allocator_t* alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc != NULL);
+  ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
     
 #if defined(COMPUTE_LATENCY) && PFD_TYPE == 0
   volatile ticks start_acq, end_acq;
@@ -223,12 +224,12 @@ test(void* thread)
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
-      char* obj = (char*) ssmem_alloc(clht_alloc, MEM_SIZE);
+      char* obj = (char*) ssmem_alloc(alloc, MEM_SIZE);
       *obj = (char) key;
 
       if(!clht_put(hashtable, key, (clht_val_t) obj))
 	{
-	  ssmem_free(clht_alloc, obj);
+	  ssmem_free(alloc, obj);
 	  i--;
 	}
     }
@@ -262,7 +263,7 @@ test(void* thread)
 	{									
 	  if (obj == NULL)
 	    {
-	      obj = (char*) ssmem_alloc(clht_alloc, MEM_SIZE);
+	      obj = (char*) ssmem_alloc(alloc, MEM_SIZE);
 #if RW_SSMEM_MEM == 1
 	      *obj = (char) c;
 #endif
@@ -291,7 +292,7 @@ test(void* thread)
 	    {								
 	      END_TS(2, my_removing_count_succ);				
 	      ADD_DUR(my_removing_succ);					
-	      ssmem_free(clht_alloc, (void*) removed);
+	      ssmem_free(alloc, (void*) removed);
 	      my_removing_count_succ++;					
 	    }								
 	  END_TS_ELSE(5, my_removing_count - my_removing_count_succ,	
