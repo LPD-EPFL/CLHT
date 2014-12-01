@@ -34,11 +34,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include "atomic_ops.h"
-#include "utils.h"
-
-#include "ssmem.h"
-extern __thread ssmem_allocator_t* clht_alloc;
 
 #define true 1
 #define false 0
