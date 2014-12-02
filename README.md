@@ -27,7 +27,7 @@ In concurrent settings, CLHT gives more than 2 Billion-operations/sec with read-
   Tudor David, Rachid Guerraoui, Vasileios Trigonakis (alphabetical order),
   ASPLOS '14
 
-You can also find a detailed description of the algorithms and corectness sketches/proofs in the following technical report: ...
+You can also find a detailed description of the algorithms and correctness sketches/proofs in the following technical report: ...
 
 CLHT-LB (Lock-based version)
 ----------------------------
@@ -39,9 +39,9 @@ If a `put` find the bucket full, then either the bucket is expanded (linked to a
 We have implemented the following variants of CLHT-LB:
   1. `clht_lb_res`: the default version, supports resizing. 
   2. `clht_lb`: as (1), but w/o resizing.
-  3. `clht_lb_res_no_next`: as (1), but the hash table is immediatelly resized when there is no space for a `put`.
+  3. `clht_lb_res_no_next`: as (1), but the hash table is immediately resized when there is no space for a `put`.
   4. `clht_lb_packed`: as (2), but elements are "packed" in the first slots of the bucket. Removals move elements to avoid leaving any empty slots.
-  5. `clht_lb_linked`: as (1), but the buckets are linked to their next backets (b0 to b1, b1 to b2, ...), so that if there is no space in a bucket, the next one is used. If the hash table is too full, it is resized.
+  5. `clht_lb_linked`: as (1), but the buckets are linked to their next buckets (b0 to b1, b1 to b2, ...), so that if there is no space in a bucket, the next one is used. If the hash table is too full, it is resized.
   6. `clht_lb_lock_ins`: as (2), but `remove` operations do not lock. The work using `compare-and-swap` operations.
 
 CLHT-LF (Lock-free version)
@@ -74,7 +74,7 @@ To make a debug build of CLHT, you can do `make target DEBUG=1`.
 Tests
 -----
 
-CLHT comes with various microbenchmarks. `make all` builds a performance benchmark for each variand of CLHT.
+CLHT comes with various microbenchmarks. `make all` builds a performance benchmark for each variant of CLHT.
 You can control which test file to be used in Makefile by changing `MAIN_BMARK` variable.
 You can set it to:
   * `test.c`: for a test w/o memory allocation for the values
@@ -98,7 +98,7 @@ The following functions can be used to create and use a new hash table:
   * `clht_val_t clht_get(clht_hashtable_t* hashtable, clht_addr_t key)`: gets the value for a give key, or return 0
   * `int clht_put(clht_t* hashtable, clht_addr_t key, clht_val_t val)`: inserts a new key/value pair (if the key is not already present)
   * `clht_val_t clht_remove(clht_t* hashtable, clht_addr_t key)`: removes the key from the hash table (if the key is present)
-  * `void clht_print(clht_hashtable_t* hashtable)`: prints the hash talbe
+  * `void clht_print(clht_hashtable_t* hashtable)`: prints the hash talble
   * `const char* clht_type_desc()`: return the type of CLHT. For example, CLHT-LB-RESIZE.
 
 
@@ -111,4 +111,4 @@ Hash-table resizing is implemented in a pessimistic manner, both on CLHT-LB and 
 
 On CLHT-LB resizing is pretty straightforward: lock and then copy each bucket. Concurrent `get` operations can proceed while resizing is ongoing. CLHT-LB supports *helping* (i.e., other threads than the one starting the resizing help with the procedure). Helping is controlled by the `CLHT_HELP_RESIZE` define in the `clht_lf_res.h` file. In our experiments, helping proved beneficial only on huge hash tables. Due to the structure of CLHT-LB, copying data is very fast, as the buckets are an array in memory.
 
-On CLHT-LF resizing is implemented with a global lock. To resize a thread grabs the lock and waits for all threads to indicate that they are "aware" that a resize is in progress. This is currently achieved by local per-thread version numbers (using the current hash table's version). A more elegant solution would be to use ideas similar to read-copy-update (RCU): each thread can hold a local flag to indicate whether it's in the middle of an update operation. Once no thread is in that state, we can ensure that nobody will start a new update (since all threads check the resize lock before proceeding to the main body of `put` and `remove` operations).
+On CLHT-LF resizing is implemented with a global lock. To resize a thread grabs the lock and waits for all threads to indicate that they are "aware" that a resize is in progress. This is done by a thread-local flag that indicates whether there is an ongoing update operation on the current hash table or not.
