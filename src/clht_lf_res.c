@@ -464,13 +464,6 @@ ht_resize_pes(clht_t* h, int is_increase, int by)
       bucket_cpy(bu_cur, ht_new);
     }
 
-#if defined(DEBUG)
-  /* if (clht_size(ht_old) != clht_size(ht_new)) */
-  /*   { */
-  /*     printf("**clht_size(ht_old) = %zu != clht_size(ht_new) = %zu\n", clht_size(ht_old), clht_size(ht_new)); */
-  /*   } */
-#endif
-
   ht_new->table_prev = ht_old;
 
   SWAP_U64((uint64_t*) h, (uint64_t) ht_new);
