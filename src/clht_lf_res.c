@@ -227,8 +227,6 @@ clht_get(clht_hashtable_t* hashtable, clht_addr_t key)
   return clht_bucket_search(bucket, key);
 }
 
-
-
 __thread size_t num_retry_cas1 = 0, num_retry_cas2 = 0, num_retry_cas3 = 0, num_retry_cas4 = 0, num_retry_cas5 = 0;
 
 void
@@ -273,6 +271,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
 	{
 	  bucket->map[empty_index] = MAP_INVLD;
 	}
+      CLHT_NO_UPDATE();
       return false;
     }
 
@@ -317,6 +316,7 @@ clht_put(clht_t* h, clht_addr_t key, clht_val_t val)
       goto retry;
     }
 
+  CLHT_NO_UPDATE();
   return true;
 }
 
@@ -350,6 +350,7 @@ clht_remove(clht_t* h, clht_addr_t key)
 	  clht_snapshot_all_t s1 = snap_set_map(s.snapshot, i, MAP_INVLD);
 	  if (CAS_U64(&bucket->snapshot, s.snapshot, s1) == s.snapshot)
 	    {
+	      CLHT_NO_UPDATE();
 	      return removed;
 	    }
 	  else
@@ -359,7 +360,9 @@ clht_remove(clht_t* h, clht_addr_t key)
 	    }
 	}
     }
-  return 0;
+
+  CLHT_NO_UPDATE();
+  return false;
 }
 
 

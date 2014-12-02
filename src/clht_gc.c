@@ -69,6 +69,18 @@ clht_gc_thread_version(clht_hashtable_t* h)
 }
 
 /* 
+ * set the ht version currently used by the current thread
+ * to maximum to indicate that there is no ongoing update
+ * operation.
+ */
+inline void
+clht_gc_thread_version_max()
+{
+  clht_ts_thread->version = -1;
+}
+
+
+/* 
  * get the GC id of the current thread
  */
 inline int 

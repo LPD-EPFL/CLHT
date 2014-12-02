@@ -162,8 +162,6 @@ typedef struct thread_data
   clht_t* ht;
 } thread_data_t;
 
-uint32_t ntr = 0;
-
 void*
 test(void* thread) 
 {
@@ -235,13 +233,6 @@ test(void* thread)
     }
   MEM_BARRIER;
 
-  /* sort barrier */
-  FAI_U32(&ntr);
-  do
-    {
-      CLHT_GC_HT_VERSION_USED(hashtable->ht);
-    }
-  while (ntr != num_threads);
   barrier_cross(&barrier);
 
   if (!ID)

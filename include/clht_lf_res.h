@@ -67,6 +67,7 @@ extern __thread ssmem_allocator_t* clht_alloc;
 #define CLHT_INC_EMERGENCY          2
 #define CLHT_NO_EMPTY_SLOT_TRIES    16
 #define CLHT_GC_HT_VERSION_USED(ht) clht_gc_thread_version(ht)
+#define CLHT_NO_UPDATE()            clht_gc_thread_version_max();
 #define LOAD_FACTOR                 1
 
 #ifndef ALIGNED
@@ -353,6 +354,7 @@ size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
 void clht_gc_thread_init(clht_t* hashtable, int id);
 inline void clht_gc_thread_version(clht_hashtable_t* h);
+inline void clht_gc_thread_version_max();
 inline int clht_gc_get_id();
 int clht_gc_collect(clht_t* h);
 int clht_gc_collect_all(clht_t* h);
