@@ -69,6 +69,8 @@ You can compile the different variants of CLHT with the corresponding target. Fo
 
 The compilation always produces the `libclht.a`, regardless of the variant that is built.
 
+Various parameters can be set for each variant in the corresponding header file (e.g., `include/clht_lb_res.h` for the `clht_lb_res` version).
+
 To make a debug build of CLHT, you can do `make target DEBUG=1`.
 
 Tests
