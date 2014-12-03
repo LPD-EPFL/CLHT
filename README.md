@@ -25,7 +25,7 @@ In concurrent settings, CLHT gives more than 2 Billion-operations/sec with read-
 * Related Publications: CLHT was developed for:
   Asynchronized Concurrency: The Secret to Scaling Concurrent Search Data Structures,
   Tudor David, Rachid Guerraoui, Vasileios Trigonakis (alphabetical order),
-  ASPLOS '14
+  ASPLOS '15
 
 You can also find a detailed description of the algorithms and correctness sketches/proofs in the following technical report: ...
 
