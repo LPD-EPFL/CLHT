@@ -62,7 +62,7 @@ CLHT requires the ssmem memory allocator (https://github.com/LPD-EPFL/ssmem).
 Clone ssmem, do `make libssmem.a` and then copy `libssmem.a` in `CLHT/external/lib` and `include/smmem.h` in `CLHT/external/include`.
 
 Additionally, the sspfd profiler library is required (https://github.com/trigonak/sspfd).
-Clone ssmem, do `make` and then copy `libsspfd.a` in `CLHT/external/lib` and `include/sspfd.h` in `CLHT/external/include`.
+Clone sspfd, do `make` and then copy `libsspfd.a` in `CLHT/external/lib` and `include/sspfd.h` in `CLHT/external/include`.
 
 You can compile the different variants of CLHT with the corresponding target. For example:
 `make libclht_lb_res.a` will build the `clht_lb_res` version.
