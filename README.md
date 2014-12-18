@@ -27,7 +27,7 @@ In concurrent settings, CLHT gives more than 2 Billion-operations/sec with read-
   Tudor David, Rachid Guerraoui, Vasileios Trigonakis (alphabetical order),
   ASPLOS '15
 
-You can also find a detailed description of the algorithms and correctness sketches/proofs in the following technical report: ...
+You can also find a detailed description of the algorithms and correctness sketches in the following technical report: https://infoscience.epfl.ch/record/203822
 
 CLHT-LB (Lock-based version)
 ----------------------------
