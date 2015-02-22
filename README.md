@@ -111,6 +111,6 @@ Details
 
 Hash-table resizing is implemented in a pessimistic manner, both on CLHT-LB and CLHT-LF. Thus, CLHT-LF resizing is not lock-free.
 
-On CLHT-LB resizing is pretty straightforward: lock and then copy each bucket. Concurrent `get` operations can proceed while resizing is ongoing. CLHT-LB supports *helping* (i.e., other threads than the one starting the resizing help with the procedure). Helping is controlled by the `CLHT_HELP_RESIZE` define in the `clht_lf_res.h` file. In our experiments, helping proved beneficial only on huge hash tables. Due to the structure of CLHT-LB, copying data is very fast, as the buckets are an array in memory.
+On CLHT-LB resizing is pretty straightforward: lock and then copy each bucket. Concurrent `get` operations can proceed while resizing is ongoing. CLHT-LB supports *helping* (i.e., other threads than the one starting the resizing help with the procedure). Helping is controlled by the `CLHT_HELP_RESIZE` define in the `clht_lb_res.h` file. In our experiments, helping proved beneficial only on huge hash tables. Due to the structure of CLHT-LB, copying data is very fast, as the buckets are an array in memory.
 
 On CLHT-LF resizing is implemented with a global lock. To resize a thread grabs the lock and waits for all threads to indicate that they are "aware" that a resize is in progress. This is done by a thread-local flag that indicates whether there is an ongoing update operation on the current hash table or not.
