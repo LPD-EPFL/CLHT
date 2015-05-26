@@ -102,23 +102,29 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) bucket_s
 
 typedef struct ALIGNED(CACHE_LINE_SIZE) clht
 {
-  struct clht_hashtable_s* ht;
-  uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
+  union
+  {
+    struct
+    {
+      struct clht_hashtable_s* ht;
+      uint8_t next_cache_line[CACHE_LINE_SIZE - (sizeof(void*))];
+    };
+    uint8_t padding[2 * CACHE_LINE_SIZE];
+  };
 } clht_t;
 
-typedef struct ALIGNED(64) clht_hashtable_s
+typedef struct ALIGNED(CACHE_LINE_SIZE) clht_hashtable_s
 {
   union
   {
     struct
     {
       size_t num_buckets;
-      ALIGNED(CACHE_LINE_SIZE) bucket_t* table;
+      bucket_t* table;
     };
-    uint8_t padding[CACHE_LINE_SIZE];
+    uint8_t padding[1 * CACHE_LINE_SIZE];
   };
 } clht_hashtable_t;
-
 
 static inline void
 _mm_pause_rep(uint64_t w)
