@@ -215,10 +215,10 @@ clht_gc_free(clht_hashtable_t* hashtable)
 {
   /* the CLHT_LINKED version does not allocate any extra buckets! */
 #if !defined(CLHT_LB_LINKED) && !defined(LOCKFREE_RES)
-  uint32_t num_buckets = hashtable->num_buckets;
+  uint64_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
 
-  uint32_t bin;
+  uint64_t bin;
   for (bin = 0; bin < num_buckets; bin++)
     {
       bucket = hashtable->table + bin;
@@ -264,10 +264,10 @@ clht_gc_release(clht_hashtable_t* hashtable)
 {
   /* the CLHT_LINKED version does not allocate any extra buckets! */
 #if !defined(CLHT_LINKED) && !defined(LOCKFREE_RES)
-  uint32_t num_buckets = hashtable->num_buckets;
+  uint64_t num_buckets = hashtable->num_buckets;
   volatile bucket_t* bucket = NULL;
 
-  uint32_t bin;
+  uint64_t bin;
   for (bin = 0; bin < num_buckets; bin++)
     {
       bucket = hashtable->table + bin;

@@ -106,7 +106,7 @@ clht_bucket_create()
 }
 
 clht_t* 
-clht_create(uint32_t num_buckets)
+clht_create(uint64_t num_buckets)
 {
   clht_t* w = (clht_t*) memalign(CACHE_LINE_SIZE, sizeof(clht_t));
   if (w == NULL)
@@ -126,7 +126,7 @@ clht_create(uint32_t num_buckets)
 }
 
 clht_hashtable_t* 
-clht_hashtable_create(uint32_t num_buckets) 
+clht_hashtable_create(uint64_t num_buckets) 
 {
   clht_hashtable_t* hashtable = NULL;
     
@@ -154,7 +154,7 @@ clht_hashtable_create(uint32_t num_buckets)
 
   memset(hashtable->table, 0, num_buckets * (sizeof(bucket_t)));
     
-  uint32_t i;
+  uint64_t i;
   for(i = 0; i < num_buckets; i++)
     {
       hashtable->table[i].lock = 0;
@@ -172,7 +172,7 @@ clht_hashtable_create(uint32_t num_buckets)
 }
 
 /* Hash a key for a particular hash table. */
-uint32_t
+uint64_t
 clht_hash(clht_hashtable_t* hashtable, clht_addr_t key) 
 {
 	/* uint64_t hashval; */
@@ -407,13 +407,13 @@ clht_destroy( clht_hashtable_t *hashtable)
 
 
 
-uint32_t
+uint64_t
 clht_size(clht_hashtable_t *hashtable)
 {
   bucket_t *bucket = NULL;
   size_t size = 0;
 
-  uint32_t bin;
+  uint64_t bin;
   for (bin = 0; bin < hashtable->num_buckets; bin++)
     {
       bucket = hashtable->table + bin;
@@ -439,13 +439,13 @@ clht_size(clht_hashtable_t *hashtable)
 }
 
 void
-clht_print(clht_hashtable_t *hashtable, uint32_t num_buckets)
+clht_print(clht_hashtable_t *hashtable, uint64_t num_buckets)
 {
   bucket_t *bucket;
 
   printf("Number of buckets: %u\n", num_buckets);
 
-  uint32_t bin;
+  uint64_t bin;
   for (bin = 0; bin < num_buckets; bin++)
     {
       bucket = hashtable->table + bin;

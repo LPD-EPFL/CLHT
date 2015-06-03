@@ -242,7 +242,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) clht_hashtable_s
 inline uint64_t __ac_Jenkins_hash_64(uint64_t key);
 
 /* Hash a key for a particular hashtable. */
-uint32_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );
+uint64_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );
 
 
 static inline int
@@ -341,8 +341,8 @@ _mm_pause_rep(uint64_t w)
 /* ******************************************************************************** */
 
 /* Create a new hashtable. */
-clht_hashtable_t* clht_hashtable_create(uint32_t num_buckets);
-clht_t* clht_create(uint32_t num_buckets);
+clht_hashtable_t* clht_hashtable_create(uint64_t num_buckets);
+clht_t* clht_create(uint64_t num_buckets);
 
 /* Insert a key-value pair into a hashtable. */
 int clht_put(clht_t* hashtable, clht_addr_t key, clht_val_t val);

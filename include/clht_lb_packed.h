@@ -177,11 +177,11 @@ _mm_pause_rep(uint64_t w)
   *lock = 0;	  
 
 /* Create a new hashtable. */
-clht_hashtable_t* clht_hashtable_create(uint32_t num_buckets );
-clht_t* clht_create(uint32_t num_buckets);
+clht_hashtable_t* clht_hashtable_create(uint64_t num_buckets );
+clht_t* clht_create(uint64_t num_buckets);
 
 /* Hash a key for a particular hashtable. */
-uint32_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );
+uint64_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );
 
 /* Insert a key-value pair into a hashtable. */
 int clht_put(clht_t* h, clht_addr_t key, clht_val_t val);
@@ -195,9 +195,9 @@ clht_val_t clht_remove(clht_t* hashtable, clht_addr_t key);
 /* Dealloc the hashtable */
 void clht_destroy(clht_hashtable_t* hashtable);
 
-uint32_t clht_size(clht_hashtable_t* hashtable);
+uint64_t clht_size(clht_hashtable_t* hashtable);
 
-void clht_print(clht_hashtable_t* hashtable, uint32_t num_buckets);
+void clht_print(clht_hashtable_t* hashtable, uint64_t num_buckets);
 
 bucket_t* clht_bucket_create();
 
