@@ -69,20 +69,20 @@
 
 
 clht_hashtable_t** hashtable;
-int num_buckets = 256;
+int init_seq = 0;
+size_t num_buckets = 256;
 size_t num_threads = 1;
-int num_elements = 2048;
+size_t num_elements = 2048;
 int duration = 1000;
 double filling_rate = 0.5;
 double update_rate = 0.1;
 double put_rate = 0.1;
 double get_rate = 0.9;
 int print_vals_num = 0;
-size_t  pf_vals_num = 8191;
+size_t pf_vals_num = 8191;
 
-int seed = 0;
 __thread unsigned long * seeds;
-uint32_t rand_max;
+size_t rand_max;
 #define rand_min 1
 
 static volatile int stop;
@@ -167,7 +167,7 @@ barrier_t barrier, barrier_global;
 
 typedef struct thread_data
 {
-  uint8_t id;
+  uint32_t id;
   clht_t* ht;
 } thread_data_t;
 
@@ -175,7 +175,7 @@ void*
 test(void* thread) 
 {
   thread_data_t* td = (thread_data_t*) thread;
-  uint8_t ID = td->id;
+  uint32_t ID = td->id;
   phys_id = the_cores[ID];
   set_cpu(phys_id);
 
@@ -214,28 +214,54 @@ test(void* thread)
     
   barrier_cross(&barrier);
 
-  seeds = seed_rand();
-    
   uint64_t key;
-  int c = 0;
-  uint32_t scale_rem = (uint32_t) (update_rate * UINT_MAX);
-  uint32_t scale_put = (uint32_t) (put_rate * UINT_MAX);
+  uint64_t scale_rem = (uint64_t) (update_rate * ((uint64_t) -1));
+  uint64_t scale_put = (uint64_t) (put_rate * ((uint64_t) -1));
     
-  int i;
-  uint32_t num_elems_thread = (uint32_t) (num_elements * filling_rate / num_threads);
-  int32_t missing = (uint32_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
-  if (ID < missing)
+
+  size_t i;
+  if (init_seq)
     {
-      num_elems_thread++;
-    }
-    
-  for(i = 0; i < num_elems_thread; i++) 
-    {
-      key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
-      
-      if(!clht_put(hashtable, key, key*key))
+      size_t num_elements_init = num_elements * filling_rate;
+      if (ID == 0)
 	{
-	  i--;
+	  printf("** will initialize sequentially, keys 1 .. %zu\n", num_elements_init);
+	  size_t progress_step = (num_elements_init / 10) - 1;
+	  size_t progress = progress_step;
+	  size_t progress_100 = 10;
+	  printf("Progress: 0%%  "); fflush(stdout);
+	  for(i = 0; i < num_elements_init; i++) 
+	    {
+	      if (unlikely(i == progress))
+		{
+		  progress += progress_step;
+		  printf("%zu%%  ", progress_100); fflush(stdout);
+		  progress_100 += 10;
+		}
+	      key = rand_max - i - 1;
+	      clht_put(hashtable, key, (clht_val_t) key);
+	    }
+
+	  printf("\n");
+	}
+    }
+  else
+    {
+      uint64_t num_elems_thread = (uint64_t) (num_elements * filling_rate / num_threads);
+      int64_t missing = (uint64_t) (num_elements * filling_rate) - (num_elems_thread * num_threads);
+      if (ID < missing)
+	{
+	  num_elems_thread++;
+	}
+    
+      for(i = 0; i < num_elems_thread; i++) 
+	{
+	  key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
+
+	  if(!clht_put(hashtable, key, (clht_val_t) key))
+	    {
+	      i--;
+	    }
 	}
     }
   MEM_BARRIER;
@@ -245,7 +271,7 @@ test(void* thread)
 #if defined(DEBUG)
   if (!ID)
     {
-      printf("size of ht is: %zu\n", clht_size(hashtable->ht));
+      printf("#BEFORE size: %zu\n", clht_size(hashtable->ht));
       /* clht_print(hashtable, num_buckets); */
     }
 #else
@@ -258,6 +284,8 @@ test(void* thread)
     }  
 #endif
 
+  char* obj = NULL;
+  
   barrier_cross(&barrier_global);
 
   while (stop == 0) 
@@ -380,6 +408,7 @@ main(int argc, char **argv)
     {"help",                      no_argument,       NULL, 'h'},
     {"duration",                  required_argument, NULL, 'd'},
     {"initial-size",              required_argument, NULL, 'i'},
+    {"init-seq",                  required_argument, NULL, 's'},
     {"num-threads",               required_argument, NULL, 'n'},
     {"range",                     required_argument, NULL, 'r'},
     {"update-rate",               required_argument, NULL, 'u'},
@@ -389,14 +418,15 @@ main(int argc, char **argv)
     {NULL, 0, NULL, 0}
   };
 
-  size_t initial = 1024, range = 2048, update = 20, load_factor = 1, num_buckets_param = 0, put = 10;
+  size_t initial = 1024, range = 2048, update = 20, num_buckets_param = 0, put = 10;
+  double load_factor = LOAD_FACTOR;
   int put_explicit = 0;
 
   int i, c;
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:su:m:a:l:p:b:v:f:", long_options, &i);
 		
       if(c == -1)
 	break;
@@ -410,11 +440,10 @@ main(int argc, char **argv)
 	  /* Flag is automatically set */
 	  break;
 	case 'h':
-	  printf("intset -- STM stress test "
-		 "(linked list)\n"
+	  printf("CLHT test "
 		 "\n"
 		 "Usage:\n"
-		 "  intset [options...]\n"
+		 "  executable [options...]\n"
 		 "\n"
 		 "Options:\n"
 		 "  -h, --help\n"
@@ -423,6 +452,8 @@ main(int argc, char **argv)
 		 "        Test duration in milliseconds\n"
 		 "  -i, --initial-size <int>\n"
 		 "        Number of elements to insert before test\n"
+		 "  -s, --init-seq\n"
+		 "        Initialize the hash table sequentially, with keys from 1 .. initial\n"
 		 "  -n, --num-threads <int>\n"
 		 "        Number of threads\n"
 		 "  -r, --range <int>\n"
@@ -431,6 +462,8 @@ main(int argc, char **argv)
 		 "        Percentage of update transactions\n"
 		 "  -p, --put-rate <int>\n"
 		 "        Percentage of put update transactions (should be less than percentage of updates)\n"
+		 "  -l, --load-factor <int>\n"
+		 "        Number of elements per bucket (initially)\n"
 		 "  -b, --num-buckets <int>\n"
 		 "        Number of initial buckets (stronger than -l)\n"
 		 "  -v, --print-vals <int>\n"
@@ -443,7 +476,10 @@ main(int argc, char **argv)
 	  duration = atoi(optarg);
 	  break;
 	case 'i':
-	  initial = atoi(optarg);
+	  initial = atol(optarg);
+	  break;
+	case 's':
+	  init_seq = 1;
 	  break;
 	case 'n':
 	  num_threads = atoi(optarg);
@@ -459,7 +495,7 @@ main(int argc, char **argv)
 	  put = atoi(optarg);
 	  break;
 	case 'l':
-	  load_factor = atoi(optarg);
+	  load_factor = atof(optarg);
 	  break;
 	case 'b':
 	  num_buckets_param = atoi(optarg);
@@ -513,11 +549,12 @@ main(int argc, char **argv)
   if (!is_power_of_two(num_buckets))
     {
       size_t num_buckets_pow2 = pow2roundup(num_buckets);
-      printf("** rounding up num_buckets (to make it power of 2): old: %d / new: %zu\n", num_buckets, num_buckets_pow2);
+      printf("** rounding up num_buckets (to make it power of 2): old: %zu / new: %zu\n", num_buckets, num_buckets_pow2);
       num_buckets = num_buckets_pow2;
     }
 
   printf("## Initial: %zu / Range: %zu\n", initial, range);
+  printf("## Num buckets: %zu \n", num_buckets);
 
   double kb = ((num_buckets + (initial / ENTRIES_PER_BUCKET)) * sizeof(bucket_t)) / 1024.0;
   double mb = kb / 1024.0;
