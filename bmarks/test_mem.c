@@ -230,7 +230,7 @@ test(void* thread)
 		  printf("%zu%%  ", progress_100); fflush(stdout);
 		  progress_100 += 10;
 		}
-	      key = rand_max + i + 1;
+	      key = i + 1;
 	      char* obj = (char*) ssmem_alloc(alloc, MEM_SIZE);
 	      *obj = (char) key;
 	      assert(obj != NULL);
