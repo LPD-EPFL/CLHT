@@ -395,7 +395,7 @@ extern "C" {
 
   /// Round up to next higher power of 2 (return x if it's already a power
   /// of 2) for 32-bit numbers
-  static inline uint32_t pow2roundup (uint32_t x){
+  static inline uint64_t pow2roundup (uint64_t x){
     if (x==0) return 1;
     --x;
     x |= x >> 1;
@@ -403,6 +403,7 @@ extern "C" {
     x |= x >> 4;
     x |= x >> 8;
     x |= x >> 16;
+    x |= x >> 32;
     return x+1;
   }
 #define my_random xorshf96
@@ -434,9 +435,9 @@ extern "C" {
   static inline unsigned long* seed_rand() {
     unsigned long* seeds;
     seeds = (unsigned long*) memalign(64, 64);
-    seeds[0] = getticks() % 123456789;
-    seeds[1] = getticks() % 362436069;
-    seeds[2] = getticks() % 521288629;
+    seeds[0] = getticks() % 0x992123E456789LL;
+    seeds[1] = getticks() % 0x22136D2436069LL;
+    seeds[2] = getticks() % 0x2119F521288629LL;
     return seeds;
   }
 
