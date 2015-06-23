@@ -208,8 +208,15 @@ test(void* thread)
 
   uint64_t key;
   uint64_t scale_rem = (uint64_t) (update_rate * ((uint64_t) -1));
+  if (update_rate == 1)
+    {
+      scale_rem = (uint64_t) - 1;
+    }
   uint64_t scale_put = (uint64_t) (put_rate * ((uint64_t) -1));
-    
+  if (put_rate == 1)
+    {
+      scale_put = (uint64_t) - 1;
+    }
 
   size_t i;
   if (init_seq)
@@ -731,6 +738,8 @@ main(int argc, char **argv)
   kb = hashtable->ht->num_buckets * sizeof(bucket_t) / 1024.0;
   mb = kb / 1024.0;
   printf("Sizeof   final: %10.2f KB = %10.2f MB\n", kb, mb);
+
+  //  ht_status(hashtable, 0, 0, 1);			
   clht_gc_destroy(hashtable);
 
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
