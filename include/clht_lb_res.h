@@ -226,7 +226,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) ht_ts
 } ht_ts_t;
 
 
-inline uint64_t __ac_Jenkins_hash_64(uint64_t key);
+extern uint64_t __ac_Jenkins_hash_64(uint64_t key);
 
 /* Hash a key for a particular hashtable. */
 uint64_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key );

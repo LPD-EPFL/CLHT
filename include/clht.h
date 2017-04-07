@@ -364,6 +364,7 @@ const char* clht_type_desc();
 
 /* internal */
 extern void clht_gc_thread_version(clht_hashtable_t* h);
+extern void clht_gc_thread_version_max();
 extern int clht_gc_get_id();
 
 
