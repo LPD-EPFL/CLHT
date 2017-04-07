@@ -99,7 +99,12 @@
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
-inline int is_power_of_two(unsigned int x);
+static inline int
+is_power_of_two (unsigned int x) 
+{
+  return ((x != 0) && !(x & (x - 1)));
+}
+
 
 typedef uintptr_t clht_addr_t;
 typedef volatile uintptr_t clht_val_t;
@@ -228,7 +233,7 @@ typedef struct ALIGNED(CACHE_LINE_SIZE) clht_hashtable_s
   };
 } clht_hashtable_t;
 
-inline uint64_t __ac_Jenkins_hash_64(uint64_t key);
+extern uint64_t __ac_Jenkins_hash_64(uint64_t key);
 
 /* Hash a key for a particular hashtable. */
 uint64_t clht_hash(clht_hashtable_t* hashtable, clht_addr_t key);
@@ -358,8 +363,10 @@ const char* clht_type_desc();
 
 
 /* internal */
-inline void clht_gc_thread_version(clht_hashtable_t* h);
-inline int clht_gc_get_id();
+extern void clht_gc_thread_version(clht_hashtable_t* h);
+extern int clht_gc_get_id();
+
+
 
 #endif /* _CLHT_H_ */
 

@@ -139,7 +139,7 @@ extern __thread ssmem_allocator_t* clht_alloc;
 #endif
 
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
-inline int is_power_of_two(unsigned int x);
+extern int is_power_of_two(unsigned int x);
 
 typedef uintptr_t clht_addr_t;
 typedef volatile uintptr_t clht_val_t;
@@ -416,8 +416,8 @@ size_t clht_size_mem(clht_hashtable_t* hashtable);
 size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
 void clht_gc_thread_init(clht_t* hashtable, int id);
-inline void clht_gc_thread_version(clht_hashtable_t* h);
-inline int clht_gc_get_id();
+extern  void clht_gc_thread_version(clht_hashtable_t* h);
+extern int clht_gc_get_id();
 int clht_gc_collect(clht_t* h);
 int clht_gc_release(clht_hashtable_t* h);
 int clht_gc_collect_all(clht_t* h);
