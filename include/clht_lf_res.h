@@ -353,9 +353,9 @@ size_t clht_size_mem(clht_hashtable_t* hashtable);
 size_t clht_size_mem_garbage(clht_hashtable_t* hashtable);
 
 void clht_gc_thread_init(clht_t* hashtable, int id);
-inline void clht_gc_thread_version(clht_hashtable_t* h);
-inline void clht_gc_thread_version_max();
-inline int clht_gc_get_id();
+extern void clht_gc_thread_version(clht_hashtable_t* h);
+extern void clht_gc_thread_version_max();
+extern int clht_gc_get_id();
 int clht_gc_collect(clht_t* h);
 int clht_gc_collect_all(clht_t* h);
 int clht_gc_free(clht_hashtable_t* hashtable);

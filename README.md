@@ -58,6 +58,8 @@ We have implemented the following variants of CLHT-LF:
 Compilation
 -----------
 
+You can install the dependencies of CLHT with `make dependencies`.
+
 CLHT requires the ssmem memory allocator (https://github.com/LPD-EPFL/ssmem).
 Clone ssmem, do `make libssmem.a` and then copy `libssmem.a` in `CLHT/external/lib` and `include/smmem.h` in `CLHT/external/include`.
 

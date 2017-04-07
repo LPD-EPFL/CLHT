@@ -170,6 +170,9 @@ REST = 	math_cache_lb math_cache_lf \
 
 default: normal
 
+dependencies:
+	./scripts/make_dependencies.sh
+
 rest: $(REST)
 
 all: $(ALL)
