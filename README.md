@@ -21,7 +21,7 @@ In concurrent settings, CLHT gives more than 2 Billion-operations/sec with read-
 
 
 * Website             : http://lpd.epfl.ch/site/ascylib
-* Author              : Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
+* Author              : Vasileios Trigonakis <github@trigonakis.com>
 * Related Publications: CLHT was developed for:
   *Asynchronized Concurrency: The Secret to Scaling Concurrent Search Data Structures*,
   Tudor David, Rachid Guerraoui, Vasileios Trigonakis (alphabetical order),
