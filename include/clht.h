@@ -334,6 +334,11 @@ _mm_pause_rep(uint64_t w)
 /* inteface */
 /* ******************************************************************************** */
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /* Create a new hashtable. */
 clht_t* clht_create(uint64_t num_buckets);
 /* initializes the necessary per-thread structures for the hash table */
@@ -360,7 +365,9 @@ void clht_print(clht_hashtable_t* hashtable);
  For example, CLHT-LB-RESIZE */
 const char* clht_type_desc();
 
-
+#ifdef __cplusplus
+}
+#endif
 
 /* internal */
 extern void clht_gc_thread_version(clht_hashtable_t* h);
